@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
 
+/**
+ * L'application lit ses données de démonstration dans le navigateur (localStorage) :
+ * le rendu métier est effectué côté client. Les Cache Components et le préchargement
+ * partiel n'apportent rien dans ce mode et sont donc désactivés.
+ */
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  cacheComponents: false,
   turbopack: {
     rules: {
       "*.css": {
