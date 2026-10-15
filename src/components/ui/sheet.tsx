@@ -11,7 +11,14 @@ export function SheetContent({ className, children, title, side = "left", ...pro
   return (
     <D.Portal>
       <D.Overlay className="fixed inset-0 z-50 bg-black/60 animate-fade-in" />
-      <D.Content className={cn("fixed inset-y-0 z-50 flex w-[85vw] max-w-sm flex-col border-border bg-bg-elevated shadow-2xl animate-fade-in focus:outline-none", side === "left" ? "left-0 border-r" : "right-0 border-l", className)} {...props}>
+      <D.Content
+        className={cn(
+          "fixed inset-y-0 z-50 flex w-[85vw] max-w-sm flex-col border-border bg-bg-elevated shadow-2xl animate-fade-in focus:outline-none",
+          side === "left" ? "left-0 border-r" : "right-0 border-l",
+          className,
+        )}
+        {...props}
+      >
         <D.Title className="sr-only">{title}</D.Title>
         <D.Description className="sr-only">{title}</D.Description>
         <D.Close className="absolute right-3 top-3 rounded-md p-1 text-muted hover:bg-interactive hover:text-fg" aria-label="Fermer">

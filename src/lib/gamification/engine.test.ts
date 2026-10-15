@@ -11,7 +11,21 @@ function ok<R>(res: ReturnType<typeof execute<unknown, R>>): Extract<typeof res,
   return res;
 }
 
-const taskInput = (title: string, complexity: Task["complexity"] = "standard") => ({ title, description: "", assigneeId: null, priority: "normal" as const, status: "todo" as const, complexity, dueDate: "2026-10-20", estimateHours: 2, projectId: null, clientId: null, goalId: null, dependsOn: [], recurrence: "none" as const });
+const taskInput = (title: string, complexity: Task["complexity"] = "standard") => ({
+  title,
+  description: "",
+  assigneeId: null,
+  priority: "normal" as const,
+  status: "todo" as const,
+  complexity,
+  dueDate: "2026-10-20",
+  estimateHours: 2,
+  projectId: null,
+  clientId: null,
+  goalId: null,
+  dependsOn: [],
+  recurrence: "none" as const,
+});
 
 function withClient(): AppData {
   const d = emptyData();
@@ -80,7 +94,27 @@ describe("attribution d'XP", () => {
 
   it("une opportunité gagnée, perdue puis regagnée n'est récompensée qu'une fois", () => {
     let d = withClient();
-    const o = ok(execute(d, C.createOpportunity, { name: "Deal", clientId: "cli_1", leadId: null, contactId: null, amount: 1_000_000, probability: 50, stage: "proposal", expectedCloseDate: "2026-11-01", source: "", ownerId: null, nextAction: "", notes: "" }, ctx()));
+    const o = ok(
+      execute(
+        d,
+        C.createOpportunity,
+        {
+          name: "Deal",
+          clientId: "cli_1",
+          leadId: null,
+          contactId: null,
+          amount: 1_000_000,
+          probability: 50,
+          stage: "proposal",
+          expectedCloseDate: "2026-11-01",
+          source: "",
+          ownerId: null,
+          nextAction: "",
+          notes: "",
+        },
+        ctx(),
+      ),
+    );
     d = o.data;
     const won = ok(execute(d, C.moveOpportunity, { id: o.result.id, stage: "won" }, ctx()));
     expect(won.awarded.some((x) => x.idempotencyKey === `opportunity:${o.result.id}`)).toBe(true);
@@ -136,7 +170,28 @@ describe("niveaux, succès, missions, objectifs", () => {
 
   it("récompense un objectif à 50 % puis à 100 %, sans doublon", () => {
     let d = emptyData();
-    const g = ok(execute(d, C.createGoal, { title: "Satisfaction", description: "", type: "customer", periodLabel: "T4", periodStart: "2026-10-01", periodEnd: "2026-12-31", ownerId: null, metric: "manual", startValue: 0, targetValue: 10, manualValue: 0, unit: "pts", keyResults: [] }, ctx()));
+    const g = ok(
+      execute(
+        d,
+        C.createGoal,
+        {
+          title: "Satisfaction",
+          description: "",
+          type: "customer",
+          periodLabel: "T4",
+          periodStart: "2026-10-01",
+          periodEnd: "2026-12-31",
+          ownerId: null,
+          metric: "manual",
+          startValue: 0,
+          targetValue: 10,
+          manualValue: 0,
+          unit: "pts",
+          keyResults: [],
+        },
+        ctx(),
+      ),
+    );
     d = g.data;
     const half = ok(execute(d, C.setGoalProgress, { id: g.result.id, manualValue: 6 }, ctx()));
     expect(half.awarded.map((x) => x.idempotencyKey)).toContain(`goal:${g.result.id}:50`);

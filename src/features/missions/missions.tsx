@@ -95,8 +95,20 @@ export function MissionsPage() {
           <FilterBar
             onReset={f.reset}
             filters={[
-              { id: "category", label: "Catégorie", value: f.values.category, onChange: f.set("category"), options: (Object.keys(MISSION_CATEGORY_LABELS) as MissionCategory[]).map((k) => ({ value: k, label: MISSION_CATEGORY_LABELS[k] })) },
-              { id: "type", label: "Type", value: f.values.type, onChange: f.set("type"), options: (Object.keys(MISSION_TYPE_LABELS) as MissionType[]).map((k) => ({ value: k, label: MISSION_TYPE_LABELS[k] })) },
+              {
+                id: "category",
+                label: "Catégorie",
+                value: f.values.category,
+                onChange: f.set("category"),
+                options: (Object.keys(MISSION_CATEGORY_LABELS) as MissionCategory[]).map((k) => ({ value: k, label: MISSION_CATEGORY_LABELS[k] })),
+              },
+              {
+                id: "type",
+                label: "Type",
+                value: f.values.type,
+                onChange: f.set("type"),
+                options: (Object.keys(MISSION_TYPE_LABELS) as MissionType[]).map((k) => ({ value: k, label: MISSION_TYPE_LABELS[k] })),
+              },
             ]}
           />
         </div>
@@ -134,7 +146,14 @@ export function MissionsPage() {
           <EmptyState title="Aucune mission pour ces critères" />
         )}
       </section>
-      <FormDialog open={!!history} onOpenChange={(o) => !o && setHistory(null)} title={history?.title ?? ""} description={history ? `${MISSION_TYPE_LABELS[history.type]} · ${MISSION_CATEGORY_LABELS[history.category]} · ${MISSION_STATUS[missionStatus(history, today)].label} · +${history.xpReward} XP` : undefined}>
+      <FormDialog
+        open={!!history}
+        onOpenChange={(o) => !o && setHistory(null)}
+        title={history?.title ?? ""}
+        description={
+          history ? `${MISSION_TYPE_LABELS[history.type]} · ${MISSION_CATEGORY_LABELS[history.category]} · ${MISSION_STATUS[missionStatus(history, today)].label} · +${history.xpReward} XP` : undefined
+        }
+      >
         {history ? (
           <div className="space-y-4 text-sm">
             <p className="text-muted">{history.description}</p>
@@ -142,7 +161,9 @@ export function MissionsPage() {
               <span className="text-muted">Condition de réussite : </span>
               {CONDITION_LABELS[history.condition.kind]}
             </p>
-            <p className="text-xs text-subtle">Origine : {history.source === "auto" ? `règle automatique (clé ${history.autoKey})` : history.source === "custom" ? "mission personnalisée" : "jeu de démonstration"}</p>
+            <p className="text-xs text-subtle">
+              Origine : {history.source === "auto" ? `règle automatique (clé ${history.autoKey})` : history.source === "custom" ? "mission personnalisée" : "jeu de démonstration"}
+            </p>
             <ol className="space-y-1.5 border-l border-border pl-4">
               {history.history.map((h, i) => (
                 <li key={i} className="text-xs">

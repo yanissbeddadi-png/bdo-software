@@ -16,7 +16,15 @@ export function DropdownMenuContent({ className, sideOffset = 6, align = "end", 
 }
 
 export function DropdownMenuItem({ className, ...props }: React.ComponentProps<typeof DM.Item>) {
-  return <DM.Item className={cn("flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-2 text-sm text-fg outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-interactive [&_svg]:size-4 [&_svg]:text-muted", className)} {...props} />;
+  return (
+    <DM.Item
+      className={cn(
+        "flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-2 text-sm text-fg outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-interactive [&_svg]:size-4 [&_svg]:text-muted",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof DM.Label>) {

@@ -85,11 +85,19 @@ export const setQuoteStatus: Command<{ id: string; status: QuoteStatus }, Quote>
     next = {
       ...next,
       opportunities: next.opportunities.map((o) =>
-        o.id === quote.opportunityId && o.stage !== "won" && o.stage !== "lost" ? { ...o, stage: "won" as const, probability: 100, closedAt: ctx.now, lastInteractionAt: ctx.now, updatedAt: ctx.now } : o,
+        o.id === quote.opportunityId && o.stage !== "won" && o.stage !== "lost"
+          ? { ...o, stage: "won" as const, probability: 100, closedAt: ctx.now, lastInteractionAt: ctx.now, updatedAt: ctx.now }
+          : o,
       ),
     };
   }
-  next = activity(next, ctx, "quote_status", `Devis ${quote.number} : ${status === "sent" ? "envoyé" : status === "accepted" ? "accepté" : status === "refused" ? "refusé" : status === "expired" ? "expiré" : "repassé en brouillon"}`, { type: "quote", id });
+  next = activity(
+    next,
+    ctx,
+    "quote_status",
+    `Devis ${quote.number} : ${status === "sent" ? "envoyé" : status === "accepted" ? "accepté" : status === "refused" ? "refusé" : status === "expired" ? "expiré" : "repassé en brouillon"}`,
+    { type: "quote", id },
+  );
   return { data: next, result: quote, message: "Statut du devis mis à jour." };
 };
 
@@ -147,7 +155,17 @@ export const createInvoice: Command<InvoiceInput, Invoice> = (data, input, ctx) 
     sequences = { ...sequences, invoice: n.seq };
     number = n.number;
   }
-  const invoice: Invoice = { id: newId("inv"), number, ...rest, baseStatus: issue ? "issued" : "draft", quoteId: null, subscriptionId: null, cancelledAt: null, createdAt: ctx.now, updatedAt: ctx.now };
+  const invoice: Invoice = {
+    id: newId("inv"),
+    number,
+    ...rest,
+    baseStatus: issue ? "issued" : "draft",
+    quoteId: null,
+    subscriptionId: null,
+    cancelledAt: null,
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  };
   let next = { ...data, invoices: [...data.invoices, invoice], sequences };
   next = activity(next, ctx, issue ? "invoice_issued" : "invoice_created", issue ? `Facture ${number} émise` : "Facture brouillon créée", { type: "invoice", id: invoice.id });
   next = audit(next, ctx, issue ? "invoice.issue" : "invoice.create", { type: "invoice", id: invoice.id }, number);
@@ -243,7 +261,11 @@ export const recordPayment: Command<PaymentInput, Payment> = (data, input, ctx) 
   const invoice = findOrThrow(data.invoices, v.invoiceId, "Facture");
   if (v.date > ctx.today) throw new DomainError("La date de paiement ne peut pas être dans le futur.", { date: "Date future" });
   if (v.date < invoice.issueDate) throw new DomainError("Le paiement ne peut pas précéder l'émission de la facture.", { date: "Date invalide" });
-  const check = validatePayment(invoice, data.payments.filter((p) => p.invoiceId === invoice.id), v.amount);
+  const check = validatePayment(
+    invoice,
+    data.payments.filter((p) => p.invoiceId === invoice.id),
+    v.amount,
+  );
   if (!check.ok) throw new DomainError(check.reason, { amount: check.reason });
   const payment: Payment = { id: newId("pay"), ...v, createdAt: ctx.now };
   let next = { ...data, payments: [...data.payments, payment] };
@@ -321,7 +343,11 @@ export const updateSubscription: Command<{ id: string; values: SubscriptionInput
   const current = findOrThrow(data.subscriptions, id, "Abonnement");
   if (v.status === "cancelled" && !v.endDate) throw new DomainError("Indiquez la date de fin pour résilier le contrat.", { endDate: "Obligatoire" });
   const sub: Subscription = { ...current, ...v, updatedAt: ctx.now };
-  return { data: audit({ ...data, subscriptions: replace(data.subscriptions, sub) }, ctx, "subscription.update", { type: "subscription", id }, v.status), result: sub, message: "Abonnement mis à jour." };
+  return {
+    data: audit({ ...data, subscriptions: replace(data.subscriptions, sub) }, ctx, "subscription.update", { type: "subscription", id }, v.status),
+    result: sub,
+    message: "Abonnement mis à jour.",
+  };
 };
 
 /** Facture une échéance d'abonnement. Idempotent : une échéance déjà facturée ne peut pas l'être deux fois. */
@@ -332,9 +358,31 @@ export const invoiceSubscriptionPeriod: Command<{ id: string; billingDate: strin
   if (!billingDates(sub, billingDate, billingDate).length) throw new DomainError("Date d'échéance invalide pour ce contrat.");
   if (data.invoices.some((i) => i.subscriptionId === id && i.issueDate === billingDate && i.baseStatus !== "cancelled")) throw new DomainError("Cette échéance a déjà été facturée.");
   const product = sub.productId ? data.products.find((p) => p.id === sub.productId) : undefined;
-  const item: LineItem = { id: newId("li"), productId: sub.productId, description: `${sub.offer} — échéance du ${billingDate.split("-").reverse().join("/")}`, quantity: 1, unitPrice: sub.amount, vatRate: product?.vatRate ?? data.settings.company.defaultVatRate };
+  const item: LineItem = {
+    id: newId("li"),
+    productId: sub.productId,
+    description: `${sub.offer} — échéance du ${billingDate.split("-").reverse().join("/")}`,
+    quantity: 1,
+    unitPrice: sub.amount,
+    vatRate: product?.vatRate ?? data.settings.company.defaultVatRate,
+  };
   const { seq, number } = issueNumber(data, billingDate);
-  const invoice: Invoice = { id: newId("inv"), number, clientId: sub.clientId, issueDate: billingDate, dueDate: addDays(billingDate, 30), items: [item], baseStatus: "issued", projectId: null, quoteId: null, subscriptionId: id, notes: "", cancelledAt: null, createdAt: ctx.now, updatedAt: ctx.now };
+  const invoice: Invoice = {
+    id: newId("inv"),
+    number,
+    clientId: sub.clientId,
+    issueDate: billingDate,
+    dueDate: addDays(billingDate, 30),
+    items: [item],
+    baseStatus: "issued",
+    projectId: null,
+    quoteId: null,
+    subscriptionId: id,
+    notes: "",
+    cancelledAt: null,
+    createdAt: ctx.now,
+    updatedAt: ctx.now,
+  };
   let next = { ...data, invoices: [...data.invoices, invoice], sequences: { ...data.sequences, invoice: seq } };
   next = activity(next, ctx, "invoice_issued", `Facture ${number} émise (abonnement ${sub.offer})`, { type: "invoice", id: invoice.id });
   return { data: next, result: invoice, message: `Facture ${number} émise.` };

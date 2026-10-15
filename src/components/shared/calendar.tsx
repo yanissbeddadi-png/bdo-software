@@ -69,7 +69,14 @@ export function MonthCalendar({ events, today, legend }: { events: CalendarEvent
             const inMonth = d.slice(0, 7) === month.slice(0, 7);
             return (
               <div key={d} className={cn("min-h-28 border-b border-r border-border/60 p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-bg-elevated/50")}>
-                <p className={cn("mb-1 text-[11px] tabular", d === today ? "inline-grid size-5 place-items-center rounded-full bg-accent font-semibold text-bg" : inMonth ? "text-muted" : "text-subtle/60")}>{Number(d.slice(8))}</p>
+                <p
+                  className={cn(
+                    "mb-1 text-[11px] tabular",
+                    d === today ? "inline-grid size-5 place-items-center rounded-full bg-accent font-semibold text-bg" : inMonth ? "text-muted" : "text-subtle/60",
+                  )}
+                >
+                  {Number(d.slice(8))}
+                </p>
                 <ul className="space-y-1">
                   {list.slice(0, 4).map((e) => {
                     const cls = cn("block truncate rounded border-l-2 px-1.5 py-0.5 text-[11px] text-fg", TONES[e.tone ?? "accent"]);

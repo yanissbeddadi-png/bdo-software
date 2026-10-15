@@ -206,7 +206,11 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     sector,
     status,
     city,
-    website: `https://www.${name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "")}.example`,
+    website: `https://www.${name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]/g, "")}.example`,
     satisfaction,
     notes: "",
     documents: [],
@@ -253,7 +257,12 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
       updatedAt: created,
     });
   };
-  const domainOf = (name: string) => name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const domainOf = (name: string) =>
+    name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]/g, "");
   const contactSeed: [string, string, string, string][] = [
     ["cli_novaretail", "Sophie", "Garnier", "Directrice e-commerce"],
     ["cli_novaretail", "Julien", "Roche", "DSI"],
@@ -283,7 +292,19 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   }
 
   /* ---------- Prospects ---------- */
-  const lead = (id: string, company: string, contactName: string, sector: string, source: string, priority: Lead["priority"], status: Lead["status"], created: ISODate, nextAction: string, nextActionDate: ISODate | null, convertedClientId: string | null = null): Lead => ({
+  const lead = (
+    id: string,
+    company: string,
+    contactName: string,
+    sector: string,
+    source: string,
+    priority: Lead["priority"],
+    status: Lead["status"],
+    created: ISODate,
+    nextAction: string,
+    nextActionDate: ISODate | null,
+    convertedClientId: string | null = null,
+  ): Lead => ({
     id,
     company,
     contactName,
@@ -319,7 +340,23 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   contact(null, "lead_helios", "Margaux", "Riviere", "Responsable innovation", "heliosenergie", false, ts(M(-1, 12)));
 
   /* ---------- Opportunités ---------- */
-  const opp = (id: string, name: string, clientId: string | null, leadId: string | null, amount: number, stage: Opportunity["stage"], probability: number, created: ISODate, expected: ISODate, source: string, ownerId: string, lastInteraction: ISODate, nextAction: string, closed: ISODate | null = null, lostReason = ""): Opportunity => ({
+  const opp = (
+    id: string,
+    name: string,
+    clientId: string | null,
+    leadId: string | null,
+    amount: number,
+    stage: Opportunity["stage"],
+    probability: number,
+    created: ISODate,
+    expected: ISODate,
+    source: string,
+    ownerId: string,
+    lastInteraction: ISODate,
+    nextAction: string,
+    closed: ISODate | null = null,
+    lostReason = "",
+  ): Opportunity => ({
     id,
     name,
     clientId,
@@ -345,19 +382,111 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     opp("opp_synapse_portal", "Portail collaborateurs Synapse RH", "cli_synapse", null, 46_000, "won", 100, M(-4, 25), M(-3, 20), "Site web", "emp_camille", M(-3, 18), "", M(-3, 18)),
     opp("opp_dataspring_dw", "Data warehouse DataSpring", "cli_dataspring", null, 56_000, "won", 100, M(-3, 26), M(-1, 15), "LinkedIn", "emp_camille", M(-1, 14), "", M(-1, 14)),
     opp("opp_lumina_bot", "Chatbot support IA LuminaTech", "cli_lumina", "lead_lumina", 32_000, "won", 100, M(-3, 5), D(-8), "Salon", "emp_camille", D(-9), "", D(-9)),
-    opp("opp_medialink_intranet", "Refonte intranet Medialink", "cli_medialink", null, 38_000, "lost", 0, M(-5, 10), M(-3, 30), "Client existant", "emp_camille", M(-3, 22), "", M(-3, 22), "Budget reporté à l'an prochain"),
-    opp("opp_bluepeak_field", "Application terrain BluePeak", "cli_bluepeak", null, 24_000, "lost", 0, M(-4, 3), M(-2, 15), "Client existant", "emp_camille", M(-2, 9), "", M(-2, 9), "Concurrent moins cher"),
-    opp("opp_nova_multisite", "Extension BDO Analytics multi-sites", "cli_novaretail", null, 32_000, "negotiation", 70, M(-2, 4), D(12), "Client existant", "emp_camille", D(-3), "Valider les conditions tarifaires"),
-    opp("opp_hexa_ai", "Module IA de prévision des flux", "cli_hexa", null, 45_000, "proposal", 50, M(-2, 15), D(25), "Client existant", "emp_camille", D(-6), "Relancer après envoi de la proposition"),
+    opp(
+      "opp_medialink_intranet",
+      "Refonte intranet Medialink",
+      "cli_medialink",
+      null,
+      38_000,
+      "lost",
+      0,
+      M(-5, 10),
+      M(-3, 30),
+      "Client existant",
+      "emp_camille",
+      M(-3, 22),
+      "",
+      M(-3, 22),
+      "Budget reporté à l'an prochain",
+    ),
+    opp(
+      "opp_bluepeak_field",
+      "Application terrain BluePeak",
+      "cli_bluepeak",
+      null,
+      24_000,
+      "lost",
+      0,
+      M(-4, 3),
+      M(-2, 15),
+      "Client existant",
+      "emp_camille",
+      M(-2, 9),
+      "",
+      M(-2, 9),
+      "Concurrent moins cher",
+    ),
+    opp(
+      "opp_nova_multisite",
+      "Extension BDO Analytics multi-sites",
+      "cli_novaretail",
+      null,
+      32_000,
+      "negotiation",
+      70,
+      M(-2, 4),
+      D(12),
+      "Client existant",
+      "emp_camille",
+      D(-3),
+      "Valider les conditions tarifaires",
+    ),
+    opp(
+      "opp_hexa_ai",
+      "Module IA de prévision des flux",
+      "cli_hexa",
+      null,
+      45_000,
+      "proposal",
+      50,
+      M(-2, 15),
+      D(25),
+      "Client existant",
+      "emp_camille",
+      D(-6),
+      "Relancer après envoi de la proposition",
+    ),
     opp("opp_solenne_eshop", "Boutique en ligne Maison Solenne", null, "lead_solenne", 18_000, "qualification", 20, M(-2, 8), D(40), "Salon", "emp_camille", D(-4), "Envoyer la proposition chiffrée"),
     opp("opp_transalp_tms", "Digitalisation du TMS TransAlp", null, "lead_transalp", 60_000, "meeting", 35, M(-2, 20), D(55), "Recommandation", "emp_camille", D(-7), "Démonstration BDO Flow"),
     opp("opp_horizon_maint", "Maintenance évolutive Atelier Horizon", "cli_horizon", null, 9_600, "contacted", 10, M(-2, 1), D(20), "Client existant", "emp_camille", D(-31), "Relancer Élodie Blanc"),
     opp("opp_kerys_portal", "Portail patients Kerys Santé", null, "lead_kerys", 25_000, "new", 5, M(-1, 3), D(75), "Site web", "emp_camille", D(-10), "Qualifier le besoin"),
-    opp("opp_green_training", "Formation & accompagnement BDO CRM", "cli_greenpulse", null, 7_500, "proposal", 50, M(-1, 10), D(5), "Client existant", "emp_camille", D(-20), "Obtenir la validation du devis"),
+    opp(
+      "opp_green_training",
+      "Formation & accompagnement BDO CRM",
+      "cli_greenpulse",
+      null,
+      7_500,
+      "proposal",
+      50,
+      M(-1, 10),
+      D(5),
+      "Client existant",
+      "emp_camille",
+      D(-20),
+      "Obtenir la validation du devis",
+    ),
   ];
 
   /* ---------- Projets ---------- */
-  const proj = (id: string, code: string, name: string, clientId: string, opportunityId: string | null, managerId: string, memberIds: string[], start: ISODate, due: ISODate, budget: number, salePrice: number, estimatedCost: number, priority: Project["priority"], status: Project["status"], completed: ISODate | null, description: string, risks = ""): Project => ({
+  const proj = (
+    id: string,
+    code: string,
+    name: string,
+    clientId: string,
+    opportunityId: string | null,
+    managerId: string,
+    memberIds: string[],
+    start: ISODate,
+    due: ISODate,
+    budget: number,
+    salePrice: number,
+    estimatedCost: number,
+    priority: Project["priority"],
+    status: Project["status"],
+    completed: ISODate | null,
+    description: string,
+    risks = "",
+  ): Project => ({
     id,
     code,
     name,
@@ -380,18 +509,226 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     updatedAt: ts(completed ?? start),
   });
   const projects: Project[] = [
-    proj("prj_001", "PRJ-001", "Refonte du portail e-commerce B2B", "cli_novaretail", null, "emp_thomas", ["emp_hugo", "emp_thomas"], M(-12, 3), M(-8, 20), 30_000, 58_000, 29_000, "high", "done", M(-8, 18), "Refonte complète du portail de commande B2B et connexion à l'ERP du client."),
-    proj("prj_002", "PRJ-002", "Intégration TMS & BDO Flow", "cli_hexa", null, "emp_thomas", ["emp_hugo"], M(-11, 1), M(-7, 15), 24_000, 44_000, 23_000, "normal", "done", M(-7, 12), "Connexion du TMS aux workflows BDO Flow et automatisation des validations."),
-    proj("prj_003", "PRJ-003", "Site vitrine & configurateur produits", "cli_horizon", null, "emp_thomas", ["emp_hugo"], M(-9, 5), M(-6, 30), 14_000, 26_000, 13_500, "normal", "done", M(-6, 26), "Site vitrine et configurateur 3D simplifié des créations."),
-    proj("prj_004", "PRJ-004", "Tableaux de bord BDO Analytics", "cli_finova", null, "emp_thomas", ["emp_ines", "emp_hugo"], M(-8, 1), M(-5, 10), 12_000, 22_000, 11_000, "normal", "done", M(-4, 28), "Déploiement de BDO Analytics et création de 12 tableaux de bord.", "Livré avec retard (reprise des données historiques)."),
-    proj("prj_005", "PRJ-005", "Migration cloud & BDO Cloud", "cli_cloudnest", null, "emp_hugo", ["emp_hugo", "emp_ines"], M(-6, 3), M(-2, 28), 28_000, 52_000, 27_000, "high", "done", M(-2, 24), "Migration de l'infrastructure vers BDO Cloud et mise en place de la supervision."),
-    proj("prj_006", "PRJ-006", "Automatisation des devis (BDO Automation)", "cli_orbis", "opp_orbis_auto", "emp_thomas", ["emp_hugo", "emp_ines", "emp_thomas"], M(-4, 18), D(30), 24_000, 68_000, 34_000, "critical", "in_progress", null, "Génération automatique des devis à partir de l'ERP et assistant IA de chiffrage.", "Complexité de l'interface ERP sous-estimée."),
-    proj("prj_007", "PRJ-007", "Application mobile de suivi PixelForge", "cli_pixelforge", "opp_pixel_app", "emp_thomas", ["emp_ines", "emp_hugo"], M(-4, 28), D(60), 44_000, 82_000, 42_000, "high", "in_progress", null, "Application iOS/Android de suivi de production et notifications temps réel."),
-    proj("prj_008", "PRJ-008", "Déploiement BDO CRM", "cli_greenpulse", null, "emp_thomas", ["emp_lea", "emp_ines"], M(-3, 1), D(-6), 14_000, 28_000, 13_000, "high", "at_risk", null, "Paramétrage, reprise des données et formation des équipes.", "Données sources de mauvaise qualité, disponibilité client limitée."),
-    proj("prj_009", "PRJ-009", "Portail collaborateurs Synapse RH", "cli_synapse", "opp_synapse_portal", "emp_thomas", ["emp_hugo", "emp_ines"], M(-3, 22), D(45), 24_000, 46_000, 23_500, "normal", "in_progress", null, "Portail RH en libre-service (congés, documents, entretiens)."),
-    proj("prj_010", "PRJ-010", "Data warehouse & BDO Analytics", "cli_dataspring", "opp_dataspring_dw", "emp_hugo", ["emp_hugo", "emp_nora"], D(10), D(100), 30_000, 56_000, 29_000, "normal", "planned", null, "Entrepôt de données et tableaux de bord de pilotage."),
-    proj("prj_011", "PRJ-011", "Audit SI & feuille de route", "cli_ecobatir", null, "emp_thomas", ["emp_thomas"], M(-2, 5), D(20), 7_000, 13_200, 6_500, "low", "on_hold", null, "Audit du système d'information et feuille de route à 3 ans.", "En attente des accès aux systèmes existants."),
-    proj("prj_012", "PRJ-012", "Chatbot support IA", "cli_lumina", "opp_lumina_bot", "emp_hugo", ["emp_hugo", "emp_lea"], D(14), D(90), 16_000, 32_000, 15_500, "normal", "to_plan", null, "Assistant conversationnel de support basé sur la base de connaissances."),
+    proj(
+      "prj_001",
+      "PRJ-001",
+      "Refonte du portail e-commerce B2B",
+      "cli_novaretail",
+      null,
+      "emp_thomas",
+      ["emp_hugo", "emp_thomas"],
+      M(-12, 3),
+      M(-8, 20),
+      30_000,
+      58_000,
+      29_000,
+      "high",
+      "done",
+      M(-8, 18),
+      "Refonte complète du portail de commande B2B et connexion à l'ERP du client.",
+    ),
+    proj(
+      "prj_002",
+      "PRJ-002",
+      "Intégration TMS & BDO Flow",
+      "cli_hexa",
+      null,
+      "emp_thomas",
+      ["emp_hugo"],
+      M(-11, 1),
+      M(-7, 15),
+      24_000,
+      44_000,
+      23_000,
+      "normal",
+      "done",
+      M(-7, 12),
+      "Connexion du TMS aux workflows BDO Flow et automatisation des validations.",
+    ),
+    proj(
+      "prj_003",
+      "PRJ-003",
+      "Site vitrine & configurateur produits",
+      "cli_horizon",
+      null,
+      "emp_thomas",
+      ["emp_hugo"],
+      M(-9, 5),
+      M(-6, 30),
+      14_000,
+      26_000,
+      13_500,
+      "normal",
+      "done",
+      M(-6, 26),
+      "Site vitrine et configurateur 3D simplifié des créations.",
+    ),
+    proj(
+      "prj_004",
+      "PRJ-004",
+      "Tableaux de bord BDO Analytics",
+      "cli_finova",
+      null,
+      "emp_thomas",
+      ["emp_ines", "emp_hugo"],
+      M(-8, 1),
+      M(-5, 10),
+      12_000,
+      22_000,
+      11_000,
+      "normal",
+      "done",
+      M(-4, 28),
+      "Déploiement de BDO Analytics et création de 12 tableaux de bord.",
+      "Livré avec retard (reprise des données historiques).",
+    ),
+    proj(
+      "prj_005",
+      "PRJ-005",
+      "Migration cloud & BDO Cloud",
+      "cli_cloudnest",
+      null,
+      "emp_hugo",
+      ["emp_hugo", "emp_ines"],
+      M(-6, 3),
+      M(-2, 28),
+      28_000,
+      52_000,
+      27_000,
+      "high",
+      "done",
+      M(-2, 24),
+      "Migration de l'infrastructure vers BDO Cloud et mise en place de la supervision.",
+    ),
+    proj(
+      "prj_006",
+      "PRJ-006",
+      "Automatisation des devis (BDO Automation)",
+      "cli_orbis",
+      "opp_orbis_auto",
+      "emp_thomas",
+      ["emp_hugo", "emp_ines", "emp_thomas"],
+      M(-4, 18),
+      D(30),
+      24_000,
+      68_000,
+      34_000,
+      "critical",
+      "in_progress",
+      null,
+      "Génération automatique des devis à partir de l'ERP et assistant IA de chiffrage.",
+      "Complexité de l'interface ERP sous-estimée.",
+    ),
+    proj(
+      "prj_007",
+      "PRJ-007",
+      "Application mobile de suivi PixelForge",
+      "cli_pixelforge",
+      "opp_pixel_app",
+      "emp_thomas",
+      ["emp_ines", "emp_hugo"],
+      M(-4, 28),
+      D(60),
+      44_000,
+      82_000,
+      42_000,
+      "high",
+      "in_progress",
+      null,
+      "Application iOS/Android de suivi de production et notifications temps réel.",
+    ),
+    proj(
+      "prj_008",
+      "PRJ-008",
+      "Déploiement BDO CRM",
+      "cli_greenpulse",
+      null,
+      "emp_thomas",
+      ["emp_lea", "emp_ines"],
+      M(-3, 1),
+      D(-6),
+      14_000,
+      28_000,
+      13_000,
+      "high",
+      "at_risk",
+      null,
+      "Paramétrage, reprise des données et formation des équipes.",
+      "Données sources de mauvaise qualité, disponibilité client limitée.",
+    ),
+    proj(
+      "prj_009",
+      "PRJ-009",
+      "Portail collaborateurs Synapse RH",
+      "cli_synapse",
+      "opp_synapse_portal",
+      "emp_thomas",
+      ["emp_hugo", "emp_ines"],
+      M(-3, 22),
+      D(45),
+      24_000,
+      46_000,
+      23_500,
+      "normal",
+      "in_progress",
+      null,
+      "Portail RH en libre-service (congés, documents, entretiens).",
+    ),
+    proj(
+      "prj_010",
+      "PRJ-010",
+      "Data warehouse & BDO Analytics",
+      "cli_dataspring",
+      "opp_dataspring_dw",
+      "emp_hugo",
+      ["emp_hugo", "emp_nora"],
+      D(10),
+      D(100),
+      30_000,
+      56_000,
+      29_000,
+      "normal",
+      "planned",
+      null,
+      "Entrepôt de données et tableaux de bord de pilotage.",
+    ),
+    proj(
+      "prj_011",
+      "PRJ-011",
+      "Audit SI & feuille de route",
+      "cli_ecobatir",
+      null,
+      "emp_thomas",
+      ["emp_thomas"],
+      M(-2, 5),
+      D(20),
+      7_000,
+      13_200,
+      6_500,
+      "low",
+      "on_hold",
+      null,
+      "Audit du système d'information et feuille de route à 3 ans.",
+      "En attente des accès aux systèmes existants.",
+    ),
+    proj(
+      "prj_012",
+      "PRJ-012",
+      "Chatbot support IA",
+      "cli_lumina",
+      "opp_lumina_bot",
+      "emp_hugo",
+      ["emp_hugo", "emp_lea"],
+      D(14),
+      D(90),
+      16_000,
+      32_000,
+      15_500,
+      "normal",
+      "to_plan",
+      null,
+      "Assistant conversationnel de support basé sur la base de connaissances.",
+    ),
   ];
   const ms = (projectId: string, title: string, due: ISODate, done: boolean) => {
     const p = projects.find((x) => x.id === projectId)!;
@@ -415,7 +752,18 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   /* ---------- Tâches ---------- */
   const tasks: Task[] = [];
   let taskN = 0;
-  const task = (title: string, projectId: string | null, assigneeId: string, priority: Task["priority"], status: Task["status"], complexity: Task["complexity"], due: ISODate | null, estimate: number, actual: number, opts: Partial<Task> = {}) => {
+  const task = (
+    title: string,
+    projectId: string | null,
+    assigneeId: string,
+    priority: Task["priority"],
+    status: Task["status"],
+    complexity: Task["complexity"],
+    due: ISODate | null,
+    estimate: number,
+    actual: number,
+    opts: Partial<Task> = {},
+  ) => {
     taskN++;
     const id = `tsk_${String(taskN).padStart(3, "0")}`;
     const project = projectId ? projects.find((p) => p.id === projectId) : undefined;
@@ -461,7 +809,10 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   const t6a = task("Spécifications du connecteur ERP", "prj_006", "emp_thomas", "high", "done", "standard", M(-3, 8), 30, 38);
   const t6b = task("Connecteur ERP Orbis", "prj_006", "emp_hugo", "critical", "done", "complex", M(-1, 18), 160, 236, { dependsOn: [t6a] });
   const t6c = task("Moteur de règles de chiffrage", "prj_006", "emp_ines", "high", "in_progress", "complex", D(6), 110, 96, { dependsOn: [t6b] });
-  task("Assistant IA de chiffrage", "prj_006", "emp_hugo", "critical", "in_progress", "complex", D(1), 90, 40, { dependsOn: [t6b], comments: [{ id: "cmt_1", author: "Thomas Petit", text: "Point de vigilance : le jeu de données d'entraînement n'est pas encore complet.", at: ts(D(-3), 11) }] });
+  task("Assistant IA de chiffrage", "prj_006", "emp_hugo", "critical", "in_progress", "complex", D(1), 90, 40, {
+    dependsOn: [t6b],
+    comments: [{ id: "cmt_1", author: "Thomas Petit", text: "Point de vigilance : le jeu de données d'entraînement n'est pas encore complet.", at: ts(D(-3), 11) }],
+  });
   task("Recette utilisateur Orbis", "prj_006", "emp_thomas", "high", "todo", "standard", D(24), 24, 0, { dependsOn: [t6c] });
   // PRJ-007 PixelForge.
   task("Maquettes UX de l'application", "prj_007", "emp_ines", "high", "done", "standard", M(-3, 22), 80, 88);
@@ -471,7 +822,9 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   task("Tests sur appareils", "prj_007", "emp_lea", "normal", "todo", "standard", D(40), 24, 0);
   // PRJ-008 GreenPulse (en risque, en retard).
   task("Paramétrage des pipelines CRM", "prj_008", "emp_ines", "high", "done", "standard", M(-2, 12), 50, 56);
-  task("Nettoyage et import des contacts", "prj_008", "emp_lea", "critical", "in_progress", "complex", D(-9), 80, 74, { comments: [{ id: "cmt_2", author: "Léa Dubois", text: "Fichier source avec 18 % de doublons, en attente de validation client.", at: ts(D(-8), 9) }] });
+  task("Nettoyage et import des contacts", "prj_008", "emp_lea", "critical", "in_progress", "complex", D(-9), 80, 74, {
+    comments: [{ id: "cmt_2", author: "Léa Dubois", text: "Fichier source avec 18 % de doublons, en attente de validation client.", at: ts(D(-8), 9) }],
+  });
   task("Sessions de formation GreenPulse", "prj_008", "emp_lea", "high", "todo", "standard", D(-4), 30, 0);
   task("Rédaction du guide utilisateur", "prj_008", "emp_lea", "normal", "waiting", "simple", D(-2), 8, 3);
   // PRJ-009 Synapse.
@@ -500,7 +853,18 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   task("Analyse de satisfaction client T3", null, "emp_lea", "normal", "done", "standard", M(-1, 25), 10, 9, { goalId: "goal_satisfaction" });
 
   /* ---------- Abonnements ---------- */
-  const sub = (id: string, clientId: string, productId: string, offer: string, amount: number, periodicity: Subscription["periodicity"], start: ISODate, end: ISODate | null, status: Subscription["status"], renewalTerms = "Tacite reconduction annuelle, préavis 2 mois"): Subscription => ({
+  const sub = (
+    id: string,
+    clientId: string,
+    productId: string,
+    offer: string,
+    amount: number,
+    periodicity: Subscription["periodicity"],
+    start: ISODate,
+    end: ISODate | null,
+    status: Subscription["status"],
+    renewalTerms = "Tacite reconduction annuelle, préavis 2 mois",
+  ): Subscription => ({
     id,
     clientId,
     productId,
@@ -535,8 +899,20 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   type Draft = Omit<Invoice, "number"> & { pay?: { delay: number; share?: number; method?: PaymentMethod } | "unpaid" };
   const drafts: Draft[] = [];
   let invN = 0;
-  const line = (productId: string | null, description: string, quantity: number, unitPrice: number, vatRate = 2000): LineItem => ({ id: `li_${++invN}_${between(100, 999)}`, productId, description, quantity, unitPrice: eur(unitPrice), vatRate });
-  const inv = (clientId: string, issue: ISODate, items: LineItem[], opts: { projectId?: string; subscriptionId?: string; quoteId?: string; term?: number; pay?: Draft["pay"]; notes?: string } = {}) => {
+  const line = (productId: string | null, description: string, quantity: number, unitPrice: number, vatRate = 2000): LineItem => ({
+    id: `li_${++invN}_${between(100, 999)}`,
+    productId,
+    description,
+    quantity,
+    unitPrice: eur(unitPrice),
+    vatRate,
+  });
+  const inv = (
+    clientId: string,
+    issue: ISODate,
+    items: LineItem[],
+    opts: { projectId?: string; subscriptionId?: string; quoteId?: string; term?: number; pay?: Draft["pay"]; notes?: string } = {},
+  ) => {
     const id = `inv_${String(drafts.length + 1).padStart(3, "0")}`;
     drafts.push({
       id,
@@ -606,7 +982,10 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   const draftId = inv("cli_ecobatir", D(-1), [line("prd_consult", "Restitution de l'audit SI", 2, 1100)], { pay: "unpaid", notes: "À émettre après la restitution." });
   drafts.find((d) => d.id === draftId)!.baseStatus = "draft";
   const cancelledId = inv("cli_bluepeak", M(-2, 3), [line("prd_dev", "Développement application terrain (erreur de saisie)", 10, 650)], { pay: "unpaid" });
-  Object.assign(drafts.find((d) => d.id === cancelledId)!, { baseStatus: "cancelled", cancelledAt: ts(M(-2, 4)), notes: "Annulée : projet perdu, facture émise par erreur." });
+  Object.assign(
+    drafts.find((d) => d.id === cancelledId)!,
+    { baseStatus: "cancelled", cancelledAt: ts(M(-2, 4)), notes: "Annulée : projet perdu, facture émise par erreur." },
+  );
 
   // Numérotation chronologique continue des factures émises.
   drafts.sort((a, b) => a.issueDate.localeCompare(b.issueDate) || a.id.localeCompare(b.id));
@@ -654,21 +1033,62 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   });
   const y = (d: ISODate) => d.slice(0, 4);
   const quotes: Quote[] = [
-    quote("quo_001", `DEV-${y(M(-5, 20))}-0001`, "cli_orbis", "opp_orbis_auto", M(-5, 20), "accepted", [line("prd_auto", "Automatisation des devis — forfait", 60, 750), line("prd_consult", "Pilotage & cadrage", 21, 1100), line(null, "Remise commerciale", 1, -100)]),
-    quote("quo_002", `DEV-${y(M(-5, 28))}-0002`, "cli_pixelforge", "opp_pixel_app", M(-5, 28), "accepted", [line("prd_dev", "Application mobile iOS/Android", 120, 650), line("prd_consult", "Direction de projet", 4, 1100), line(null, "Remise commerciale", 1, -400)]),
-    quote("quo_003", `DEV-${y(M(-4, 28))}-0003`, "cli_synapse", "opp_synapse_portal", M(-4, 28), "accepted", [line("prd_dev", "Portail collaborateurs", 64, 650), line("prd_consult", "Ateliers RH", 4, 1100)]),
-    quote("quo_004", `DEV-${y(M(-2, 20))}-0004`, "cli_dataspring", "opp_dataspring_dw", M(-2, 20), "accepted", [line("prd_dev", "Data warehouse", 72, 650), line("prd_consult", "Architecture data", 10, 1100), line(null, "Remise volume", 1, -1800)]),
-    quote("quo_005", `DEV-${y(M(-1, 25))}-0005`, "cli_lumina", "opp_lumina_bot", M(-1, 25), "accepted", [line("prd_auto", "Chatbot support IA", 40, 750), line("prd_consult", "Conception conversationnelle", 4, 1100), line(null, "Remise lancement", 1, -2400)]),
-    quote("quo_006", `DEV-${y(M(-4, 12))}-0006`, "cli_medialink", "opp_medialink_intranet", M(-4, 12), "refused", [line("prd_dev", "Refonte intranet", 52, 650), line("prd_consult", "Conduite du changement", 4, 1100)]),
+    quote("quo_001", `DEV-${y(M(-5, 20))}-0001`, "cli_orbis", "opp_orbis_auto", M(-5, 20), "accepted", [
+      line("prd_auto", "Automatisation des devis — forfait", 60, 750),
+      line("prd_consult", "Pilotage & cadrage", 21, 1100),
+      line(null, "Remise commerciale", 1, -100),
+    ]),
+    quote("quo_002", `DEV-${y(M(-5, 28))}-0002`, "cli_pixelforge", "opp_pixel_app", M(-5, 28), "accepted", [
+      line("prd_dev", "Application mobile iOS/Android", 120, 650),
+      line("prd_consult", "Direction de projet", 4, 1100),
+      line(null, "Remise commerciale", 1, -400),
+    ]),
+    quote("quo_003", `DEV-${y(M(-4, 28))}-0003`, "cli_synapse", "opp_synapse_portal", M(-4, 28), "accepted", [
+      line("prd_dev", "Portail collaborateurs", 64, 650),
+      line("prd_consult", "Ateliers RH", 4, 1100),
+    ]),
+    quote("quo_004", `DEV-${y(M(-2, 20))}-0004`, "cli_dataspring", "opp_dataspring_dw", M(-2, 20), "accepted", [
+      line("prd_dev", "Data warehouse", 72, 650),
+      line("prd_consult", "Architecture data", 10, 1100),
+      line(null, "Remise volume", 1, -1800),
+    ]),
+    quote("quo_005", `DEV-${y(M(-1, 25))}-0005`, "cli_lumina", "opp_lumina_bot", M(-1, 25), "accepted", [
+      line("prd_auto", "Chatbot support IA", 40, 750),
+      line("prd_consult", "Conception conversationnelle", 4, 1100),
+      line(null, "Remise lancement", 1, -2400),
+    ]),
+    quote("quo_006", `DEV-${y(M(-4, 12))}-0006`, "cli_medialink", "opp_medialink_intranet", M(-4, 12), "refused", [
+      line("prd_dev", "Refonte intranet", 52, 650),
+      line("prd_consult", "Conduite du changement", 4, 1100),
+    ]),
     quote("quo_007", `DEV-${y(M(-3, 6))}-0007`, "cli_bluepeak", "opp_bluepeak_field", M(-3, 6), "expired", [line("prd_dev", "Application terrain", 32, 650), line("prd_consult", "Cadrage", 3, 1100)]),
-    quote("quo_008", `DEV-${y(D(-12))}-0008`, "cli_novaretail", "opp_nova_multisite", D(-12), "sent", [line("prd_analytics", "BDO Analytics — 4 espaces supplémentaires (12 mois)", 48, 490), line("prd_consult", "Déploiement multi-sites", 8, 1100)]),
-    quote("quo_009", `DEV-${y(D(-7))}-0009`, "cli_hexa", "opp_hexa_ai", D(-7), "sent", [line("prd_auto", "Module IA de prévision des flux", 50, 750), line("prd_consult", "Data science & cadrage", 7, 1100)]),
-    quote("quo_010", `DEV-${y(D(-2))}-0010`, "cli_greenpulse", "opp_green_training", D(-2), "draft", [line("prd_consult", "Formation & accompagnement BDO CRM", 6, 1100), line("prd_support", "Support Premium (6 mois)", 6, 250), line(null, "Remise fidélité", 1, -600)]),
+    quote("quo_008", `DEV-${y(D(-12))}-0008`, "cli_novaretail", "opp_nova_multisite", D(-12), "sent", [
+      line("prd_analytics", "BDO Analytics — 4 espaces supplémentaires (12 mois)", 48, 490),
+      line("prd_consult", "Déploiement multi-sites", 8, 1100),
+    ]),
+    quote("quo_009", `DEV-${y(D(-7))}-0009`, "cli_hexa", "opp_hexa_ai", D(-7), "sent", [
+      line("prd_auto", "Module IA de prévision des flux", 50, 750),
+      line("prd_consult", "Data science & cadrage", 7, 1100),
+    ]),
+    quote("quo_010", `DEV-${y(D(-2))}-0010`, "cli_greenpulse", "opp_green_training", D(-2), "draft", [
+      line("prd_consult", "Formation & accompagnement BDO CRM", 6, 1100),
+      line("prd_support", "Support Premium (6 mois)", 6, 250),
+      line(null, "Remise fidélité", 1, -600),
+    ]),
   ];
 
   /* ---------- Dépenses ---------- */
   const expenses: Expense[] = [];
-  const expense = (label: string, supplier: string, category: ExpenseCategory, date: ISODate, amountHT: number, vatRate: number, paidDelay: number | null, opts: { projectId?: string; due?: ISODate; notes?: string } = {}) => {
+  const expense = (
+    label: string,
+    supplier: string,
+    category: ExpenseCategory,
+    date: ISODate,
+    amountHT: number,
+    vatRate: number,
+    paidDelay: number | null,
+    opts: { projectId?: string; due?: ISODate; notes?: string } = {},
+  ) => {
     const paidDate = paidDelay === null ? null : addDays(date, paidDelay);
     const paid = paidDate !== null && paidDate <= anchor;
     expenses.push({
@@ -723,7 +1143,20 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   const semesterEnd = endOfMonthISO(addMonths(semesterStart, 5));
   const yearStart = `${anchor.slice(0, 4)}-01-01`;
   const yearEnd = `${anchor.slice(0, 4)}-12-31`;
-  const goal = (id: string, title: string, type: Goal["type"], periodLabel: string, start: ISODate, end: ISODate, ownerId: string, metric: Goal["metric"], startValue: number, targetValue: number, unit: string, opts: Partial<Goal> = {}): Goal => ({
+  const goal = (
+    id: string,
+    title: string,
+    type: Goal["type"],
+    periodLabel: string,
+    start: ISODate,
+    end: ISODate,
+    ownerId: string,
+    metric: Goal["metric"],
+    startValue: number,
+    targetValue: number,
+    unit: string,
+    opts: Partial<Goal> = {},
+  ): Goal => ({
     id,
     title,
     description: opts.description ?? "",
@@ -744,11 +1177,34 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   });
   const qLabel = `T${q + 1} ${anchor.slice(0, 4)}`;
   const goals: Goal[] = [
-    goal("goal_mrr", "Atteindre 10 000 € de MRR", "financial", qLabel, quarterStart, quarterEnd, "emp_camille", "mrr", 7_500, 10_000, "€", { description: "Développer la base d'abonnements SaaS et de maintenance.", keyResults: [{ id: "kr_mrr_1", title: "Nouveaux abonnements signés", target: 4, current: 1, unit: "contrats" }, { id: "kr_mrr_2", title: "Montées en gamme", target: 3, current: 1, unit: "clients" }] }),
-    goal("goal_overdue", "Réduire les factures échues sous 3 000 €", "financial", qLabel, quarterStart, quarterEnd, "emp_nora", "overdue_receivables", 40_000, 3_000, "€", { description: "Fiabiliser le recouvrement et raccourcir les délais de paiement." }),
-    goal("goal_contracts", "Signer 5 nouveaux contrats", "commercial", `S${Number(anchor.slice(5, 7)) <= 6 ? 1 : 2} ${anchor.slice(0, 4)}`, semesterStart, semesterEnd, "emp_camille", "won_opportunities", 0, 5, "contrats", { description: "Opportunités gagnées sur le semestre." }),
+    goal("goal_mrr", "Atteindre 10 000 € de MRR", "financial", qLabel, quarterStart, quarterEnd, "emp_camille", "mrr", 7_500, 10_000, "€", {
+      description: "Développer la base d'abonnements SaaS et de maintenance.",
+      keyResults: [
+        { id: "kr_mrr_1", title: "Nouveaux abonnements signés", target: 4, current: 1, unit: "contrats" },
+        { id: "kr_mrr_2", title: "Montées en gamme", target: 3, current: 1, unit: "clients" },
+      ],
+    }),
+    goal("goal_overdue", "Réduire les factures échues sous 3 000 €", "financial", qLabel, quarterStart, quarterEnd, "emp_nora", "overdue_receivables", 40_000, 3_000, "€", {
+      description: "Fiabiliser le recouvrement et raccourcir les délais de paiement.",
+    }),
+    goal(
+      "goal_contracts",
+      "Signer 5 nouveaux contrats",
+      "commercial",
+      `S${Number(anchor.slice(5, 7)) <= 6 ? 1 : 2} ${anchor.slice(0, 4)}`,
+      semesterStart,
+      semesterEnd,
+      "emp_camille",
+      "won_opportunities",
+      0,
+      5,
+      "contrats",
+      { description: "Opportunités gagnées sur le semestre." },
+    ),
     goal("goal_projects", "Terminer 3 projets prioritaires", "operational", qLabel, quarterStart, quarterEnd, "emp_thomas", "projects_completed", 0, 3, "projets"),
-    goal("goal_margin", "Porter la marge moyenne des projets à 50 %", "financial", anchor.slice(0, 4), yearStart, yearEnd, "emp_nora", "avg_project_margin", 45, 50, "%", { description: "Marge estimée moyenne (prix de vente − coût estimé)." }),
+    goal("goal_margin", "Porter la marge moyenne des projets à 50 %", "financial", anchor.slice(0, 4), yearStart, yearEnd, "emp_nora", "avg_project_margin", 45, 50, "%", {
+      description: "Marge estimée moyenne (prix de vente − coût estimé).",
+    }),
     goal("goal_late", "Zéro tâche en retard", "operational", qLabel, quarterStart, quarterEnd, "emp_thomas", "late_tasks", 10, 0, "tâches"),
     goal("goal_revenue", "Facturer 600 k€ HT sur l'année", "growth", anchor.slice(0, 4), yearStart, yearEnd, "emp_camille", "billed_revenue", 0, 600_000, "€"),
     goal("goal_satisfaction", "Satisfaction client ≥ 4,5 / 5", "customer", qLabel, quarterStart, quarterEnd, "emp_lea", "manual", 3.9, 4.5, "/ 5", {
@@ -763,7 +1219,20 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   ];
 
   /* ---------- Missions (seed) ---------- */
-  const mission = (id: string, title: string, description: string, category: Mission["category"], type: Mission["type"], difficulty: Mission["difficulty"], priority: Mission["priority"], start: ISODate, due: ISODate, xp: number, status: Mission["status"], completed: ISODate | null = null): Mission => ({
+  const mission = (
+    id: string,
+    title: string,
+    description: string,
+    category: Mission["category"],
+    type: Mission["type"],
+    difficulty: Mission["difficulty"],
+    priority: Mission["priority"],
+    start: ISODate,
+    due: ISODate,
+    xp: number,
+    status: Mission["status"],
+    completed: ISODate | null = null,
+  ): Mission => ({
     id,
     title,
     description,
@@ -788,11 +1257,59 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     createdAt: ts(start),
   });
   const missions: Mission[] = [
-    mission("mis_seed_01", "Préparer le comité de direction trimestriel", "Consolider les indicateurs et les décisions à arbitrer.", "strategy", "monthly", "medium", "high", D(-5), D(7), 50, "in_progress"),
-    mission("mis_seed_02", "Mettre à jour la grille tarifaire 2027", "Revoir les prix du catalogue au regard des coûts réels.", "commercial", "strategic", "hard", "normal", D(-10), D(30), 120, "todo"),
+    mission(
+      "mis_seed_01",
+      "Préparer le comité de direction trimestriel",
+      "Consolider les indicateurs et les décisions à arbitrer.",
+      "strategy",
+      "monthly",
+      "medium",
+      "high",
+      D(-5),
+      D(7),
+      50,
+      "in_progress",
+    ),
+    mission(
+      "mis_seed_02",
+      "Mettre à jour la grille tarifaire 2027",
+      "Revoir les prix du catalogue au regard des coûts réels.",
+      "commercial",
+      "strategic",
+      "hard",
+      "normal",
+      D(-10),
+      D(30),
+      120,
+      "todo",
+    ),
     mission("mis_seed_03", "Former l'équipe au nouveau process support", "Session interne sur la qualification des tickets.", "team", "monthly", "medium", "normal", D(-3), D(14), 60, "todo"),
-    mission("mis_seed_04", "Lire « Le pilotage par la trésorerie »", "Développement personnel du dirigeant : un chapitre par semaine.", "personal", "custom", "easy", "low", D(-7), D(21), 20, "in_progress"),
-    mission("mis_seed_05", "Organiser un webinar client BDO Analytics", "Présenter les nouveautés et détecter les montées en gamme.", "commercial", "monthly", "medium", "normal", D(-2), D(25), 60, "todo"),
+    mission(
+      "mis_seed_04",
+      "Lire « Le pilotage par la trésorerie »",
+      "Développement personnel du dirigeant : un chapitre par semaine.",
+      "personal",
+      "custom",
+      "easy",
+      "low",
+      D(-7),
+      D(21),
+      20,
+      "in_progress",
+    ),
+    mission(
+      "mis_seed_05",
+      "Organiser un webinar client BDO Analytics",
+      "Présenter les nouveautés et détecter les montées en gamme.",
+      "commercial",
+      "monthly",
+      "medium",
+      "normal",
+      D(-2),
+      D(25),
+      60,
+      "todo",
+    ),
     mission("mis_seed_06", "Auditer les abonnements logiciels internes", "Identifier les licences inutilisées.", "finance", "monthly", "easy", "normal", D(-8), D(9), 40, "todo"),
     mission("mis_seed_07", "Clôturer le mois précédent", "Rapprochement des encaissements, dépenses et factures.", "finance", "monthly", "medium", "high", M(-1, 1), M(-1, 10), 50, "done", M(-1, 8)),
     mission("mis_seed_08", "Signer le contrat DataSpring", "Finaliser la négociation du data warehouse.", "commercial", "strategic", "hard", "high", M(-2, 20), M(-1, 15), 120, "done", M(-1, 14)),
@@ -829,7 +1346,14 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     if (o.stage !== "new" && o.stage !== "contacted") act("meeting", addDays(created, 9), `Rendez-vous de qualification — ${o.name}`, link, true, 14);
     if (["proposal", "negotiation", "won", "lost"].includes(o.stage)) act("email", addDays(created, 20), `Envoi de la proposition — ${o.name}`, link);
     if (["negotiation", "won"].includes(o.stage)) act("demo", addDays(created, 26), `Démonstration — ${o.name}`, link, true, 15);
-    act(o.stage === "won" ? "meeting" : o.stage === "lost" ? "call" : "followup", last, o.stage === "won" ? `Signature — ${o.name}` : o.stage === "lost" ? `Débrief de la perte — ${o.name}` : `Point d'avancement — ${o.name}`, link, true, 15);
+    act(
+      o.stage === "won" ? "meeting" : o.stage === "lost" ? "call" : "followup",
+      last,
+      o.stage === "won" ? `Signature — ${o.name}` : o.stage === "lost" ? `Débrief de la perte — ${o.name}` : `Point d'avancement — ${o.name}`,
+      link,
+      true,
+      15,
+    );
   }
   act("followup", M(-1, 5), "Relance facture Medialink", { clientId: "cli_medialink", invoiceId: invoices.find((i) => i.clientId === "cli_medialink" && i.issueDate === M(-5, 18))?.id });
   act("note", D(-11), "Compte rendu comité de pilotage GreenPulse", { clientId: "cli_greenpulse" });
@@ -841,14 +1365,39 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
 
   /* ---------- Notes ---------- */
   const notes: Note[] = [
-    { id: "note_001", title: "Négociation NovaRetail", body: "Sophie Garnier souhaite un engagement de 24 mois en échange d'une remise de 8 %. À arbitrer au prochain comité.", clientId: "cli_novaretail", projectId: null, createdAt: ts(D(-3), 17), updatedAt: ts(D(-3), 17) },
-    { id: "note_002", title: "Risques PRJ-006", body: "Le connecteur ERP a consommé 236 h pour 160 h prévues. Prévoir un avenant ou une revue du périmètre de l'assistant IA.", clientId: "cli_orbis", projectId: "prj_006", createdAt: ts(D(-8), 18), updatedAt: ts(D(-8), 18) },
-    { id: "note_003", title: "Idées pour 2027", body: "Packager BDO Flow + BDO Automation en offre « Opérations augmentées ». Étudier un programme partenaires intégrateurs.", clientId: null, projectId: null, createdAt: ts(D(-15), 19), updatedAt: ts(D(-15), 19) },
+    {
+      id: "note_001",
+      title: "Négociation NovaRetail",
+      body: "Sophie Garnier souhaite un engagement de 24 mois en échange d'une remise de 8 %. À arbitrer au prochain comité.",
+      clientId: "cli_novaretail",
+      projectId: null,
+      createdAt: ts(D(-3), 17),
+      updatedAt: ts(D(-3), 17),
+    },
+    {
+      id: "note_002",
+      title: "Risques PRJ-006",
+      body: "Le connecteur ERP a consommé 236 h pour 160 h prévues. Prévoir un avenant ou une revue du périmètre de l'assistant IA.",
+      clientId: "cli_orbis",
+      projectId: "prj_006",
+      createdAt: ts(D(-8), 18),
+      updatedAt: ts(D(-8), 18),
+    },
+    {
+      id: "note_003",
+      title: "Idées pour 2027",
+      body: "Packager BDO Flow + BDO Automation en offre « Opérations augmentées ». Étudier un programme partenaires intégrateurs.",
+      clientId: null,
+      projectId: null,
+      createdAt: ts(D(-15), 19),
+      updatedAt: ts(D(-15), 19),
+    },
   ];
 
   /* ---------- Assemblage ---------- */
   const activity: AppData["activity"] = [];
-  const ev = (at: ISODateTime, type: AppData["activity"][number]["type"], description: string, ref: AppData["activity"][number]["ref"]) => activity.push({ id: `act_seed_${activity.length + 1}`, at, type, description, ref });
+  const ev = (at: ISODateTime, type: AppData["activity"][number]["type"], description: string, ref: AppData["activity"][number]["ref"]) =>
+    activity.push({ id: `act_seed_${activity.length + 1}`, at, type, description, ref });
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
   for (const c of clients) ev(c.createdAt, "client_created", `Client ${c.name} ajouté`, { type: "client", id: c.id });
   for (const i of invoices) if (i.baseStatus === "issued") ev(ts(i.issueDate, 8), "invoice_issued", `Facture ${i.number} émise · ${clientName.get(i.clientId)}`, { type: "invoice", id: i.id });
@@ -885,7 +1434,17 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     retiredXpKeys: [],
     progression: [],
     notifications: [
-      { id: "ntf_welcome", key: "system:welcome", category: "systeme", severity: "info", title: "Bienvenue dans BDO Software", body: "Les données affichées sont fictives (mode démonstration). Elles sont stockées uniquement dans ce navigateur.", at: now, read: false, ref: null },
+      {
+        id: "ntf_welcome",
+        key: "system:welcome",
+        category: "systeme",
+        severity: "info",
+        title: "Bienvenue dans BDO Software",
+        body: "Les données affichées sont fictives (mode démonstration). Elles sont stockées uniquement dans ce navigateur.",
+        at: now,
+        read: false,
+        ref: null,
+      },
     ],
     activity: activity.slice(-80),
     auditLogs: [{ id: "aud_seed", at: now, actor: "Système", role: "admin", action: "demo.seed", ref: null, details: `Jeu de démonstration v${SEED_VERSION}, ancrage ${anchor}` }],

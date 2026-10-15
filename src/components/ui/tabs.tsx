@@ -26,7 +26,19 @@ export function TabsContent({ className, ...props }: React.ComponentProps<typeof
 }
 
 /** Sélecteur segmenté (vues liste / kanban / calendrier). */
-export function Segmented<T extends string>({ value, onChange, options, className, label }: { value: T; onChange: (v: T) => void; options: { value: T; label: string; icon?: React.ReactNode }[]; className?: string; label: string }) {
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  className,
+  label,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string; icon?: React.ReactNode }[];
+  className?: string;
+  label: string;
+}) {
   return (
     <div role="radiogroup" aria-label={label} className={cn("inline-flex rounded-lg border border-border bg-bg-elevated p-0.5", className)}>
       {options.map((o) => (
@@ -36,7 +48,10 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer [&_svg]:size-3.5", value === o.value ? "bg-interactive text-fg shadow" : "text-muted hover:text-fg")}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer [&_svg]:size-3.5",
+            value === o.value ? "bg-interactive text-fg shadow" : "text-muted hover:text-fg",
+          )}
         >
           {o.icon}
           {o.label}

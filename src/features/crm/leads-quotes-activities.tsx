@@ -49,7 +49,13 @@ export function LeadsPage() {
     { id: "contact", header: "Contact", cell: (l) => l.contactName || "—", csv: (l) => l.contactName, hideBelow: "md" },
     { id: "sector", header: "Secteur", cell: (l) => l.sector, sortValue: (l) => l.sector, csv: (l) => l.sector, hideBelow: "lg" },
     { id: "source", header: "Source", cell: (l) => l.source, sortValue: (l) => l.source, csv: (l) => l.source, hideBelow: "lg" },
-    { id: "priority", header: "Priorité", cell: (l) => <StatusBadge meta={PRIORITY[l.priority]} />, sortValue: (l) => ["critical", "high", "normal", "low"].indexOf(l.priority), csv: (l) => PRIORITY[l.priority].label },
+    {
+      id: "priority",
+      header: "Priorité",
+      cell: (l) => <StatusBadge meta={PRIORITY[l.priority]} />,
+      sortValue: (l) => ["critical", "high", "normal", "low"].indexOf(l.priority),
+      csv: (l) => PRIORITY[l.priority].label,
+    },
     { id: "status", header: "Statut", cell: (l) => <StatusBadge meta={LEAD_STATUS[l.status]} />, sortValue: (l) => l.status, csv: (l) => LEAD_STATUS[l.status].label },
     {
       id: "next",
@@ -62,7 +68,12 @@ export function LeadsPage() {
         ) : (
           <div className="text-xs">
             <p className="truncate text-fg">{l.nextAction || "—"}</p>
-            {l.nextActionDate ? <p className={cn(l.nextActionDate < today ? "text-danger" : "text-muted")}>{l.nextActionDate < today ? "Relance en retard · " : ""}{formatDate(l.nextActionDate)}</p> : null}
+            {l.nextActionDate ? (
+              <p className={cn(l.nextActionDate < today ? "text-danger" : "text-muted")}>
+                {l.nextActionDate < today ? "Relance en retard · " : ""}
+                {formatDate(l.nextActionDate)}
+              </p>
+            ) : null}
           </div>
         ),
       sortValue: (l) => l.nextActionDate ?? "9999",
@@ -93,7 +104,13 @@ export function LeadsPage() {
                   },
                 }),
             },
-            l.status !== "converted" && { label: "Supprimer", icon: <Trash2 />, danger: true, separatorBefore: true, onSelect: () => confirm({ title: "Supprimer ce prospect ?", description: `« ${l.company} » sera supprimé.`, confirmLabel: "Supprimer", action: () => run(C.deleteLead, { id: l.id }) }) },
+            l.status !== "converted" && {
+              label: "Supprimer",
+              icon: <Trash2 />,
+              danger: true,
+              separatorBefore: true,
+              onSelect: () => confirm({ title: "Supprimer ce prospect ?", description: `« ${l.company} » sera supprimé.`, confirmLabel: "Supprimer", action: () => run(C.deleteLead, { id: l.id }) }),
+            },
           ]}
         />
       ),
@@ -155,13 +172,15 @@ function Interactions({ activities }: { activities: SalesActivity[] }) {
     <div className="mt-6">
       <h3 className="mb-2 text-sm font-medium">Historique des interactions ({activities.length})</h3>
       <ul className="space-y-1.5 text-xs">
-        {[...activities].sort((a, b) => b.date.localeCompare(a.date)).map((a) => (
-          <li key={a.id} className="flex gap-2">
-            <Badge tone={a.done ? "neutral" : "info"}>{ACTIVITY_TYPE[a.type]}</Badge>
-            <span className="text-muted">{formatDateTime(a.date)}</span>
-            <span className="truncate text-fg">{a.subject}</span>
-          </li>
-        ))}
+        {[...activities]
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .map((a) => (
+            <li key={a.id} className="flex gap-2">
+              <Badge tone={a.done ? "neutral" : "info"}>{ACTIVITY_TYPE[a.type]}</Badge>
+              <span className="text-muted">{formatDateTime(a.date)}</span>
+              <span className="truncate text-fg">{a.subject}</span>
+            </li>
+          ))}
         {!activities.length ? <li className="text-muted">Aucune interaction.</li> : null}
       </ul>
     </div>
@@ -234,7 +253,17 @@ export function QuoteDetail({ id }: { id: string }) {
   const { confirm, dialog } = useConfirm();
   const [edit, setEdit] = React.useState(false);
   const quote = data.quotes.find((q) => q.id === id);
-  if (!quote) return <ErrorState title="Devis introuvable" action={<Button asChild><Link href="/crm/devis">Retour aux devis</Link></Button>} />;
+  if (!quote)
+    return (
+      <ErrorState
+        title="Devis introuvable"
+        action={
+          <Button asChild>
+            <Link href="/crm/devis">Retour aux devis</Link>
+          </Button>
+        }
+      />
+    );
   const client = data.clients.find((c) => c.id === quote.clientId);
   const t = documentTotals(quote.items);
   const contact = data.contacts.find((c) => c.clientId === quote.clientId && c.isPrimary);
@@ -294,7 +323,20 @@ export function QuoteDetail({ id }: { id: string }) {
               <Printer /> Imprimer
             </Button>
             {quote.status === "draft" ? (
-              <Button variant="ghost" onClick={() => confirm({ title: "Supprimer ce devis ?", description: "Le brouillon sera supprimé.", confirmLabel: "Supprimer", action: () => { const r = run(C.deleteQuote, { id }); if (r.ok) router.push("/crm/devis"); } })}>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  confirm({
+                    title: "Supprimer ce devis ?",
+                    description: "Le brouillon sera supprimé.",
+                    confirmLabel: "Supprimer",
+                    action: () => {
+                      const r = run(C.deleteQuote, { id });
+                      if (r.ok) router.push("/crm/devis");
+                    },
+                  })
+                }
+              >
                 <Trash2 />
               </Button>
             ) : null}
@@ -324,7 +366,11 @@ export function QuoteDetail({ id }: { id: string }) {
           <div>
             <p className="text-xs uppercase tracking-wide text-subtle">Destinataire</p>
             <p className="text-sm font-medium text-fg">{client?.name}</p>
-            {contact ? <p className="text-xs text-muted">À l&apos;attention de {contact.firstName} {contact.lastName}, {contact.jobTitle}</p> : null}
+            {contact ? (
+              <p className="text-xs text-muted">
+                À l&apos;attention de {contact.firstName} {contact.lastName}, {contact.jobTitle}
+              </p>
+            ) : null}
             <p className="text-xs text-muted">{client?.city}</p>
           </div>
           <table className="w-full text-sm">
@@ -395,20 +441,44 @@ export function ActivitiesPage() {
     return null;
   };
   const columns: Column<SalesActivity>[] = [
-    { id: "date", header: "Date", cell: (a) => <span className={cn(!a.done && a.date.slice(0, 10) < today && "text-danger")}>{formatDateTime(a.date)}</span>, sortValue: (a) => a.date, csv: (a) => a.date },
-    { id: "type", header: "Type", cell: (a) => <Badge tone={a.type === "followup" ? "warning" : "neutral"}>{ACTIVITY_TYPE[a.type]}</Badge>, sortValue: (a) => a.type, csv: (a) => ACTIVITY_TYPE[a.type] },
+    {
+      id: "date",
+      header: "Date",
+      cell: (a) => <span className={cn(!a.done && a.date.slice(0, 10) < today && "text-danger")}>{formatDateTime(a.date)}</span>,
+      sortValue: (a) => a.date,
+      csv: (a) => a.date,
+    },
+    {
+      id: "type",
+      header: "Type",
+      cell: (a) => <Badge tone={a.type === "followup" ? "warning" : "neutral"}>{ACTIVITY_TYPE[a.type]}</Badge>,
+      sortValue: (a) => a.type,
+      csv: (a) => ACTIVITY_TYPE[a.type],
+    },
     { id: "subject", header: "Objet", cell: (a) => <span className="text-fg">{a.subject}</span>, sortValue: (a) => a.subject, csv: (a) => a.subject },
     {
       id: "link",
       header: "Lié à",
       cell: (a) => {
         const l = linked(a);
-        return l ? <Link href={l.href} className="text-accent hover:underline">{l.label}</Link> : "—";
+        return l ? (
+          <Link href={l.href} className="text-accent hover:underline">
+            {l.label}
+          </Link>
+        ) : (
+          "—"
+        );
       },
       csv: (a) => linked(a)?.label ?? "",
       hideBelow: "md",
     },
-    { id: "state", header: "État", cell: (a) => (a.done ? <Badge tone="success">Réalisée</Badge> : <Badge tone="info">Planifiée</Badge>), sortValue: (a) => (a.done ? 1 : 0), csv: (a) => (a.done ? "Réalisée" : "Planifiée") },
+    {
+      id: "state",
+      header: "État",
+      cell: (a) => (a.done ? <Badge tone="success">Réalisée</Badge> : <Badge tone="info">Planifiée</Badge>),
+      sortValue: (a) => (a.done ? 1 : 0),
+      csv: (a) => (a.done ? "Réalisée" : "Planifiée"),
+    },
     {
       id: "actions",
       header: "",
@@ -417,7 +487,12 @@ export function ActivitiesPage() {
         <RowActions
           actions={[
             !a.done && { label: "Marquer comme réalisée", icon: <CheckCircle2 />, onSelect: () => run(C.completeSalesActivity, { id: a.id }) },
-            { label: "Supprimer", icon: <Trash2 />, danger: true, onSelect: () => confirm({ title: "Supprimer cette activité ?", description: a.subject, confirmLabel: "Supprimer", action: () => run(C.deleteSalesActivity, { id: a.id }) }) },
+            {
+              label: "Supprimer",
+              icon: <Trash2 />,
+              danger: true,
+              onSelect: () => confirm({ title: "Supprimer cette activité ?", description: a.subject, confirmLabel: "Supprimer", action: () => run(C.deleteSalesActivity, { id: a.id }) }),
+            },
           ]}
         />
       ),
@@ -436,7 +511,10 @@ export function ActivitiesPage() {
         }
       />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="Activités réalisées (30 j)" value={data.salesActivities.filter((a) => a.done && a.date.slice(0, 10) >= new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)).length} />
+        <MetricCard
+          label="Activités réalisées (30 j)"
+          value={data.salesActivities.filter((a) => a.done && a.date.slice(0, 10) >= new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)).length}
+        />
         <MetricCard label="Planifiées" value={data.salesActivities.filter((a) => !a.done).length} />
         <MetricCard label="Rappels en retard" value={data.salesActivities.filter((a) => !a.done && a.date.slice(0, 10) < today).length} tone="danger" />
         <MetricCard label="Relances consignées" value={data.salesActivities.filter((a) => a.type === "followup").length} />
@@ -453,7 +531,16 @@ export function ActivitiesPage() {
             onReset={f.reset}
             filters={[
               { id: "type", label: "Type", value: f.values.type, onChange: f.set("type"), options: types.map((t) => ({ value: t, label: ACTIVITY_TYPE[t] })) },
-              { id: "done", label: "État", value: f.values.done, onChange: f.set("done"), options: [{ value: "done", label: "Réalisées" }, { value: "planned", label: "Planifiées" }] },
+              {
+                id: "done",
+                label: "État",
+                value: f.values.done,
+                onChange: f.set("done"),
+                options: [
+                  { value: "done", label: "Réalisées" },
+                  { value: "planned", label: "Planifiées" },
+                ],
+              },
             ]}
           />
         }

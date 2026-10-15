@@ -61,7 +61,14 @@ export function TeamPage() {
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <MetricCard label="Effectif actif" value={active.length} />
-        <MetricCard label="Coût de personnel estimé" value={`${formatEUR(active.reduce((s, e) => s + e.monthlyCost, 0), { round: true })} / mois`} hint="Somme des coûts mensuels chargés estimés (données de simulation)." />
+        <MetricCard
+          label="Coût de personnel estimé"
+          value={`${formatEUR(
+            active.reduce((s, e) => s + e.monthlyCost, 0),
+            { round: true },
+          )} / mois`}
+          hint="Somme des coûts mensuels chargés estimés (données de simulation)."
+        />
         <MetricCard label="Tâches ouvertes" value={stats.reduce((s, x) => s + x.open, 0)} />
         <MetricCard label="Tâches terminées" value={stats.reduce((s, x) => s + x.done, 0)} tone="success" />
         <MetricCard label="Tâches en retard" value={stats.reduce((s, x) => s + x.late, 0)} tone="danger" />
@@ -74,7 +81,9 @@ export function TeamPage() {
               <Card key={e.id} className={cn(focus === e.id && "border-accent")}>
                 <CardContent className="space-y-3 pt-4">
                   <div className="flex items-start gap-3">
-                    <div className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent/30 to-violet/30 text-sm font-semibold">{initials(`${e.firstName} ${e.lastName}`)}</div>
+                    <div className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-accent/30 to-violet/30 text-sm font-semibold">
+                      {initials(`${e.firstName} ${e.lastName}`)}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-fg">
                         {e.firstName} {e.lastName}
@@ -111,7 +120,9 @@ export function TeamPage() {
                   <div>
                     <div className="mb-1 flex justify-between text-[11px] text-muted">
                       <span>Charge à 14 jours</span>
-                      <span className={cn("tabular", remaining > threshold && "text-warning")}>{formatNumber(remaining)} h / {threshold} h</span>
+                      <span className={cn("tabular", remaining > threshold && "text-warning")}>
+                        {formatNumber(remaining)} h / {threshold} h
+                      </span>
                     </div>
                     <ProgressBar value={(remaining / threshold) * 100} tone={remaining > threshold ? "warning" : "accent"} label={`Charge de ${e.firstName}`} />
                   </div>

@@ -57,7 +57,10 @@ describe("jeu de données de démonstration", () => {
   });
 
   it("les numéros de facture émises sont uniques et continus", () => {
-    const nums = d.invoices.filter((i) => i.baseStatus !== "draft").map((i) => Number(i.number.slice(-4))).sort((a, b) => a - b);
+    const nums = d.invoices
+      .filter((i) => i.baseStatus !== "draft")
+      .map((i) => Number(i.number.slice(-4)))
+      .sort((a, b) => a - b);
     expect(nums).toEqual(nums.map((_, i) => i + 1));
   });
 

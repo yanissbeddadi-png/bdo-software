@@ -72,7 +72,14 @@ export function MetricCard({
   className?: string;
 }) {
   const body = (
-    <div className={cn("group flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-colors animate-rise", href && "hover:border-border-strong hover:bg-[color-mix(in_srgb,var(--card)_85%,var(--interactive))]", tone === "danger" && "border-danger/30", className)}>
+    <div
+      className={cn(
+        "group flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 transition-colors animate-rise",
+        href && "hover:border-border-strong hover:bg-[color-mix(in_srgb,var(--card)_85%,var(--interactive))]",
+        tone === "danger" && "border-danger/30",
+        className,
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
           {icon ? <span className="text-subtle [&_svg]:size-3.5">{icon}</span> : null}
@@ -86,7 +93,9 @@ export function MetricCard({
           </Tooltip>
         ) : null}
       </div>
-      <div className={cn("text-2xl font-semibold tracking-tight tabular", tone === "danger" ? "text-danger" : tone === "success" ? "text-success" : tone === "gold" ? "text-gold" : "text-fg")}>{value}</div>
+      <div className={cn("text-2xl font-semibold tracking-tight tabular", tone === "danger" ? "text-danger" : tone === "success" ? "text-success" : tone === "gold" ? "text-gold" : "text-fg")}>
+        {value}
+      </div>
       {footer ? <div className="mt-auto">{footer}</div> : null}
     </div>
   );

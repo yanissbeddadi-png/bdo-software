@@ -169,9 +169,7 @@ export function revenueByProduct(data: AppData, summaries: InvoiceSummary[], per
       totals.set(key, (totals.get(key) ?? 0) + lineHT(item));
     }
   }
-  return [...totals.entries()]
-    .map(([id, value]) => ({ id, label: products.get(id)?.name ?? "Lignes libres", value }))
-    .sort((a, b) => b.value - a.value);
+  return [...totals.entries()].map(([id, value]) => ({ id, label: products.get(id)?.name ?? "Lignes libres", value })).sort((a, b) => b.value - a.value);
 }
 
 export function revenueByClient(data: AppData, summaries: InvoiceSummary[], period: Period): { id: string; label: string; billed: Cents; collected: Cents; balance: Cents }[] {
@@ -185,9 +183,7 @@ export function revenueByClient(data: AppData, summaries: InvoiceSummary[], peri
     t.balance += s.balance;
     totals.set(s.invoice.clientId, t);
   }
-  return [...totals.entries()]
-    .map(([id, t]) => ({ id, label: clients.get(id)?.name ?? "Client supprimé", ...t }))
-    .sort((a, b) => b.billed - a.billed);
+  return [...totals.entries()].map(([id, t]) => ({ id, label: clients.get(id)?.name ?? "Client supprimé", ...t })).sort((a, b) => b.billed - a.billed);
 }
 
 export function expensesByCategory(expenses: Expense[], period: Period): { key: ExpenseCategory; label: string; value: Cents }[] {
@@ -196,9 +192,7 @@ export function expensesByCategory(expenses: Expense[], period: Period): { key: 
     if (!inPeriod(e.date, period)) continue;
     totals.set(e.category, (totals.get(e.category) ?? 0) + e.amountHT);
   }
-  return [...totals.entries()]
-    .map(([key, value]) => ({ key, label: EXPENSE_CATEGORY_LABELS[key], value }))
-    .sort((a, b) => b.value - a.value);
+  return [...totals.entries()].map(([key, value]) => ({ key, label: EXPENSE_CATEGORY_LABELS[key], value })).sort((a, b) => b.value - a.value);
 }
 
 /** Échéancier des créances par ancienneté de retard. */

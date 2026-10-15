@@ -101,7 +101,11 @@ export function DataTable<T extends { id: string }>({
 
   const exportCsv = () => {
     const cols = columns.filter((c) => c.csv);
-    downloadCSV(exportName ?? "export", cols.map((c) => c.header), sorted.map((r) => cols.map((c) => c.csv!(r))));
+    downloadCSV(
+      exportName ?? "export",
+      cols.map((c) => c.header),
+      sorted.map((r) => cols.map((c) => c.csv!(r))),
+    );
   };
 
   const hide = { sm: "hidden sm:table-cell", md: "hidden md:table-cell", lg: "hidden lg:table-cell" };
@@ -132,7 +136,11 @@ export function DataTable<T extends { id: string }>({
         ) : null}
       </div>
       {sorted.length === 0 ? (
-        <EmptyState title={rows.length ? "Aucun résultat pour ces critères" : emptyTitle} description={rows.length ? "Modifiez la recherche ou les filtres." : emptyDescription} action={rows.length ? undefined : emptyAction} />
+        <EmptyState
+          title={rows.length ? "Aucun résultat pour ces critères" : emptyTitle}
+          description={rows.length ? "Modifiez la recherche ou les filtres." : emptyDescription}
+          action={rows.length ? undefined : emptyAction}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full text-sm">
@@ -140,9 +148,24 @@ export function DataTable<T extends { id: string }>({
             <thead>
               <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-subtle">
                 {columns.map((c) => (
-                  <th key={c.id} scope="col" className={cn("px-3 py-2.5 font-medium whitespace-nowrap", c.align === "right" && "text-right", c.align === "center" && "text-center", c.hideBelow && hide[c.hideBelow], c.className)} aria-sort={sort?.id === c.id ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
+                  <th
+                    key={c.id}
+                    scope="col"
+                    className={cn(
+                      "px-3 py-2.5 font-medium whitespace-nowrap",
+                      c.align === "right" && "text-right",
+                      c.align === "center" && "text-center",
+                      c.hideBelow && hide[c.hideBelow],
+                      c.className,
+                    )}
+                    aria-sort={sort?.id === c.id ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}
+                  >
                     {c.sortValue ? (
-                      <button type="button" onClick={() => toggleSort(c.id)} className={cn("inline-flex items-center gap-1 uppercase hover:text-fg cursor-pointer", c.align === "right" && "flex-row-reverse")}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(c.id)}
+                        className={cn("inline-flex items-center gap-1 uppercase hover:text-fg cursor-pointer", c.align === "right" && "flex-row-reverse")}
+                      >
                         {c.header}
                         {sort?.id === c.id ? sort.dir === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" /> : <ChevronsUpDown className="size-3 opacity-50" />}
                       </button>
@@ -172,10 +195,18 @@ export function DataTable<T extends { id: string }>({
                       else onRowClick?.(row);
                     }}
                     tabIndex={clickable ? 0 : undefined}
-                    className={cn("border-b border-border/60 last:border-0 transition-colors", clickable && "cursor-pointer hover:bg-interactive/60 focus-visible:bg-interactive/60", highlightId === row.id && "bg-accent/10", rowClassName?.(row))}
+                    className={cn(
+                      "border-b border-border/60 last:border-0 transition-colors",
+                      clickable && "cursor-pointer hover:bg-interactive/60 focus-visible:bg-interactive/60",
+                      highlightId === row.id && "bg-accent/10",
+                      rowClassName?.(row),
+                    )}
                   >
                     {columns.map((c) => (
-                      <td key={c.id} className={cn("px-3 py-2.5 align-middle", c.align === "right" && "text-right tabular", c.align === "center" && "text-center", c.hideBelow && hide[c.hideBelow], c.className)}>
+                      <td
+                        key={c.id}
+                        className={cn("px-3 py-2.5 align-middle", c.align === "right" && "text-right tabular", c.align === "center" && "text-center", c.hideBelow && hide[c.hideBelow], c.className)}
+                      >
                         {c.cell(row)}
                       </td>
                     ))}

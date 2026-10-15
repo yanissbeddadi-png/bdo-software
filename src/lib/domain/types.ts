@@ -207,15 +207,7 @@ export interface Lead {
 /* Ventes                                                              */
 /* ------------------------------------------------------------------ */
 
-export type OpportunityStage =
-  | "new"
-  | "contacted"
-  | "qualification"
-  | "meeting"
-  | "proposal"
-  | "negotiation"
-  | "won"
-  | "lost";
+export type OpportunityStage = "new" | "contacted" | "qualification" | "meeting" | "proposal" | "negotiation" | "won" | "lost";
 
 export interface Opportunity {
   id: ID;
@@ -342,17 +334,7 @@ export interface Payment {
   createdAt: ISODateTime;
 }
 
-export type ExpenseCategory =
-  | "salaries"
-  | "software"
-  | "hosting"
-  | "marketing"
-  | "contractors"
-  | "hardware"
-  | "office"
-  | "travel"
-  | "bank_fees"
-  | "misc";
+export type ExpenseCategory = "salaries" | "software" | "hosting" | "marketing" | "contractors" | "hardware" | "office" | "travel" | "bank_fees" | "misc";
 
 export interface Expense {
   id: ID;
@@ -495,17 +477,7 @@ export type GoalType = "financial" | "commercial" | "operational" | "customer" |
 
 /** Indicateurs calculables automatiquement à partir des données métier. */
 export type GoalMetric =
-  | "manual"
-  | "mrr"
-  | "overdue_receivables"
-  | "won_opportunities"
-  | "projects_completed"
-  | "avg_project_margin"
-  | "late_tasks"
-  | "billed_revenue"
-  | "active_clients"
-  | "new_leads"
-  | "new_subscriptions";
+  "manual" | "mrr" | "overdue_receivables" | "won_opportunities" | "projects_completed" | "avg_project_margin" | "late_tasks" | "billed_revenue" | "active_clients" | "new_leads" | "new_subscriptions";
 
 export interface KeyResult {
   id: ID;

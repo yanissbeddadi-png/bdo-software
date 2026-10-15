@@ -1,17 +1,4 @@
-import type {
-  ActivityEvent,
-  AppData,
-  AppNotification,
-  EntityRef,
-  ISODate,
-  ISODateTime,
-  Mission,
-  ProgressionEntry,
-  ProgressionKind,
-  TaskComplexity,
-  XpSource,
-  XpTransaction,
-} from "@/lib/domain/types";
+import type { ActivityEvent, AppData, AppNotification, EntityRef, ISODate, ISODateTime, Mission, ProgressionEntry, ProgressionKind, TaskComplexity, XpSource, XpTransaction } from "@/lib/domain/types";
 import { newId } from "@/lib/domain/ids";
 import { summarizeInvoices, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { evaluateGoal } from "@/lib/calculations/goals";
@@ -139,7 +126,15 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
   if (g.enabled) {
     for (const t of data.tasks) {
       if (t.status !== "done" || !t.completedAt) continue;
-      candidates.push({ key: `task:${t.id}`, amount: rewards[TASK_RULE[t.complexity]], reason: `Tâche terminée : ${t.title}`, source: "task", ref: { type: "task", id: t.id }, at: t.completedAt, capGroup: { name: "task", limit: DAILY_TASK_XP_CAP } });
+      candidates.push({
+        key: `task:${t.id}`,
+        amount: rewards[TASK_RULE[t.complexity]],
+        reason: `Tâche terminée : ${t.title}`,
+        source: "task",
+        ref: { type: "task", id: t.id },
+        at: t.completedAt,
+        capGroup: { name: "task", limit: DAILY_TASK_XP_CAP },
+      });
     }
     for (const p of data.projects) {
       if (p.status !== "done" || !p.completedAt) continue;
@@ -147,7 +142,14 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
     }
     for (const o of data.opportunities) {
       if (o.stage !== "won" || !o.closedAt) continue;
-      candidates.push({ key: `opportunity:${o.id}`, amount: rewards.opportunity_won, reason: `Opportunité gagnée : ${o.name}`, source: "opportunity", ref: { type: "opportunity", id: o.id }, at: o.closedAt });
+      candidates.push({
+        key: `opportunity:${o.id}`,
+        amount: rewards.opportunity_won,
+        reason: `Opportunité gagnée : ${o.name}`,
+        source: "opportunity",
+        ref: { type: "opportunity", id: o.id },
+        at: o.closedAt,
+      });
     }
     const firstValidation = new Map<string, ISODateTime>();
     for (const s of summaries) {
@@ -157,7 +159,15 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
       if (!prev || at < prev) firstValidation.set(s.invoice.clientId, at);
       // Les échéances d'abonnement (flux automatique) ne rapportent pas d'XP.
       if (s.invoice.subscriptionId) continue;
-      candidates.push({ key: `invoice:${s.invoice.id}`, amount: rewards.invoice_paid, reason: `Facture intégralement payée : ${s.invoice.number}`, source: "invoice", ref: { type: "invoice", id: s.invoice.id }, at, capGroup: { name: "invoice", limit: g.dailyInvoiceXpCap } });
+      candidates.push({
+        key: `invoice:${s.invoice.id}`,
+        amount: rewards.invoice_paid,
+        reason: `Facture intégralement payée : ${s.invoice.number}`,
+        source: "invoice",
+        ref: { type: "invoice", id: s.invoice.id },
+        at,
+        capGroup: { name: "invoice", limit: g.dailyInvoiceXpCap },
+      });
     }
     for (const sub of data.subscriptions) {
       if (sub.startDate > today) continue;
@@ -168,13 +178,29 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
     const clientNames = new Map(data.clients.map((c) => [c.id, c.name]));
     for (const [clientId, at] of firstValidation) {
       if (!clientNames.has(clientId)) continue;
-      candidates.push({ key: `client:${clientId}`, amount: rewards.client_validated, reason: `Nouveau client validé : ${clientNames.get(clientId)}`, source: "client", ref: { type: "client", id: clientId }, at });
+      candidates.push({
+        key: `client:${clientId}`,
+        amount: rewards.client_validated,
+        reason: `Nouveau client validé : ${clientNames.get(clientId)}`,
+        source: "client",
+        ref: { type: "client", id: clientId },
+        at,
+      });
     }
     for (const goal of data.goals) {
       if (goal.archived) continue;
       const ev = evaluateGoal(goal, data, today, summaries);
-      if (ev.progress >= 50) candidates.push({ key: `goal:${goal.id}:50`, amount: rewards.goal_intermediate, reason: `Objectif à mi-parcours : ${goal.title}`, source: "goal", ref: { type: "goal", id: goal.id }, at: now });
-      if (ev.progress >= 100) candidates.push({ key: `goal:${goal.id}:100`, amount: rewards.goal_major, reason: `Objectif atteint : ${goal.title}`, source: "goal", ref: { type: "goal", id: goal.id }, at: now });
+      if (ev.progress >= 50)
+        candidates.push({
+          key: `goal:${goal.id}:50`,
+          amount: rewards.goal_intermediate,
+          reason: `Objectif à mi-parcours : ${goal.title}`,
+          source: "goal",
+          ref: { type: "goal", id: goal.id },
+          at: now,
+        });
+      if (ev.progress >= 100)
+        candidates.push({ key: `goal:${goal.id}:100`, amount: rewards.goal_major, reason: `Objectif atteint : ${goal.title}`, source: "goal", ref: { type: "goal", id: goal.id }, at: now });
     }
     for (const m of missions) {
       if (m.status !== "done" || !m.completedAt) continue;
@@ -206,7 +232,14 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
       log("achievement", `achievement:${def.id}`, `Succès débloqué : ${def.name} (${RARITY_LABELS[def.rarity]})`, { type: "achievement", id: def.id });
       notify(`achievement:${def.id}`, `Succès débloqué : ${def.name}`, def.description, { type: "achievement", id: def.id });
       if (!silent) activity.push({ id: newId("act"), at: now, type: "achievement_unlocked", description: `Succès « ${def.name} » débloqué`, ref: { type: "achievement", id: def.id } });
-      candidates.push({ key: `achievement:${def.id}`, amount: rewards[RARITY_XP_RULE[def.rarity]], reason: `Succès débloqué : ${def.name}`, source: "achievement", ref: { type: "achievement", id: def.id }, at: now });
+      candidates.push({
+        key: `achievement:${def.id}`,
+        amount: rewards[RARITY_XP_RULE[def.rarity]],
+        reason: `Succès débloqué : ${def.name}`,
+        source: "achievement",
+        ref: { type: "achievement", id: def.id },
+        at: now,
+      });
     }
   }
 

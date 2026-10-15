@@ -71,7 +71,11 @@ function useClientStats() {
       const st = get(sub.clientId);
       st.activeContracts++;
     }
-    for (const c of data.clients) get(c.id).mrr = computeMRR(data.subscriptions.filter((s) => s.clientId === c.id), today);
+    for (const c of data.clients)
+      get(c.id).mrr = computeMRR(
+        data.subscriptions.filter((s) => s.clientId === c.id),
+        today,
+      );
     for (const a of data.salesActivities) {
       if (!a.done || !a.clientId) continue;
       const st = get(a.clientId);
@@ -96,13 +100,49 @@ export function ClientsPage() {
     { id: "name", header: "Client", cell: (c) => <span className="font-medium text-fg">{c.name}</span>, sortValue: (c) => c.name, csv: (c) => c.name },
     { id: "sector", header: "Secteur", cell: (c) => c.sector, sortValue: (c) => c.sector, csv: (c) => c.sector, hideBelow: "lg" },
     { id: "status", header: "Statut", cell: (c) => <StatusBadge meta={CLIENT_STATUS[c.status]} />, sortValue: (c) => c.status, csv: (c) => CLIENT_STATUS[c.status].label },
-    { id: "contact", header: "Contact principal", cell: (c) => (c.primary ? `${c.primary.firstName} ${c.primary.lastName}` : <span className="text-subtle">—</span>), csv: (c) => (c.primary ? `${c.primary.firstName} ${c.primary.lastName}` : ""), hideBelow: "lg" },
+    {
+      id: "contact",
+      header: "Contact principal",
+      cell: (c) => (c.primary ? `${c.primary.firstName} ${c.primary.lastName}` : <span className="text-subtle">—</span>),
+      csv: (c) => (c.primary ? `${c.primary.firstName} ${c.primary.lastName}` : ""),
+      hideBelow: "lg",
+    },
     { id: "billed", header: "Facturé HT", align: "right", cell: (c) => formatEUR(c.stats.billed, { round: true }), sortValue: (c) => c.stats.billed, csv: (c) => csvMoney(c.stats.billed) },
-    { id: "collected", header: "Encaissé", align: "right", cell: (c) => formatEUR(c.stats.collected, { round: true }), sortValue: (c) => c.stats.collected, csv: (c) => csvMoney(c.stats.collected), hideBelow: "md" },
-    { id: "balance", header: "Impayé", align: "right", cell: (c) => <span className={c.stats.overdue > 0 ? "text-danger" : c.stats.balance ? "text-fg" : "text-subtle"}>{formatEUR(c.stats.balance, { round: true })}</span>, sortValue: (c) => c.stats.balance, csv: (c) => csvMoney(c.stats.balance) },
+    {
+      id: "collected",
+      header: "Encaissé",
+      align: "right",
+      cell: (c) => formatEUR(c.stats.collected, { round: true }),
+      sortValue: (c) => c.stats.collected,
+      csv: (c) => csvMoney(c.stats.collected),
+      hideBelow: "md",
+    },
+    {
+      id: "balance",
+      header: "Impayé",
+      align: "right",
+      cell: (c) => <span className={c.stats.overdue > 0 ? "text-danger" : c.stats.balance ? "text-fg" : "text-subtle"}>{formatEUR(c.stats.balance, { round: true })}</span>,
+      sortValue: (c) => c.stats.balance,
+      csv: (c) => csvMoney(c.stats.balance),
+    },
     { id: "projects", header: "Projets", align: "right", cell: (c) => c.stats.projects, sortValue: (c) => c.stats.projects, csv: (c) => c.stats.projects, hideBelow: "md" },
-    { id: "contracts", header: "Contrats actifs", align: "right", cell: (c) => c.stats.activeContracts, sortValue: (c) => c.stats.activeContracts, csv: (c) => c.stats.activeContracts, hideBelow: "lg" },
-    { id: "last", header: "Dernière interaction", cell: (c) => formatDate(c.stats.lastInteraction), sortValue: (c) => c.stats.lastInteraction ?? "", csv: (c) => c.stats.lastInteraction ?? "", hideBelow: "lg" },
+    {
+      id: "contracts",
+      header: "Contrats actifs",
+      align: "right",
+      cell: (c) => c.stats.activeContracts,
+      sortValue: (c) => c.stats.activeContracts,
+      csv: (c) => c.stats.activeContracts,
+      hideBelow: "lg",
+    },
+    {
+      id: "last",
+      header: "Dernière interaction",
+      cell: (c) => formatDate(c.stats.lastInteraction),
+      sortValue: (c) => c.stats.lastInteraction ?? "",
+      csv: (c) => c.stats.lastInteraction ?? "",
+      hideBelow: "lg",
+    },
   ];
   return (
     <div>
@@ -118,8 +158,21 @@ export function ClientsPage() {
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="Clients actifs" value={data.clients.filter((c) => c.status === "active").length} />
         <MetricCard label="Clients avec contrat récurrent" value={new Set(data.subscriptions.filter((s) => s.status === "active").map((s) => s.clientId)).size} />
-        <MetricCard label="Impayés clients" value={formatEUR([...stats.values()].reduce((s, x) => s + x.balance, 0), { round: true })} />
-        <MetricCard label="Satisfaction moyenne" value={(() => { const v = data.clients.filter((c) => c.satisfaction).map((c) => c.satisfaction!); return v.length ? `${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1).replace(".", ",")} / 5` : "—"; })()} hint="Donnée déclarative de démonstration." />
+        <MetricCard
+          label="Impayés clients"
+          value={formatEUR(
+            [...stats.values()].reduce((s, x) => s + x.balance, 0),
+            { round: true },
+          )}
+        />
+        <MetricCard
+          label="Satisfaction moyenne"
+          value={(() => {
+            const v = data.clients.filter((c) => c.satisfaction).map((c) => c.satisfaction!);
+            return v.length ? `${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1).replace(".", ",")} / 5` : "—";
+          })()}
+          hint="Donnée déclarative de démonstration."
+        />
       </div>
       <DataTable
         caption="Liste des clients"
@@ -133,7 +186,13 @@ export function ClientsPage() {
           <FilterBar
             onReset={f.reset}
             filters={[
-              { id: "status", label: "Statut", value: f.values.status, onChange: f.set("status"), options: (Object.keys(CLIENT_STATUS) as ClientStatus[]).map((s) => ({ value: s, label: CLIENT_STATUS[s].label })) },
+              {
+                id: "status",
+                label: "Statut",
+                value: f.values.status,
+                onChange: f.set("status"),
+                options: (Object.keys(CLIENT_STATUS) as ClientStatus[]).map((s) => ({ value: s, label: CLIENT_STATUS[s].label })),
+              },
               { id: "sector", label: "Secteur", value: f.values.sector, onChange: f.set("sector"), options: sectors.map((s) => ({ value: s, label: s })) },
             ]}
           />
@@ -158,7 +217,17 @@ export function ClientDetail({ id }: { id: string }) {
   const [doc, setDoc] = React.useState({ name: "", kind: "Contrat" });
 
   const client = data.clients.find((c) => c.id === id);
-  if (!client || !stats) return <ErrorState title="Client introuvable" action={<Button asChild><Link href="/clients">Retour aux clients</Link></Button>} />;
+  if (!client || !stats)
+    return (
+      <ErrorState
+        title="Client introuvable"
+        action={
+          <Button asChild>
+            <Link href="/clients">Retour aux clients</Link>
+          </Button>
+        }
+      />
+    );
   const contacts = data.contacts.filter((c) => c.clientId === id);
   const opps = data.opportunities.filter((o) => o.clientId === id);
   const quotes = data.quotes.filter((q) => q.clientId === id);
@@ -254,7 +323,12 @@ export function ClientDetail({ id }: { id: string }) {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <MetricCard label="CA facturé HT" value={formatEUR(stats.billed)} hint="Factures émises, hors annulations." />
             <MetricCard label="Encaissé" value={formatEUR(stats.collected)} />
-            <MetricCard label="Solde impayé" value={formatEUR(stats.balance)} tone={stats.overdue ? "danger" : "default"} footer={stats.overdue ? <span className="text-[11px] text-danger">dont {formatEUR(stats.overdue)} échus</span> : null} />
+            <MetricCard
+              label="Solde impayé"
+              value={formatEUR(stats.balance)}
+              tone={stats.overdue ? "danger" : "default"}
+              footer={stats.overdue ? <span className="text-[11px] text-danger">dont {formatEUR(stats.overdue)} échus</span> : null}
+            />
             <MetricCard label="MRR du client" value={formatEUR(stats.mrr)} hint="Contrats récurrents actifs ramenés au mois." />
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
@@ -273,7 +347,12 @@ export function ClientDetail({ id }: { id: string }) {
                 </p>
                 <p>
                   <span className="text-muted">Opportunités ouvertes : </span>
-                  {opps.filter(isOpen).length} ({formatEUR(opps.filter(isOpen).reduce((s, o) => s + o.amount, 0), { round: true })})
+                  {opps.filter(isOpen).length} (
+                  {formatEUR(
+                    opps.filter(isOpen).reduce((s, o) => s + o.amount, 0),
+                    { round: true },
+                  )}
+                  )
                 </p>
                 <p>
                   <span className="text-muted">Dernière interaction : </span>
@@ -321,7 +400,13 @@ export function ClientDetail({ id }: { id: string }) {
                       <Button size="sm" variant="ghost" onClick={() => setContactEdit(c)}>
                         <Pencil /> Modifier
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => confirm({ title: "Supprimer ce contact ?", description: `${c.firstName} ${c.lastName}`, confirmLabel: "Supprimer", action: () => run(C.deleteContact, { id: c.id }) })}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          confirm({ title: "Supprimer ce contact ?", description: `${c.firstName} ${c.lastName}`, confirmLabel: "Supprimer", action: () => run(C.deleteContact, { id: c.id }) })
+                        }
+                      >
                         <Trash2 />
                       </Button>
                     </div>
@@ -335,19 +420,61 @@ export function ClientDetail({ id }: { id: string }) {
         </TabsContent>
 
         <TabsContent value="opportunities">
-          <SimpleList empty="Aucune opportunité" items={opps.map((o) => ({ id: o.id, href: `/crm?focus=${o.id}`, title: o.name, meta: `${STAGE_LABELS[o.stage]} · ${o.probability} %`, value: formatEUR(o.amount, { round: true }) }))} />
+          <SimpleList
+            empty="Aucune opportunité"
+            items={opps.map((o) => ({ id: o.id, href: `/crm?focus=${o.id}`, title: o.name, meta: `${STAGE_LABELS[o.stage]} · ${o.probability} %`, value: formatEUR(o.amount, { round: true }) }))}
+          />
         </TabsContent>
         <TabsContent value="quotes">
-          <SimpleList empty="Aucun devis" items={quotes.map((q) => ({ id: q.id, href: `/crm/devis/${q.id}`, title: q.number, meta: formatDate(q.issueDate), badge: QUOTE_STATUS[q.status], value: formatEUR(documentTotals(q.items).totalHT) }))} />
+          <SimpleList
+            empty="Aucun devis"
+            items={quotes.map((q) => ({
+              id: q.id,
+              href: `/crm/devis/${q.id}`,
+              title: q.number,
+              meta: formatDate(q.issueDate),
+              badge: QUOTE_STATUS[q.status],
+              value: formatEUR(documentTotals(q.items).totalHT),
+            }))}
+          />
         </TabsContent>
         <TabsContent value="invoices">
-          <SimpleList empty="Aucune facture" items={invoices.map((s: InvoiceSummary) => ({ id: s.invoice.id, href: `/finances/factures/${s.invoice.id}`, title: s.invoice.number, meta: `${formatDate(s.invoice.issueDate)} · échéance ${formatDate(s.invoice.dueDate)} · solde ${formatEUR(s.balance)}`, badge: INVOICE_STATUS[s.status], value: formatEUR(s.totalTTC) }))} />
+          <SimpleList
+            empty="Aucune facture"
+            items={invoices.map((s: InvoiceSummary) => ({
+              id: s.invoice.id,
+              href: `/finances/factures/${s.invoice.id}`,
+              title: s.invoice.number,
+              meta: `${formatDate(s.invoice.issueDate)} · échéance ${formatDate(s.invoice.dueDate)} · solde ${formatEUR(s.balance)}`,
+              badge: INVOICE_STATUS[s.status],
+              value: formatEUR(s.totalTTC),
+            }))}
+          />
         </TabsContent>
         <TabsContent value="payments">
-          <SimpleList empty="Aucun paiement" items={payments.map((p) => ({ id: p.id, href: `/finances/factures/${p.invoiceId}`, title: `${formatEUR(p.amount)} · ${PAYMENT_METHOD[p.method]}`, meta: `${formatDate(p.date)} · ${invNumber.get(p.invoiceId)}`, value: "" }))} />
+          <SimpleList
+            empty="Aucun paiement"
+            items={payments.map((p) => ({
+              id: p.id,
+              href: `/finances/factures/${p.invoiceId}`,
+              title: `${formatEUR(p.amount)} · ${PAYMENT_METHOD[p.method]}`,
+              meta: `${formatDate(p.date)} · ${invNumber.get(p.invoiceId)}`,
+              value: "",
+            }))}
+          />
         </TabsContent>
         <TabsContent value="projects">
-          <SimpleList empty="Aucun projet" items={projects.map((p) => ({ id: p.id, href: `/projets/${p.id}`, title: `${p.code} · ${p.name}`, meta: `Échéance ${formatDate(p.dueDate)} · progression ${projectProgress(p, data.tasks)} %`, badge: PROJECT_STATUS[p.status], value: formatEUR(p.salePrice, { round: true }) }))} />
+          <SimpleList
+            empty="Aucun projet"
+            items={projects.map((p) => ({
+              id: p.id,
+              href: `/projets/${p.id}`,
+              title: `${p.code} · ${p.name}`,
+              meta: `Échéance ${formatDate(p.dueDate)} · progression ${projectProgress(p, data.tasks)} %`,
+              badge: PROJECT_STATUS[p.status],
+              value: formatEUR(p.salePrice, { round: true }),
+            }))}
+          />
         </TabsContent>
         <TabsContent value="contracts">
           <div className="mb-3 flex justify-end">
@@ -355,7 +482,17 @@ export function ClientDetail({ id }: { id: string }) {
               <Plus /> Nouveau contrat
             </Button>
           </div>
-          <SimpleList empty="Aucun contrat récurrent" items={subs.map((s) => ({ id: s.id, href: `/finances/abonnements?focus=${s.id}`, title: s.offer, meta: `${PERIODICITY_LABELS[s.periodicity]} · depuis le ${formatDate(s.startDate)}${s.endDate ? ` · fin ${formatDate(s.endDate)}` : ""}`, badge: SUBSCRIPTION_STATUS[s.status], value: `${formatEUR(monthlyValue(s))} / mois` }))} />
+          <SimpleList
+            empty="Aucun contrat récurrent"
+            items={subs.map((s) => ({
+              id: s.id,
+              href: `/finances/abonnements?focus=${s.id}`,
+              title: s.offer,
+              meta: `${PERIODICITY_LABELS[s.periodicity]} · depuis le ${formatDate(s.startDate)}${s.endDate ? ` · fin ${formatDate(s.endDate)}` : ""}`,
+              badge: SUBSCRIPTION_STATUS[s.status],
+              value: `${formatEUR(monthlyValue(s))} / mois`,
+            }))}
+          />
         </TabsContent>
         <TabsContent value="activities">
           <div className="mb-3 flex justify-end">
@@ -424,10 +561,11 @@ export function ClientDetail({ id }: { id: string }) {
         <ClientForm entity={client} onDone={() => setEdit(false)} onCancel={() => setEdit(false)} />
       </FormDialog>
       <FormDialog open={!!contactEdit} onOpenChange={(o) => !o && setContactEdit(null)} title={contactEdit === "new" ? "Nouveau contact" : "Modifier le contact"}>
-        {contactEdit ? <ContactForm entity={contactEdit === "new" ? undefined : contactEdit} defaults={{ clientId: id }} onDone={() => setContactEdit(null)} onCancel={() => setContactEdit(null)} /> : null}
+        {contactEdit ? (
+          <ContactForm entity={contactEdit === "new" ? undefined : contactEdit} defaults={{ clientId: id }} onDone={() => setContactEdit(null)} onCancel={() => setContactEdit(null)} />
+        ) : null}
       </FormDialog>
       {dialog}
-      
     </div>
   );
 }
@@ -453,7 +591,12 @@ export function NotesGrid({ notes }: { notes: { id: string; title: string; body:
                   <Button size="icon-sm" variant="ghost" aria-label="Modifier la note" onClick={() => setEdit(n.id)}>
                     <Pencil />
                   </Button>
-                  <Button size="icon-sm" variant="ghost" aria-label="Supprimer la note" onClick={() => confirm({ title: "Supprimer cette note ?", description: n.title, confirmLabel: "Supprimer", action: () => run(C.deleteNote, { id: n.id }) })}>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Supprimer la note"
+                    onClick={() => confirm({ title: "Supprimer cette note ?", description: n.title, confirmLabel: "Supprimer", action: () => run(C.deleteNote, { id: n.id }) })}
+                  >
                     <Trash2 />
                   </Button>
                 </span>
@@ -493,7 +636,13 @@ export function ActivityList({ activities }: { activities: { id: string; type: k
   );
 }
 
-function SimpleList({ items, empty }: { items: { id: string; href: string; title: string; meta: string; value: string; badge?: { label: string; tone: Parameters<typeof Badge>[0]["tone"] } }[]; empty: string }) {
+function SimpleList({
+  items,
+  empty,
+}: {
+  items: { id: string; href: string; title: string; meta: string; value: string; badge?: { label: string; tone: Parameters<typeof Badge>[0]["tone"] } }[];
+  empty: string;
+}) {
   if (!items.length) return <EmptyState title={empty} />;
   return (
     <Card>
@@ -514,4 +663,3 @@ function SimpleList({ items, empty }: { items: { id: string; href: string; title
     </Card>
   );
 }
-

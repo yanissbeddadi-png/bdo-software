@@ -58,9 +58,7 @@ export function computeGameMetrics(data: AppData, today: ISODate, summaries?: In
   const completeMonths = lastMonthKeys(today, 4).slice(0, 3);
   const monthEnds = completeMonths.map((m) => endOfMonthISO(monthPeriod(m).start));
 
-  const fixed = data.expenses
-    .filter((e) => RECURRING_CATEGORIES.includes(e.category) && completeMonths.includes(e.date.slice(0, 7)))
-    .reduce((s, e) => s + expenseTTC(e), 0);
+  const fixed = data.expenses.filter((e) => RECURRING_CATEGORIES.includes(e.category) && completeMonths.includes(e.date.slice(0, 7))).reduce((s, e) => s + expenseTTC(e), 0);
   const monthlyFixedCosts = Math.round(fixed / 3);
   const cash = cashBalance(data, today);
 
@@ -122,4 +120,3 @@ export function trackNoLateTasks(current: ISODate | null, lateTasks: number, tod
   if (lateTasks > 0) return null;
   return current ?? today;
 }
-

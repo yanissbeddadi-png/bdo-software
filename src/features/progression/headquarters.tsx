@@ -48,19 +48,33 @@ export function Headquarters({ rank }: { rank: number }) {
               aria-label={`${def.name} — ${unlocked ? "débloqué" : `rang ${i + 1} requis`}`}
               className={cn("cursor-default outline-none transition-opacity", unlocked ? "opacity-100" : "opacity-60")}
             >
-              <rect x={b.x} y={y} width={b.w} height={b.h} rx="4" fill={unlocked ? "var(--card)" : "transparent"} stroke={unlocked ? (hover === i ? "var(--gold)" : "var(--border-strong)") : "var(--subtle)"} strokeDasharray={unlocked ? undefined : "4 4"} strokeWidth={hover === i ? 2 : 1} />
-              {unlocked
-                ? Array.from({ length: b.windows }).map((_, k) => {
-                    const cols = Math.max(1, Math.floor(b.w / 22));
-                    const cx = b.x + 8 + (k % cols) * ((b.w - 16) / cols);
-                    const cy = y + 10 + Math.floor(k / cols) * 18;
-                    if (cy > ground - 18) return null;
-                    return <rect key={k} x={cx} y={cy} width={(b.w - 16) / cols - 6} height="9" rx="1.5" fill={(k + i) % 3 === 0 ? "var(--gold)" : "var(--accent)"} opacity={(k + i) % 3 === 0 ? 0.8 : 0.35} />;
-                  })
-                : <g transform={`translate(${b.x + b.w / 2 - 7} ${ground - b.h / 2 - 9})`} fill="none" stroke="var(--subtle)" strokeWidth="1.6">
-                    <rect x="0" y="7" width="14" height="11" rx="2" />
-                    <path d="M3 7V4.5a4 4 0 0 1 8 0V7" />
-                  </g>}
+              <rect
+                x={b.x}
+                y={y}
+                width={b.w}
+                height={b.h}
+                rx="4"
+                fill={unlocked ? "var(--card)" : "transparent"}
+                stroke={unlocked ? (hover === i ? "var(--gold)" : "var(--border-strong)") : "var(--subtle)"}
+                strokeDasharray={unlocked ? undefined : "4 4"}
+                strokeWidth={hover === i ? 2 : 1}
+              />
+              {unlocked ? (
+                Array.from({ length: b.windows }).map((_, k) => {
+                  const cols = Math.max(1, Math.floor(b.w / 22));
+                  const cx = b.x + 8 + (k % cols) * ((b.w - 16) / cols);
+                  const cy = y + 10 + Math.floor(k / cols) * 18;
+                  if (cy > ground - 18) return null;
+                  return (
+                    <rect key={k} x={cx} y={cy} width={(b.w - 16) / cols - 6} height="9" rx="1.5" fill={(k + i) % 3 === 0 ? "var(--gold)" : "var(--accent)"} opacity={(k + i) % 3 === 0 ? 0.8 : 0.35} />
+                  );
+                })
+              ) : (
+                <g transform={`translate(${b.x + b.w / 2 - 7} ${ground - b.h / 2 - 9})`} fill="none" stroke="var(--subtle)" strokeWidth="1.6">
+                  <rect x="0" y="7" width="14" height="11" rx="2" />
+                  <path d="M3 7V4.5a4 4 0 0 1 8 0V7" />
+                </g>
+              )}
               {unlocked ? <rect x={b.x + b.w / 2 - 8} y={ground - 16} width="16" height="16" fill="var(--interactive-hover)" /> : null}
             </g>
           );
@@ -69,7 +83,10 @@ export function Headquarters({ rank }: { rank: number }) {
       <div className="mt-2 min-h-10 text-center text-xs" aria-live="polite">
         {hover !== null ? (
           <p>
-            <span className="font-medium text-fg">{HQ_BUILDINGS[hover]!.name}</span> <span className="text-muted">— {HQ_BUILDINGS[hover]!.description} {hover < rank ? "(débloqué)" : `(rang ${hover + 1} requis)`}</span>
+            <span className="font-medium text-fg">{HQ_BUILDINGS[hover]!.name}</span>{" "}
+            <span className="text-muted">
+              — {HQ_BUILDINGS[hover]!.description} {hover < rank ? "(débloqué)" : `(rang ${hover + 1} requis)`}
+            </span>
           </p>
         ) : (
           <p className="text-subtle">Survolez un bâtiment. Chaque rang d&apos;entreprise débloque un nouveau bâtiment.</p>

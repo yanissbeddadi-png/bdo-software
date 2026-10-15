@@ -61,7 +61,10 @@ export function ProgressionPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Progression" description="Dimension ludique de BDO Software : l'XP récompense des actions métier réellement validées, une seule fois. L'XP n'a aucune valeur monétaire ; aucune fonction de gestion n'est bloquée par le niveau." />
+      <PageHeader
+        title="Progression"
+        description="Dimension ludique de BDO Software : l'XP récompense des actions métier réellement validées, une seule fois. L'XP n'a aucune valeur monétaire ; aucune fonction de gestion n'est bloquée par le niveau."
+      />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="relative overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,color-mix(in_srgb,var(--violet)_16%,transparent),transparent_60%)]" aria-hidden />
@@ -152,13 +155,24 @@ export function ProgressionPage() {
             <section>
               <SectionTitle title="Défis hebdomadaires" description="Missions de la semaine en cours" />
               <div className="space-y-2.5">
-                {weekly.length ? weekly.map((m) => <MissionCard key={m.id} mission={m} today={today} compact action={<MissionActions mission={m} />} />) : <p className="text-sm text-muted">Tous les défis de la semaine sont relevés.</p>}
+                {weekly.length ? (
+                  weekly.map((m) => <MissionCard key={m.id} mission={m} today={today} compact action={<MissionActions mission={m} />} />)
+                ) : (
+                  <p className="text-sm text-muted">Tous les défis de la semaine sont relevés.</p>
+                )}
               </div>
             </section>
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             <section>
-              <SectionTitle title="Missions actives" actions={<Link href="/missions" className="text-xs text-accent hover:underline">Centre de missions →</Link>} />
+              <SectionTitle
+                title="Missions actives"
+                actions={
+                  <Link href="/missions" className="text-xs text-accent hover:underline">
+                    Centre de missions →
+                  </Link>
+                }
+              />
               <div className="space-y-2.5">
                 {recommendedMissions(data.missions, today, 3).map((m) => (
                   <MissionCard key={m.id} mission={m} today={today} compact action={<MissionActions mission={m} />} />
@@ -166,7 +180,14 @@ export function ProgressionPage() {
               </div>
             </section>
             <section>
-              <SectionTitle title="Objectifs stratégiques" actions={<Link href="/objectifs" className="text-xs text-accent hover:underline">Objectifs →</Link>} />
+              <SectionTitle
+                title="Objectifs stratégiques"
+                actions={
+                  <Link href="/objectifs" className="text-xs text-accent hover:underline">
+                    Objectifs →
+                  </Link>
+                }
+              />
               <Card>
                 <CardContent className="space-y-3 pt-4">
                   {strategic.map((e) => (
@@ -194,7 +215,10 @@ export function ProgressionPage() {
             </div>
           </section>
           <section>
-            <SectionTitle title={`Succès verrouillés (${ACHIEVEMENTS.length - p.achievementsCount})`} description="La condition de chaque succès est affichée ; la rareté est une distinction ludique, pas une mesure comptable." />
+            <SectionTitle
+              title={`Succès verrouillés (${ACHIEVEMENTS.length - p.achievementsCount})`}
+              description="La condition de chaque succès est affichée ; la rareté est une distinction ludique, pas une mesure comptable."
+            />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {ACHIEVEMENTS.filter((a) => !unlockedAt.has(a.id)).map((a) => (
                 <AchievementCard key={a.id} def={a} progress={a.progress?.(p.metrics, ctx)} />
@@ -204,7 +228,9 @@ export function ProgressionPage() {
         </TabsContent>
 
         <TabsContent value="recompenses" className="space-y-6">
-          <p className="text-xs text-muted">Récompenses purement cosmétiques : titres, thèmes d&apos;accent et cadres de profil. Les informations financières et les fonctions de gestion ne sont jamais verrouillées.</p>
+          <p className="text-xs text-muted">
+            Récompenses purement cosmétiques : titres, thèmes d&apos;accent et cadres de profil. Les informations financières et les fonctions de gestion ne sont jamais verrouillées.
+          </p>
           <RewardGroup title="Titres" kind="title" rewards={TITLES} equipped={g.equippedTitle} ctx={p.rewardCtx} onEquip={(id) => run(equipReward, { rewardId: id, kind: "title" })} />
           <RewardGroup title="Thèmes d'interface" kind="theme" rewards={THEMES} equipped={g.equippedTheme} ctx={p.rewardCtx} onEquip={(id) => run(equipReward, { rewardId: id, kind: "theme" })} />
           <RewardGroup title="Cadres de profil" kind="frame" rewards={FRAMES} equipped={g.equippedFrame} ctx={p.rewardCtx} onEquip={(id) => run(equipReward, { rewardId: id, kind: "frame" })} />
@@ -241,7 +267,9 @@ export function ProgressionPage() {
               </Card>
             );
           })}
-          <p className="text-[11px] text-subtle">Un rang combine plusieurs critères (clients, revenus récurrents, livraisons, rentabilité, satisfaction, objectifs, trésorerie) ; il ne dépend jamais du seul chiffre d&apos;affaires.</p>
+          <p className="text-[11px] text-subtle">
+            Un rang combine plusieurs critères (clients, revenus récurrents, livraisons, rentabilité, satisfaction, objectifs, trésorerie) ; il ne dépend jamais du seul chiffre d&apos;affaires.
+          </p>
         </TabsContent>
 
         <TabsContent value="journal">
@@ -275,7 +303,21 @@ export function ProgressionPage() {
   );
 }
 
-function RewardGroup({ title, rewards, equipped, ctx, onEquip, kind }: { title: string; kind: "title" | "theme" | "frame"; rewards: RewardDefinition[]; equipped: string | null; ctx: { level: number; rank: number; achievements: Set<string> }; onEquip: (id: string | null) => void }) {
+function RewardGroup({
+  title,
+  rewards,
+  equipped,
+  ctx,
+  onEquip,
+  kind,
+}: {
+  title: string;
+  kind: "title" | "theme" | "frame";
+  rewards: RewardDefinition[];
+  equipped: string | null;
+  ctx: { level: number; rank: number; achievements: Set<string> };
+  onEquip: (id: string | null) => void;
+}) {
   return (
     <section>
       <SectionTitle title={title} />
@@ -286,7 +328,15 @@ function RewardGroup({ title, rewards, equipped, ctx, onEquip, kind }: { title: 
           return (
             <Card key={r.id} className={cn(isOn && "border-accent", !unlocked && "opacity-70")}>
               <CardContent className="flex items-center gap-3 pt-4">
-                {r.color ? <span className={cn("size-8 shrink-0", kind === "frame" ? "rounded-lg border-2 bg-transparent" : "rounded-full")} style={kind === "frame" ? { borderColor: r.color } : { background: r.color }} aria-hidden /> : <Crown className={cn("size-6 shrink-0", unlocked ? "text-gold" : "text-subtle")} />}
+                {r.color ? (
+                  <span
+                    className={cn("size-8 shrink-0", kind === "frame" ? "rounded-lg border-2 bg-transparent" : "rounded-full")}
+                    style={kind === "frame" ? { borderColor: r.color } : { background: r.color }}
+                    aria-hidden
+                  />
+                ) : (
+                  <Crown className={cn("size-6 shrink-0", unlocked ? "text-gold" : "text-subtle")} />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{r.name}</p>
                   <p className="text-[11px] text-muted">{unlocked ? r.description : `Débloqué par : ${unlockLabel(r.unlock, (id) => getAchievement(id)?.name ?? id)}`}</p>

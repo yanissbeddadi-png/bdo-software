@@ -66,7 +66,13 @@ export function TreasuryPage() {
         description="Flux réalisés (paiements et dépenses payées) et prévisions calculées à partir des factures ouvertes, des abonnements, du pipeline et des charges récurrentes. Les prévisions sont des estimations, pas des données bancaires."
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="Solde actuel (calculé)" icon={<Landmark />} value={formatEUR(current)} tone={current < threshold ? "danger" : "default"} hint={`Solde d'ouverture ${formatEUR(opening.openingBalance)} au ${formatDate(opening.openingBalanceDate)} + encaissements − décaissements réalisés. Aucune connexion bancaire.`} />
+        <MetricCard
+          label="Solde actuel (calculé)"
+          icon={<Landmark />}
+          value={formatEUR(current)}
+          tone={current < threshold ? "danger" : "default"}
+          hint={`Solde d'ouverture ${formatEUR(opening.openingBalance)} au ${formatDate(opening.openingBalanceDate)} + encaissements − décaissements réalisés. Aucune connexion bancaire.`}
+        />
         <MetricCard label="Encaissements réalisés (cumul)" value={formatEUR(totalIn)} hint="Paiements clients enregistrés depuis le début de la simulation." />
         <MetricCard label="Créances à encaisser" value={formatEUR(receivables(summaries))} hint="Soldes des factures émises." />
         <MetricCard label="Dettes à payer" value={formatEUR(payables(data.expenses))} hint="Dépenses saisies non payées (TTC)." />
@@ -96,12 +102,7 @@ export function TreasuryPage() {
               <CardTitle>Prévision mensuelle</CardTitle>
               <CardDescription>Scénario sélectionné — montants TTC</CardDescription>
             </div>
-            <Segmented
-              label="Scénario"
-              value={scenario}
-              onChange={setScenario}
-              options={(Object.keys(SCENARIOS) as ScenarioKey[]).map((k) => ({ value: k, label: SCENARIOS[k].label }))}
-            />
+            <Segmented label="Scénario" value={scenario} onChange={setScenario} options={(Object.keys(SCENARIOS) as ScenarioKey[]).map((k) => ({ value: k, label: SCENARIOS[k].label }))} />
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -129,7 +130,8 @@ export function TreasuryPage() {
             </table>
             {f.lowestBalance < threshold ? (
               <p className="mt-3 flex items-center gap-2 text-xs text-danger">
-                <TriangleAlert className="size-4" /> Le scénario {SCENARIOS[scenario].label.toLowerCase()} passe sous le seuil d&apos;alerte ({formatEUR(threshold)}) en {formatMonth(f.lowestMonth ?? "", false)}.
+                <TriangleAlert className="size-4" /> Le scénario {SCENARIOS[scenario].label.toLowerCase()} passe sous le seuil d&apos;alerte ({formatEUR(threshold)}) en{" "}
+                {formatMonth(f.lowestMonth ?? "", false)}.
               </p>
             ) : null}
           </CardContent>

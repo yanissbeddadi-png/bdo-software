@@ -21,7 +21,9 @@ export function useProgression() {
     const unlocked = new Set(data.achievements.map((a) => a.achievementId));
     const g = data.settings.gamification;
     const rewardCtx = { level: level.level, rank: rank.rank, achievements: unlocked };
-    const nextReward = ALL_REWARDS.filter((r) => !isRewardUnlocked(r, rewardCtx) && r.unlock.type === "level").sort((a, b) => (a.unlock.type === "level" && b.unlock.type === "level" ? a.unlock.level - b.unlock.level : 0))[0];
+    const nextReward = ALL_REWARDS.filter((r) => !isRewardUnlocked(r, rewardCtx) && r.unlock.type === "level").sort((a, b) =>
+      a.unlock.type === "level" && b.unlock.type === "level" ? a.unlock.level - b.unlock.level : 0,
+    )[0];
     return {
       xp,
       level,

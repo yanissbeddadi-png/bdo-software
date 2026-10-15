@@ -104,7 +104,11 @@ export function AnalyticsPage() {
   }, [summaries, period.start, period.end, f.client, f.project, f.status, f.product]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const expenses = data.expenses.filter((e) => inPeriod(e.date, period) && (f.category === "all" || e.category === f.category) && (f.project === "all" || e.projectId === f.project));
-  const revenueByMonth = months.map((m) => ({ month: m, billed: lines.filter((l) => l.month === m).reduce((s, l) => s + l.ht, 0), expenses: expenses.filter((e) => monthKey(e.date) === m).reduce((s, e) => s + e.amountHT, 0) }));
+  const revenueByMonth = months.map((m) => ({
+    month: m,
+    billed: lines.filter((l) => l.month === m).reduce((s, l) => s + l.ht, 0),
+    expenses: expenses.filter((e) => monthKey(e.date) === m).reduce((s, e) => s + e.amountHT, 0),
+  }));
   const group = <K extends string>(key: (l: (typeof lines)[number]) => K | null, name: (k: K) => string) => {
     const map = new Map<K, number>();
     for (const l of lines) {
@@ -114,16 +118,28 @@ export function AnalyticsPage() {
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ key: k, label: name(k), value: v }));
   };
-  const byClient = group((l) => l.clientId, (k) => clients.get(k) ?? "—");
-  const byProduct = group((l) => l.productId ?? "free", (k) => (k === "free" ? "Lignes libres" : (products.get(k) ?? "—")));
-  const byCategory = (Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map((k) => ({ key: k, label: EXPENSE_CATEGORY_LABELS[k], value: expenses.filter((e) => e.category === k).reduce((s, e) => s + e.amountHT, 0) })).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
+  const byClient = group(
+    (l) => l.clientId,
+    (k) => clients.get(k) ?? "—",
+  );
+  const byProduct = group(
+    (l) => l.productId ?? "free",
+    (k) => (k === "free" ? "Lignes libres" : (products.get(k) ?? "—")),
+  );
+  const byCategory = (Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[])
+    .map((k) => ({ key: k, label: EXPENSE_CATEGORY_LABELS[k], value: expenses.filter((e) => e.category === k).reduce((s, e) => s + e.amountHT, 0) }))
+    .filter((x) => x.value > 0)
+    .sort((a, b) => b.value - a.value);
   const cashSeries = months.map((m) => {
     const end = endOfMonthISO(monthPeriod(m).start);
     return { month: m, cash: cashBalance(data, end > today ? today : end), mrr: computeMRR(data.subscriptions, end > today ? today : end) };
   });
   const totalBilled = lines.reduce((s, l) => s + l.ht, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amountHT, 0);
-  const projectRows = data.projects.filter((p) => f.project === "all" || p.id === f.project).filter((p) => f.client === "all" || p.clientId === f.client).map((p) => ({ p, fin: projectFinancials(p, data, summaries) }));
+  const projectRows = data.projects
+    .filter((p) => f.project === "all" || p.id === f.project)
+    .filter((p) => f.client === "all" || p.clientId === f.client)
+    .map((p) => ({ p, fin: projectFinancials(p, data, summaries) }));
   const aging = receivablesAging(summaries.filter((s) => f.client === "all" || s.invoice.clientId === f.client));
   const forecast = buildForecast(data, today, "central", 6, summaries);
 
@@ -136,16 +152,48 @@ export function AnalyticsPage() {
   const owners = [...new Set(opps.map((o) => o.ownerId ?? "none"))].map((id) => {
     const list = opps.filter((o) => (o.ownerId ?? "none") === id);
     const emp = data.employees.find((e) => e.id === id);
-    return { id, name: emp ? `${emp.firstName} ${emp.lastName}` : "Non attribué", open: list.filter((o) => o.stage !== "won" && o.stage !== "lost").length, won: list.filter((o) => o.stage === "won").length, lost: list.filter((o) => o.stage === "lost").length, value: list.filter((o) => o.stage !== "won" && o.stage !== "lost").reduce((s, o) => s + o.amount, 0) };
+    return {
+      id,
+      name: emp ? `${emp.firstName} ${emp.lastName}` : "Non attribué",
+      open: list.filter((o) => o.stage !== "won" && o.stage !== "lost").length,
+      won: list.filter((o) => o.stage === "won").length,
+      lost: list.filter((o) => o.stage === "lost").length,
+      value: list.filter((o) => o.stage !== "won" && o.stage !== "lost").reduce((s, o) => s + o.amount, 0),
+    };
   });
-  const sources = [...new Set([...data.leads.map((l) => l.source), ...opps.map((o) => o.source)])].map((s) => ({ key: s, label: s, leads: data.leads.filter((l) => l.source === s && inPeriod(l.createdAt, period)).length, opps: opps.filter((o) => o.source === s).length, won: opps.filter((o) => o.source === s && o.stage === "won").reduce((a, o) => a + o.amount, 0) }));
-  const wonByMonth = months.map((m) => ({ month: m, won: opps.filter((o) => o.stage === "won" && o.closedAt && monthKey(o.closedAt) === m).reduce((s, o) => s + o.amount, 0), lost: opps.filter((o) => o.stage === "lost" && o.closedAt && monthKey(o.closedAt) === m).reduce((s, o) => s + o.amount, 0) }));
+  const sources = [...new Set([...data.leads.map((l) => l.source), ...opps.map((o) => o.source)])].map((s) => ({
+    key: s,
+    label: s,
+    leads: data.leads.filter((l) => l.source === s && inPeriod(l.createdAt, period)).length,
+    opps: opps.filter((o) => o.source === s).length,
+    won: opps.filter((o) => o.source === s && o.stage === "won").reduce((a, o) => a + o.amount, 0),
+  }));
+  const wonByMonth = months.map((m) => ({
+    month: m,
+    won: opps.filter((o) => o.stage === "won" && o.closedAt && monthKey(o.closedAt) === m).reduce((s, o) => s + o.amount, 0),
+    lost: opps.filter((o) => o.stage === "lost" && o.closedAt && monthKey(o.closedAt) === m).reduce((s, o) => s + o.amount, 0),
+  }));
   const avgBasket = wonIn.length ? wonIn.reduce((s, o) => s + o.amount, 0) / wonIn.length : null;
 
   // Projets
-  const lateTasksByEmployee = data.employees.map((e) => ({ key: e.id, label: `${e.firstName} ${e.lastName}`, value: data.tasks.filter((t) => t.assigneeId === e.id && isTaskLate(t, today) && (f.project === "all" || t.projectId === f.project)).length })).filter((x) => x.value > 0);
+  const lateTasksByEmployee = data.employees
+    .map((e) => ({
+      key: e.id,
+      label: `${e.firstName} ${e.lastName}`,
+      value: data.tasks.filter((t) => t.assigneeId === e.id && isTaskLate(t, today) && (f.project === "all" || t.projectId === f.project)).length,
+    }))
+    .filter((x) => x.value > 0);
 
-  const scope = [f.client !== "all" && `client ${clients.get(f.client)}`, f.product !== "all" && `produit ${products.get(f.product)}`, f.project !== "all" && `projet ${data.projects.find((p) => p.id === f.project)?.code}`, f.category !== "all" && `catégorie ${EXPENSE_CATEGORY_LABELS[f.category as ExpenseCategory]}`, f.status !== "all" && `statut ${INVOICE_STATUS[f.status as InvoiceStatus].label}`].filter(Boolean).join(", ") || "toute l'entreprise";
+  const scope =
+    [
+      f.client !== "all" && `client ${clients.get(f.client)}`,
+      f.product !== "all" && `produit ${products.get(f.product)}`,
+      f.project !== "all" && `projet ${data.projects.find((p) => p.id === f.project)?.code}`,
+      f.category !== "all" && `catégorie ${EXPENSE_CATEGORY_LABELS[f.category as ExpenseCategory]}`,
+      f.status !== "all" && `statut ${INVOICE_STATUS[f.status as InvoiceStatus].label}`,
+    ]
+      .filter(Boolean)
+      .join(", ") || "toute l'entreprise";
 
   return (
     <div className="space-y-6">
@@ -179,7 +227,11 @@ export function AnalyticsPage() {
             { k: "product" as const, l: "Produit", o: data.products.map((p) => ({ value: p.id, label: p.name })) },
             { k: "project" as const, l: "Projet", o: data.projects.map((p) => ({ value: p.id, label: p.code })) },
             { k: "category" as const, l: "Catégorie", o: (Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map((k) => ({ value: k, label: EXPENSE_CATEGORY_LABELS[k] })) },
-            { k: "status" as const, l: "Statut facture", o: (Object.keys(INVOICE_STATUS) as InvoiceStatus[]).filter((s) => s !== "draft" && s !== "cancelled").map((s) => ({ value: s, label: INVOICE_STATUS[s].label })) },
+            {
+              k: "status" as const,
+              l: "Statut facture",
+              o: (Object.keys(INVOICE_STATUS) as InvoiceStatus[]).filter((s) => s !== "draft" && s !== "cancelled").map((s) => ({ value: s, label: INVOICE_STATUS[s].label })),
+            },
           ].map((x) => (
             <div key={x.k}>
               <Label htmlFor={`f-${x.k}`}>{x.l}</Label>
@@ -210,14 +262,34 @@ export function AnalyticsPage() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <MetricCard label="CA facturé HT (filtré)" value={formatEUR(totalBilled)} />
             <MetricCard label="Dépenses HT (filtrées)" value={formatEUR(totalExpenses)} />
-            <MetricCard label="Écart CA − dépenses" value={formatEUR(totalBilled - totalExpenses)} tone={totalBilled - totalExpenses < 0 ? "danger" : "default"} hint="Indicatif : les filtres client/produit ne s'appliquent pas aux dépenses." />
+            <MetricCard
+              label="Écart CA − dépenses"
+              value={formatEUR(totalBilled - totalExpenses)}
+              tone={totalBilled - totalExpenses < 0 ? "danger" : "default"}
+              hint="Indicatif : les filtres client/produit ne s'appliquent pas aux dépenses."
+            />
             <MetricCard label="Factures concernées" value={new Set(lines.map((l) => l.invoiceId)).size} />
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
-            <ChartCard title="Chiffre d'affaires par mois" description="CA facturé HT et dépenses engagées HT" actions={<ExportButton name="ca-par-mois" headers={["Mois", "CA HT", "Dépenses HT"]} rows={revenueByMonth.map((r) => [r.month, csvMoney(r.billed), csvMoney(r.expenses)])} />}>
-              <MonthlyBarChart data={revenueByMonth} series={[{ key: "billed", label: "CA facturé HT", color: SERIES[0] }, { key: "expenses", label: "Dépenses HT", color: SERIES[1] }]} />
+            <ChartCard
+              title="Chiffre d'affaires par mois"
+              description="CA facturé HT et dépenses engagées HT"
+              actions={<ExportButton name="ca-par-mois" headers={["Mois", "CA HT", "Dépenses HT"]} rows={revenueByMonth.map((r) => [r.month, csvMoney(r.billed), csvMoney(r.expenses)])} />}
+            >
+              <MonthlyBarChart
+                data={revenueByMonth}
+                series={[
+                  { key: "billed", label: "CA facturé HT", color: SERIES[0] },
+                  { key: "expenses", label: "Dépenses HT", color: SERIES[1] },
+                ]}
+              />
             </ChartCard>
-            <ChartCard title="Évolution de la trésorerie et du MRR" description="Fin de mois — deux graphiques à échelle unique" height={260} actions={<ExportButton name="tresorerie-mrr" headers={["Mois", "Trésorerie", "MRR"]} rows={cashSeries.map((r) => [r.month, csvMoney(r.cash), csvMoney(r.mrr)])} />}>
+            <ChartCard
+              title="Évolution de la trésorerie et du MRR"
+              description="Fin de mois — deux graphiques à échelle unique"
+              height={260}
+              actions={<ExportButton name="tresorerie-mrr" headers={["Mois", "Trésorerie", "MRR"]} rows={cashSeries.map((r) => [r.month, csvMoney(r.cash), csvMoney(r.mrr)])} />}
+            >
               <div className="grid h-full grid-rows-2 gap-2">
                 <MonthlyLineChart area data={cashSeries} series={[{ key: "cash", label: "Trésorerie", color: SERIES[0] }]} />
                 <MonthlyLineChart data={cashSeries} series={[{ key: "mrr", label: "MRR", color: SERIES[2] }]} />
@@ -278,13 +350,35 @@ export function AnalyticsPage() {
                 <CardTitle>Marge par projet</CardTitle>
                 <CardDescription>Coûts saisis (dépenses + temps) distincts des coûts estimés et des revenus facturés</CardDescription>
               </div>
-              <ExportButton name="marge-par-projet" headers={["Projet", "Prix de vente", "Coût estimé", "Marge estimée", "Coût réel", "Facturé HT", "Marge à date"]} rows={projectRows.map(({ p, fin }) => [p.code, csvMoney(fin.salePrice), csvMoney(fin.estimatedCost), csvMoney(fin.estimatedMargin), csvMoney(fin.actualCost), csvMoney(fin.invoiced), csvMoney(fin.currentMargin)])} />
+              <ExportButton
+                name="marge-par-projet"
+                headers={["Projet", "Prix de vente", "Coût estimé", "Marge estimée", "Coût réel", "Facturé HT", "Marge à date"]}
+                rows={projectRows.map(({ p, fin }) => [
+                  p.code,
+                  csvMoney(fin.salePrice),
+                  csvMoney(fin.estimatedCost),
+                  csvMoney(fin.estimatedMargin),
+                  csvMoney(fin.actualCost),
+                  csvMoney(fin.invoiced),
+                  csvMoney(fin.currentMargin),
+                ])}
+              />
             </CardHeader>
             <CardContent>
               <ReportTable
                 headers={["Projet", "Prix de vente", "Coût estimé", "Marge estimée", "Coût réel saisi", "Facturé HT", "Marge à date"]}
                 align={["left", "right", "right", "right", "right", "right", "right"]}
-                rows={projectRows.map(({ p, fin }) => [`${p.code} · ${p.name}`, formatEUR(fin.salePrice, { round: true }), formatEUR(fin.estimatedCost, { round: true }), `${formatEUR(fin.estimatedMargin, { round: true })} (${formatPercent(fin.estimatedMarginRate, 0)})`, formatEUR(fin.actualCost, { round: true }), formatEUR(fin.invoiced, { round: true }), <span key="m" className={fin.currentMargin < 0 ? "text-danger" : undefined}>{formatEUR(fin.currentMargin, { round: true })}</span>])}
+                rows={projectRows.map(({ p, fin }) => [
+                  `${p.code} · ${p.name}`,
+                  formatEUR(fin.salePrice, { round: true }),
+                  formatEUR(fin.estimatedCost, { round: true }),
+                  `${formatEUR(fin.estimatedMargin, { round: true })} (${formatPercent(fin.estimatedMarginRate, 0)})`,
+                  formatEUR(fin.actualCost, { round: true }),
+                  formatEUR(fin.invoiced, { round: true }),
+                  <span key="m" className={fin.currentMargin < 0 ? "text-danger" : undefined}>
+                    {formatEUR(fin.currentMargin, { round: true })}
+                  </span>,
+                ])}
               />
             </CardContent>
           </Card>
@@ -294,10 +388,23 @@ export function AnalyticsPage() {
                 <CardTitle>Prévisions de trésorerie (scénario central)</CardTitle>
                 <CardDescription>Estimations — voir la page Trésorerie pour les hypothèses</CardDescription>
               </div>
-              <ExportButton name="previsions-tresorerie" headers={["Mois", "Encaissements", "Décaissements", "Solde"]} rows={forecast.months.map((m) => [m.month, csvMoney(m.inflows), csvMoney(m.outflows), csvMoney(m.closingBalance)])} />
+              <ExportButton
+                name="previsions-tresorerie"
+                headers={["Mois", "Encaissements", "Décaissements", "Solde"]}
+                rows={forecast.months.map((m) => [m.month, csvMoney(m.inflows), csvMoney(m.outflows), csvMoney(m.closingBalance)])}
+              />
             </CardHeader>
             <CardContent>
-              <ReportTable headers={["Mois", "Encaissements prévus", "Décaissements prévus", "Solde fin de mois"]} align={["left", "right", "right", "right"]} rows={forecast.months.map((m) => [formatMonth(m.month, false), formatEUR(m.inflows, { round: true }), formatEUR(m.outflows, { round: true }), formatEUR(m.closingBalance, { round: true })])} />
+              <ReportTable
+                headers={["Mois", "Encaissements prévus", "Décaissements prévus", "Solde fin de mois"]}
+                align={["left", "right", "right", "right"]}
+                rows={forecast.months.map((m) => [
+                  formatMonth(m.month, false),
+                  formatEUR(m.inflows, { round: true }),
+                  formatEUR(m.outflows, { round: true }),
+                  formatEUR(m.closingBalance, { round: true }),
+                ])}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -305,9 +412,26 @@ export function AnalyticsPage() {
         <TabsContent value="sales" className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <MetricCard label="Taux de conversion (période)" value={formatPercent(conversionRate(opps, period))} hint="Gagnées ÷ clôturées dans la période." />
-            <MetricCard label="Ventes gagnées" value={`${wonIn.length} · ${formatEUR(wonIn.reduce((s, o) => s + o.amount, 0), { compact: true })}`} tone="success" />
-            <MetricCard label="Ventes perdues" value={`${lostIn.length} · ${formatEUR(lostIn.reduce((s, o) => s + o.amount, 0), { compact: true })}`} />
-            <MetricCard label="Cycle de vente estimé" value={averageSalesCycle(opps) === null ? "—" : `${formatNumber(averageSalesCycle(opps)!, 0)} j`} hint="Durée moyenne entre création et gain (toutes périodes)." />
+            <MetricCard
+              label="Ventes gagnées"
+              value={`${wonIn.length} · ${formatEUR(
+                wonIn.reduce((s, o) => s + o.amount, 0),
+                { compact: true },
+              )}`}
+              tone="success"
+            />
+            <MetricCard
+              label="Ventes perdues"
+              value={`${lostIn.length} · ${formatEUR(
+                lostIn.reduce((s, o) => s + o.amount, 0),
+                { compact: true },
+              )}`}
+            />
+            <MetricCard
+              label="Cycle de vente estimé"
+              value={averageSalesCycle(opps) === null ? "—" : `${formatNumber(averageSalesCycle(opps)!, 0)} j`}
+              hint="Durée moyenne entre création et gain (toutes périodes)."
+            />
             <MetricCard label="Panier moyen gagné" value={avgBasket === null ? "Données insuffisantes" : formatEUR(avgBasket, { round: true })} />
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
@@ -323,16 +447,34 @@ export function AnalyticsPage() {
                 <HorizontalBars items={byStage.map((s) => ({ key: s.key, label: `${s.label} (${s.count})`, value: s.value }))} />
               </CardContent>
             </Card>
-            <ChartCard title="Ventes gagnées et perdues" description="Montants par mois de clôture" actions={<ExportButton name="gagnees-perdues" headers={["Mois", "Gagnées", "Perdues"]} rows={wonByMonth.map((r) => [r.month, csvMoney(r.won), csvMoney(r.lost)])} />}>
-              <MonthlyBarChart data={wonByMonth} series={[{ key: "won", label: "Gagnées", color: SERIES[0] }, { key: "lost", label: "Perdues", color: SERIES[1] }]} />
+            <ChartCard
+              title="Ventes gagnées et perdues"
+              description="Montants par mois de clôture"
+              actions={<ExportButton name="gagnees-perdues" headers={["Mois", "Gagnées", "Perdues"]} rows={wonByMonth.map((r) => [r.month, csvMoney(r.won), csvMoney(r.lost)])} />}
+            >
+              <MonthlyBarChart
+                data={wonByMonth}
+                series={[
+                  { key: "won", label: "Gagnées", color: SERIES[0] },
+                  { key: "lost", label: "Perdues", color: SERIES[1] },
+                ]}
+              />
             </ChartCard>
             <Card>
               <CardHeader>
                 <CardTitle>Opportunités par commercial</CardTitle>
-                <ExportButton name="opportunites-par-commercial" headers={["Commercial", "Ouvertes", "Gagnées", "Perdues", "Pipeline"]} rows={owners.map((o) => [o.name, o.open, o.won, o.lost, csvMoney(o.value)])} />
+                <ExportButton
+                  name="opportunites-par-commercial"
+                  headers={["Commercial", "Ouvertes", "Gagnées", "Perdues", "Pipeline"]}
+                  rows={owners.map((o) => [o.name, o.open, o.won, o.lost, csvMoney(o.value)])}
+                />
               </CardHeader>
               <CardContent>
-                <ReportTable headers={["Commercial", "Ouvertes", "Gagnées", "Perdues", "Pipeline"]} align={["left", "right", "right", "right", "right"]} rows={owners.map((o) => [o.name, o.open, o.won, o.lost, formatEUR(o.value, { round: true })])} />
+                <ReportTable
+                  headers={["Commercial", "Ouvertes", "Gagnées", "Perdues", "Pipeline"]}
+                  align={["left", "right", "right", "right", "right"]}
+                  rows={owners.map((o) => [o.name, o.open, o.won, o.lost, formatEUR(o.value, { round: true })])}
+                />
               </CardContent>
             </Card>
             <Card>
@@ -344,7 +486,11 @@ export function AnalyticsPage() {
                 <ExportButton name="sources-acquisition" headers={["Source", "Prospects", "Opportunités", "Gagné"]} rows={sources.map((s) => [s.label, s.leads, s.opps, csvMoney(s.won)])} />
               </CardHeader>
               <CardContent>
-                <ReportTable headers={["Source", "Prospects", "Opportunités", "Montant gagné"]} align={["left", "right", "right", "right"]} rows={sources.sort((a, b) => b.won - a.won).map((s) => [s.label, s.leads, s.opps, formatEUR(s.won, { round: true })])} />
+                <ReportTable
+                  headers={["Source", "Prospects", "Opportunités", "Montant gagné"]}
+                  align={["left", "right", "right", "right"]}
+                  rows={sources.sort((a, b) => b.won - a.won).map((s) => [s.label, s.leads, s.opps, formatEUR(s.won, { round: true })])}
+                />
               </CardContent>
             </Card>
           </div>
@@ -364,10 +510,18 @@ export function AnalyticsPage() {
                   <CardTitle>Écart budgétaire</CardTitle>
                   <CardDescription>Coût réel saisi − budget (positif = dépassement)</CardDescription>
                 </div>
-                <ExportButton name="ecart-budgetaire" headers={["Projet", "Budget", "Coût réel", "Écart"]} rows={projectRows.map(({ p, fin }) => [p.code, csvMoney(fin.budget), csvMoney(fin.actualCost), csvMoney(fin.budgetVariance)])} />
+                <ExportButton
+                  name="ecart-budgetaire"
+                  headers={["Projet", "Budget", "Coût réel", "Écart"]}
+                  rows={projectRows.map(({ p, fin }) => [p.code, csvMoney(fin.budget), csvMoney(fin.actualCost), csvMoney(fin.budgetVariance)])}
+                />
               </CardHeader>
               <CardContent>
-                <HorizontalBars items={projectRows.filter((x) => x.fin.actualCost > 0).map(({ p, fin }) => ({ key: p.id, label: `${p.code} · ${formatPercent(fin.budgetConsumption, 0)} consommé`, value: -fin.budgetVariance, color: SERIES[2] }))} />
+                <HorizontalBars
+                  items={projectRows
+                    .filter((x) => x.fin.actualCost > 0)
+                    .map(({ p, fin }) => ({ key: p.id, label: `${p.code} · ${formatPercent(fin.budgetConsumption, 0)} consommé`, value: -fin.budgetVariance, color: SERIES[2] }))}
+                />
                 <p className="mt-2 text-[11px] text-subtle">Barre rouge = dépassement ; barre verte = budget restant.</p>
               </CardContent>
             </Card>
@@ -377,10 +531,20 @@ export function AnalyticsPage() {
                   <CardTitle>Charge réalisée par projet</CardTitle>
                   <CardDescription>Heures saisies / estimées</CardDescription>
                 </div>
-                <ExportButton name="charge-par-projet" headers={["Projet", "Heures réalisées", "Heures estimées"]} rows={projectRows.map(({ p, fin }) => [p.code, fin.actualHours, fin.estimatedHours])} />
+                <ExportButton
+                  name="charge-par-projet"
+                  headers={["Projet", "Heures réalisées", "Heures estimées"]}
+                  rows={projectRows.map(({ p, fin }) => [p.code, fin.actualHours, fin.estimatedHours])}
+                />
               </CardHeader>
               <CardContent>
-                <HorizontalBars money={false} suffix=" h" items={projectRows.filter((x) => x.fin.estimatedHours > 0).map(({ p, fin }) => ({ key: p.id, label: `${p.code} (${formatNumber(fin.estimatedHours)} h estimées)`, value: fin.actualHours }))} />
+                <HorizontalBars
+                  money={false}
+                  suffix=" h"
+                  items={projectRows
+                    .filter((x) => x.fin.estimatedHours > 0)
+                    .map(({ p, fin }) => ({ key: p.id, label: `${p.code} (${formatNumber(fin.estimatedHours)} h estimées)`, value: fin.actualHours }))}
+                />
               </CardContent>
             </Card>
             <Card>
@@ -388,7 +552,20 @@ export function AnalyticsPage() {
                 <CardTitle>Projets en risque</CardTitle>
               </CardHeader>
               <CardContent>
-                <ReportTable headers={["Projet", "Statut", "Échéance", "Raison"]} rows={data.projects.filter((p) => p.status === "at_risk" || isProjectLate(p, today) || projectFinancials(p, data, summaries).budgetVariance > 0).filter((p) => p.status !== "done").map((p) => [`${p.code} · ${p.name}`, p.status, formatDate(p.dueDate), [isProjectLate(p, today) && "retard", projectFinancials(p, data, summaries).budgetVariance > 0 && "dépassement", p.status === "at_risk" && "marqué en risque"].filter(Boolean).join(", ")])} />
+                <ReportTable
+                  headers={["Projet", "Statut", "Échéance", "Raison"]}
+                  rows={data.projects
+                    .filter((p) => p.status === "at_risk" || isProjectLate(p, today) || projectFinancials(p, data, summaries).budgetVariance > 0)
+                    .filter((p) => p.status !== "done")
+                    .map((p) => [
+                      `${p.code} · ${p.name}`,
+                      p.status,
+                      formatDate(p.dueDate),
+                      [isProjectLate(p, today) && "retard", projectFinancials(p, data, summaries).budgetVariance > 0 && "dépassement", p.status === "at_risk" && "marqué en risque"]
+                        .filter(Boolean)
+                        .join(", "),
+                    ])}
+                />
               </CardContent>
             </Card>
             <Card>

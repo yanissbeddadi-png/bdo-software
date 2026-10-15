@@ -54,9 +54,20 @@ export function GoalsPage() {
         <MetricCard label="Objectifs actifs" value={evals.filter((e) => !e.goal.archived).length} />
         <MetricCard label="Atteints" value={evals.filter((e) => e.status === "achieved").length} tone="gold" />
         <MetricCard label="En risque" value={evals.filter((e) => e.status === "at_risk").length} tone="danger" />
-        <MetricCard label="Progression moyenne" value={`${Math.round(evals.filter((e) => !e.goal.archived).reduce((s, e) => s + e.progress, 0) / Math.max(evals.filter((e) => !e.goal.archived).length, 1))} %`} />
+        <MetricCard
+          label="Progression moyenne"
+          value={`${Math.round(evals.filter((e) => !e.goal.archived).reduce((s, e) => s + e.progress, 0) / Math.max(evals.filter((e) => !e.goal.archived).length, 1))} %`}
+        />
       </div>
-      <Segmented label="Affichage" value={show} onChange={setShow} options={[{ value: "active", label: "Actifs" }, { value: "archived", label: "Archivés" }]} />
+      <Segmented
+        label="Affichage"
+        value={show}
+        onChange={setShow}
+        options={[
+          { value: "active", label: "Actifs" },
+          { value: "archived", label: "Archivés" },
+        ]}
+      />
       {list.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {list.map((e) => (
@@ -113,7 +124,10 @@ function GoalCard({ ev, highlighted }: { ev: GoalEvaluation; highlighted: boolea
             <span className="text-lg font-semibold tabular">{Math.round(ev.progress)} %</span>
           </div>
           <ProgressBar value={ev.progress} className="h-2" tone={ev.status === "achieved" ? "gold" : ev.status === "at_risk" ? "danger" : "accent"} label={g.title} />
-          <p className="mt-1 text-[11px] text-subtle">Valeur initiale {fmtValue(g.startValue, g.unit)}{metric.direction === "down" ? " · objectif de réduction" : ""}</p>
+          <p className="mt-1 text-[11px] text-subtle">
+            Valeur initiale {fmtValue(g.startValue, g.unit)}
+            {metric.direction === "down" ? " · objectif de réduction" : ""}
+          </p>
         </div>
         {g.metric === "manual" ? (
           <form
@@ -148,7 +162,11 @@ function GoalCard({ ev, highlighted }: { ev: GoalEvaluation; highlighted: boolea
               </div>
             ))}
             {krDirty ? (
-              <Button size="sm" variant="secondary" onClick={() => run(C.setGoalProgress, { id: g.id, keyResults: g.keyResults.map((k) => ({ id: k.id, current: Number((krs[k.id] ?? "0").replace(",", ".")) })) })}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => run(C.setGoalProgress, { id: g.id, keyResults: g.keyResults.map((k) => ({ id: k.id, current: Number((krs[k.id] ?? "0").replace(",", ".")) })) })}
+              >
                 <Save /> Enregistrer les résultats clés
               </Button>
             ) : null}

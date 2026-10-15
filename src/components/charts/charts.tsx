@@ -1,23 +1,6 @@
 "use client";
 import * as React from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatEUR, formatMonth, formatNumber } from "@/lib/formatters";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -35,7 +18,21 @@ const GRID = { stroke: "var(--border)", strokeDasharray: "0", vertical: false } 
 
 export const euroTick = (v: number) => formatEUR(v, { compact: true });
 
-export function ChartCard({ title, description, actions, children, className, height = 260 }: { title: string; description?: string; actions?: React.ReactNode; children: React.ReactNode; className?: string; height?: number }) {
+export function ChartCard({
+  title,
+  description,
+  actions,
+  children,
+  className,
+  height = 260,
+}: {
+  title: string;
+  description?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  height?: number;
+}) {
   return (
     <Card className={cn("flex flex-col", className)}>
       <CardHeader>
@@ -62,7 +59,19 @@ interface TooltipEntry {
   payload?: Record<string, unknown>;
 }
 
-export function ChartTooltip({ active, payload, label, money = true, labelFormatter }: { active?: boolean; payload?: TooltipEntry[]; label?: string | number; money?: boolean; labelFormatter?: (l: string) => string }) {
+export function ChartTooltip({
+  active,
+  payload,
+  label,
+  money = true,
+  labelFormatter,
+}: {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+  money?: boolean;
+  labelFormatter?: (l: string) => string;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-border bg-bg-elevated px-3 py-2 text-xs shadow-xl">
@@ -103,7 +112,17 @@ export function MonthlyBarChart({ data, series, money = true, stacked }: { data:
         {series.length > 1 ? <Legend wrapperStyle={legendStyle} iconType="square" iconSize={8} /> : null}
         <ReferenceLine y={0} stroke="var(--border-strong)" />
         {series.map((s) => (
-          <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} stackId={stacked ? "a" : undefined} radius={stacked ? 0 : [4, 4, 0, 0]} maxBarSize={28} stroke="var(--card)" strokeWidth={stacked ? 1 : 0} />
+          <Bar
+            key={s.key}
+            dataKey={s.key}
+            name={s.label}
+            fill={s.color}
+            stackId={stacked ? "a" : undefined}
+            radius={stacked ? 0 : [4, 4, 0, 0]}
+            maxBarSize={28}
+            stroke="var(--card)"
+            strokeWidth={stacked ? 1 : 0}
+          />
         ))}
       </BarChart>
     </ResponsiveContainer>
@@ -131,7 +150,19 @@ export function MonthlyLineChart({ data, series, money = true, area }: { data: o
           <Tooltip cursor={{ stroke: "var(--border-strong)" }} content={<ChartTooltip money={money} labelFormatter={(m) => formatMonth(m, false)} />} />
           {series.length > 1 ? <Legend wrapperStyle={legendStyle} iconType="plainline" iconSize={12} /> : null}
           {series.map((s) => (
-            <Area key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} strokeDasharray={s.forecast ? "5 4" : undefined} fill={s.forecast ? "transparent" : `url(#${id}-${s.key})`} connectNulls dot={false} activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }} />
+            <Area
+              key={s.key}
+              type="monotone"
+              dataKey={s.key}
+              name={s.label}
+              stroke={s.color}
+              strokeWidth={2}
+              strokeDasharray={s.forecast ? "5 4" : undefined}
+              fill={s.forecast ? "transparent" : `url(#${id}-${s.key})`}
+              connectNulls
+              dot={false}
+              activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }}
+            />
           ))}
         </AreaChart>
       </ResponsiveContainer>
@@ -146,7 +177,18 @@ export function MonthlyLineChart({ data, series, money = true, area }: { data: o
         <Tooltip cursor={{ stroke: "var(--border-strong)" }} content={<ChartTooltip money={money} labelFormatter={(m) => formatMonth(m, false)} />} />
         {series.length > 1 ? <Legend wrapperStyle={legendStyle} iconType="plainline" iconSize={12} /> : null}
         {series.map((s) => (
-          <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} strokeDasharray={s.forecast ? "5 4" : undefined} dot={false} activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }} connectNulls />
+          <Line
+            key={s.key}
+            type="monotone"
+            dataKey={s.key}
+            name={s.label}
+            stroke={s.color}
+            strokeWidth={2}
+            strokeDasharray={s.forecast ? "5 4" : undefined}
+            dot={false}
+            activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }}
+            connectNulls
+          />
         ))}
       </LineChart>
     </ResponsiveContainer>
@@ -193,7 +235,19 @@ export function BreakdownDonut({ items, money = true }: { items: { key: string; 
 }
 
 /** Barres horizontales simples (classements, progression). */
-export function HorizontalBars({ items, money = true, max, suffix = "", color = SERIES[0] }: { items: { key: string; label: string; value: number; hint?: string; color?: string }[]; money?: boolean; max?: number; suffix?: string; color?: string }) {
+export function HorizontalBars({
+  items,
+  money = true,
+  max,
+  suffix = "",
+  color = SERIES[0],
+}: {
+  items: { key: string; label: string; value: number; hint?: string; color?: string }[];
+  money?: boolean;
+  max?: number;
+  suffix?: string;
+  color?: string;
+}) {
   if (!items.length) return <EmptyState title="Aucune donnée" />;
   const top = max ?? Math.max(...items.map((i) => Math.abs(i.value)), 1);
   return (
@@ -208,7 +262,10 @@ export function HorizontalBars({ items, money = true, max, suffix = "", color = 
             </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-interactive">
-            <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.max(0, Math.min(100, (Math.abs(i.value) / top) * 100))}%`, background: i.value < 0 ? "var(--danger)" : (i.color ?? color) }} />
+            <div
+              className="h-full rounded-full transition-[width] duration-700"
+              style={{ width: `${Math.max(0, Math.min(100, (Math.abs(i.value) / top) * 100))}%`, background: i.value < 0 ? "var(--danger)" : (i.color ?? color) }}
+            />
           </div>
         </li>
       ))}

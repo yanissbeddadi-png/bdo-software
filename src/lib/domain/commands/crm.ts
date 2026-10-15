@@ -43,7 +43,8 @@ export const updateClient: Command<{ id: string; values: ClientInput }, Client> 
 export const deleteClient: Command<{ id: string }> = (data, { id }, ctx) => {
   assertCan(ctx, "clients.write");
   const client = findOrThrow(data.clients, id, "Client");
-  const linked = data.invoices.some((i) => i.clientId === id) || data.quotes.some((q) => q.clientId === id) || data.projects.some((p) => p.clientId === id) || data.subscriptions.some((s) => s.clientId === id);
+  const linked =
+    data.invoices.some((i) => i.clientId === id) || data.quotes.some((q) => q.clientId === id) || data.projects.some((p) => p.clientId === id) || data.subscriptions.some((s) => s.clientId === id);
   if (linked) throw new DomainError("Ce client possède des factures, devis, projets ou contrats : passez-le plutôt au statut « Perdu » pour préserver l'historique.");
   let next = {
     ...data,
@@ -83,7 +84,8 @@ export const updateContact: Command<{ id: string; values: ContactInput }, Contac
   assertCan(ctx, "clients.write");
   const v = parse(contactSchema, values);
   const current = findOrThrow(data.contacts, id, "Contact");
-  if (v.email && data.contacts.some((c) => c.id !== id && c.email.toLowerCase() === v.email.toLowerCase())) throw new DomainError("Un contact utilise déjà cette adresse e-mail.", { email: "Doublon" });
+  if (v.email && data.contacts.some((c) => c.id !== id && c.email.toLowerCase() === v.email.toLowerCase()))
+    throw new DomainError("Un contact utilise déjà cette adresse e-mail.", { email: "Doublon" });
   const contact: Contact = { ...current, ...v, updatedAt: ctx.now };
   return { data: { ...data, contacts: applyPrimary(replace(data.contacts, contact), contact) }, result: contact, message: "Contact mis à jour." };
 };
@@ -165,7 +167,20 @@ export const convertLead: Command<{ id: string }, Client> = (data, { id }, ctx) 
   const hasContact = contacts.some((c) => c.clientId === client.id);
   if (!hasContact && lead.contactName) {
     const [firstName, ...rest] = lead.contactName.split(" ");
-    contacts.push({ id: newId("con"), clientId: client.id, leadId: id, firstName: firstName ?? lead.contactName, lastName: rest.join(" ") || "—", jobTitle: "", email: lead.email, phone: lead.phone, isPrimary: true, notes: "", createdAt: ctx.now, updatedAt: ctx.now });
+    contacts.push({
+      id: newId("con"),
+      clientId: client.id,
+      leadId: id,
+      firstName: firstName ?? lead.contactName,
+      lastName: rest.join(" ") || "—",
+      jobTitle: "",
+      email: lead.email,
+      phone: lead.phone,
+      isPrimary: true,
+      notes: "",
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+    });
   }
   let next = {
     ...data,
@@ -225,7 +240,10 @@ export const moveOpportunity: Command<{ id: string; stage: OpportunityStage; los
   };
   let next = { ...data, opportunities: replace(data.opportunities, opp) };
   const type = stage === "won" ? "opportunity_won" : stage === "lost" ? "opportunity_lost" : "opportunity_stage";
-  next = activity(next, ctx, type, stage === "won" ? `Opportunité ${opp.name} gagnée` : stage === "lost" ? `Opportunité ${opp.name} perdue` : `${opp.name} → ${STAGE_LABELS[stage]}`, { type: "opportunity", id });
+  next = activity(next, ctx, type, stage === "won" ? `Opportunité ${opp.name} gagnée` : stage === "lost" ? `Opportunité ${opp.name} perdue` : `${opp.name} → ${STAGE_LABELS[stage]}`, {
+    type: "opportunity",
+    id,
+  });
   return { data: next, result: opp, message: `« ${opp.name} » → ${STAGE_LABELS[stage]}.` };
 };
 

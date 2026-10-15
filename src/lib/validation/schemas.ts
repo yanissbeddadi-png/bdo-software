@@ -18,7 +18,11 @@ export const lineItemSchema = z.object({
   id: z.string().min(1),
   productId: optionalId,
   description: required("La désignation", 300),
-  quantity: z.number({ invalid_type_error: "Quantité invalide" }).positive("La quantité doit être positive").max(100_000).refine((q) => Math.round(q * 100) === q * 100, "2 décimales maximum"),
+  quantity: z
+    .number({ invalid_type_error: "Quantité invalide" })
+    .positive("La quantité doit être positive")
+    .max(100_000)
+    .refine((q) => Math.round(q * 100) === q * 100, "2 décimales maximum"),
   /** Un prix négatif est autorisé pour une ligne de remise. */
   unitPrice: z.number({ invalid_type_error: "Montant invalide" }).int("Montant invalide"),
   vatRate,
@@ -241,7 +245,19 @@ export const goalSchema = z
     periodStart: isoDate,
     periodEnd: isoDate,
     ownerId: optionalId,
-    metric: z.enum(["manual", "mrr", "overdue_receivables", "won_opportunities", "projects_completed", "avg_project_margin", "late_tasks", "billed_revenue", "active_clients", "new_leads", "new_subscriptions"]),
+    metric: z.enum([
+      "manual",
+      "mrr",
+      "overdue_receivables",
+      "won_opportunities",
+      "projects_completed",
+      "avg_project_margin",
+      "late_tasks",
+      "billed_revenue",
+      "active_clients",
+      "new_leads",
+      "new_subscriptions",
+    ]),
     startValue: z.number(),
     targetValue: z.number(),
     manualValue: z.number(),

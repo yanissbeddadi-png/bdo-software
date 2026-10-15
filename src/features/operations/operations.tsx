@@ -42,22 +42,75 @@ function useDeadlines(): Deadline[] {
     const out: Deadline[] = [];
     for (const s of summaries) {
       if (s.balance <= 0) continue;
-      out.push({ id: `inv-${s.invoice.id}`, date: s.invoice.dueDate, kind: s.status === "overdue" ? "Facture à relancer" : "Échéance facture", title: `${s.invoice.number} · ${clients.get(s.invoice.clientId)}`, href: `/finances/factures/${s.invoice.id}`, tone: s.status === "overdue" ? "danger" : "accent", amount: s.balance });
+      out.push({
+        id: `inv-${s.invoice.id}`,
+        date: s.invoice.dueDate,
+        kind: s.status === "overdue" ? "Facture à relancer" : "Échéance facture",
+        title: `${s.invoice.number} · ${clients.get(s.invoice.clientId)}`,
+        href: `/finances/factures/${s.invoice.id}`,
+        tone: s.status === "overdue" ? "danger" : "accent",
+        amount: s.balance,
+      });
     }
-    for (const e of data.expenses) if (!e.paid) out.push({ id: `exp-${e.id}`, date: e.dueDate, kind: "Dépense à payer", title: `${e.label}`, href: `/finances/depenses?focus=${e.id}`, tone: e.dueDate < today ? "danger" : "warning", amount: -e.amountHT });
+    for (const e of data.expenses)
+      if (!e.paid)
+        out.push({
+          id: `exp-${e.id}`,
+          date: e.dueDate,
+          kind: "Dépense à payer",
+          title: `${e.label}`,
+          href: `/finances/depenses?focus=${e.id}`,
+          tone: e.dueDate < today ? "danger" : "warning",
+          amount: -e.amountHT,
+        });
     for (const sub of data.subscriptions) {
       if (sub.status !== "active") continue;
-      for (const d of billingDates(sub, addDays(today, -31), addMonths(today, 3))) out.push({ id: `sub-${sub.id}-${d}`, date: d, kind: "Facturation récurrente", title: `${sub.offer} · ${clients.get(sub.clientId)}`, href: `/finances/abonnements?focus=${sub.id}`, tone: "success" });
-      if (sub.endDate) out.push({ id: `subend-${sub.id}`, date: sub.endDate, kind: "Contrat à renouveler", title: `${sub.offer} · ${clients.get(sub.clientId)}`, href: `/finances/abonnements?focus=${sub.id}`, tone: "warning" });
+      for (const d of billingDates(sub, addDays(today, -31), addMonths(today, 3)))
+        out.push({
+          id: `sub-${sub.id}-${d}`,
+          date: d,
+          kind: "Facturation récurrente",
+          title: `${sub.offer} · ${clients.get(sub.clientId)}`,
+          href: `/finances/abonnements?focus=${sub.id}`,
+          tone: "success",
+        });
+      if (sub.endDate)
+        out.push({
+          id: `subend-${sub.id}`,
+          date: sub.endDate,
+          kind: "Contrat à renouveler",
+          title: `${sub.offer} · ${clients.get(sub.clientId)}`,
+          href: `/finances/abonnements?focus=${sub.id}`,
+          tone: "warning",
+        });
     }
     for (const p of data.projects) {
       if (p.status === "done" || p.status === "cancelled") continue;
       out.push({ id: `prj-${p.id}`, date: p.dueDate, kind: "Livraison projet", title: `${p.code} · ${p.name}`, href: `/projets/${p.id}`, tone: p.dueDate < today ? "danger" : "violet" });
-      for (const m of p.milestones) if (!m.done) out.push({ id: `ms-${m.id}`, date: m.dueDate, kind: "Jalon", title: `${p.code} · ${m.title}`, href: `/projets/${p.id}`, tone: m.dueDate < today ? "danger" : "violet" });
+      for (const m of p.milestones)
+        if (!m.done) out.push({ id: `ms-${m.id}`, date: m.dueDate, kind: "Jalon", title: `${p.code} · ${m.title}`, href: `/projets/${p.id}`, tone: m.dueDate < today ? "danger" : "violet" });
     }
-    for (const t of data.tasks) if (isTaskOpen(t) && t.dueDate && (t.priority === "critical" || t.priority === "high")) out.push({ id: `tsk-${t.id}`, date: t.dueDate, kind: t.priority === "critical" ? "Tâche critique" : "Tâche prioritaire", title: t.title, href: `/taches?focus=${t.id}`, tone: t.dueDate < today ? "danger" : "warning" });
+    for (const t of data.tasks)
+      if (isTaskOpen(t) && t.dueDate && (t.priority === "critical" || t.priority === "high"))
+        out.push({
+          id: `tsk-${t.id}`,
+          date: t.dueDate,
+          kind: t.priority === "critical" ? "Tâche critique" : "Tâche prioritaire",
+          title: t.title,
+          href: `/taches?focus=${t.id}`,
+          tone: t.dueDate < today ? "danger" : "warning",
+        });
     for (const a of data.salesActivities) if (!a.done) out.push({ id: `sa-${a.id}`, date: a.date.slice(0, 10), kind: "Activité commerciale", title: a.subject, href: "/crm/activites", tone: "gold" });
-    for (const l of data.leads) if (l.nextActionDate && l.status !== "converted" && l.status !== "unqualified") out.push({ id: `lead-${l.id}`, date: l.nextActionDate, kind: "Relance prospect", title: `${l.company} · ${l.nextAction}`, href: `/crm/prospects?focus=${l.id}`, tone: l.nextActionDate < today ? "danger" : "gold" });
+    for (const l of data.leads)
+      if (l.nextActionDate && l.status !== "converted" && l.status !== "unqualified")
+        out.push({
+          id: `lead-${l.id}`,
+          date: l.nextActionDate,
+          kind: "Relance prospect",
+          title: `${l.company} · ${l.nextAction}`,
+          href: `/crm/prospects?focus=${l.id}`,
+          tone: l.nextActionDate < today ? "danger" : "gold",
+        });
     for (const o of data.opportunities) if (isOpen(o)) out.push({ id: `opp-${o.id}`, date: o.expectedCloseDate, kind: "Clôture estimée", title: o.name, href: `/crm?focus=${o.id}`, tone: "neutral" });
     return out.sort((a, b) => a.date.localeCompare(b.date));
   }, [data, summaries, today]);
@@ -139,7 +192,15 @@ export function OperationsPage() {
             </CardContent>
           </Card>
           <p className="text-[11px] text-subtle">Les risques sont déterminés par des règles simples et explicites ; ce n&apos;est pas un système prédictif.</p>
-          {risks.length ? <div className="grid gap-2 lg:grid-cols-2">{risks.map((r) => <AlertCard key={r.key} alert={r} />)}</div> : <EmptyState title="Aucun risque détecté" />}
+          {risks.length ? (
+            <div className="grid gap-2 lg:grid-cols-2">
+              {risks.map((r) => (
+                <AlertCard key={r.key} alert={r} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Aucun risque détecté" />
+          )}
           <div className="flex flex-wrap gap-2 text-[11px] text-muted">
             {RISK_KINDS.map((k) => (
               <Badge key={k}>
@@ -149,7 +210,15 @@ export function OperationsPage() {
           </div>
         </TabsContent>
         <TabsContent value="alertes">
-          {alerts.length ? <div className="grid gap-2 lg:grid-cols-2">{alerts.map((r) => <AlertCard key={r.key} alert={r} />)}</div> : <EmptyState title="Aucune alerte" />}
+          {alerts.length ? (
+            <div className="grid gap-2 lg:grid-cols-2">
+              {alerts.map((r) => (
+                <AlertCard key={r.key} alert={r} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Aucune alerte" />
+          )}
         </TabsContent>
         <TabsContent value="notes">
           <NotesGrid notes={[...data.notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))} />

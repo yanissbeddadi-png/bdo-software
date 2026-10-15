@@ -57,7 +57,12 @@ export function CommandCenter() {
   const chartSeries = series.slice(range === "6" ? -6 : -12);
 
   const danger = alerts.filter((a) => a.severity === "danger").length;
-  const health = snap.cash < data.settings.company.cashAlertThreshold || danger >= 8 ? { label: "Sous tension", tone: "danger" as const } : danger >= 1 ? { label: "Sous surveillance", tone: "warning" as const } : { label: "Solide", tone: "success" as const };
+  const health =
+    snap.cash < data.settings.company.cashAlertThreshold || danger >= 8
+      ? { label: "Sous tension", tone: "danger" as const }
+      : danger >= 1
+        ? { label: "Sous surveillance", tone: "warning" as const }
+        : { label: "Solide", tone: "success" as const };
   const overdueCount = snap.overdueCount;
   const spark = (k: "billed" | "collected" | "cash" | "expenses" | "result" | "mrr") => series.map((m) => m[k]);
 
@@ -94,7 +99,9 @@ export function CommandCenter() {
               <LevelBadge level={p.level.level} size="lg" frameColor={p.frameColor} />
               <div className="relative min-w-0 flex-1 space-y-2">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <p className="text-lg font-semibold text-fg">Niveau {p.level.level} · {p.title}</p>
+                  <p className="text-lg font-semibold text-fg">
+                    Niveau {p.level.level} · {p.title}
+                  </p>
                   <p className="text-xs tabular text-muted">{formatXp(p.xp)} au total</p>
                 </div>
                 <XPProgressBar into={p.level.xpIntoLevel} needed={p.level.xpForNext} />
@@ -148,15 +155,67 @@ export function CommandCenter() {
 
       {/* Indicateurs financiers */}
       <section aria-labelledby="kpi-title">
-        <SectionTitle title="Indicateurs financiers" description={`${label} — comparaison avec la période précédente de même durée.`} actions={<Link href="/finances" className="text-xs text-accent hover:underline">Module Finances →</Link>} />
-        <h2 id="kpi-title" className="sr-only">Indicateurs financiers</h2>
+        <SectionTitle
+          title="Indicateurs financiers"
+          description={`${label} — comparaison avec la période précédente de même durée.`}
+          actions={
+            <Link href="/finances" className="text-xs text-accent hover:underline">
+              Module Finances →
+            </Link>
+          }
+        />
+        <h2 id="kpi-title" className="sr-only">
+          Indicateurs financiers
+        </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-          <FinancialMetricCard label="Chiffre d'affaires facturé" icon={<Receipt />} value={snap.current.billed} previous={snap.previous.billed} series={spark("billed")} definition={DEF.billed} href="/finances/factures" />
-          <FinancialMetricCard label="Chiffre d'affaires encaissé" icon={<HandCoins />} value={snap.current.collected} previous={snap.previous.collected} series={spark("collected")} definition={DEF.collected} href="/finances/factures" />
-          <FinancialMetricCard label="Trésorerie disponible" icon={<Landmark />} value={snap.cash} previous={snap.cashPrevious} series={spark("cash")} definition={DEF.cash} href="/finances/tresorerie" comparisonLabel="vs fin de période précédente" />
+          <FinancialMetricCard
+            label="Chiffre d'affaires facturé"
+            icon={<Receipt />}
+            value={snap.current.billed}
+            previous={snap.previous.billed}
+            series={spark("billed")}
+            definition={DEF.billed}
+            href="/finances/factures"
+          />
+          <FinancialMetricCard
+            label="Chiffre d'affaires encaissé"
+            icon={<HandCoins />}
+            value={snap.current.collected}
+            previous={snap.previous.collected}
+            series={spark("collected")}
+            definition={DEF.collected}
+            href="/finances/factures"
+          />
+          <FinancialMetricCard
+            label="Trésorerie disponible"
+            icon={<Landmark />}
+            value={snap.cash}
+            previous={snap.cashPrevious}
+            series={spark("cash")}
+            definition={DEF.cash}
+            href="/finances/tresorerie"
+            comparisonLabel="vs fin de période précédente"
+          />
           <FinancialMetricCard label="Factures clients impayées" icon={<Banknote />} value={snap.receivables} definition={DEF.receivables} href="/finances/factures?status=overdue" good="down" />
-          <FinancialMetricCard label="Dépenses de la période" icon={<Wallet />} value={snap.current.expenses} previous={snap.previous.expenses} series={spark("expenses")} good="down" definition={DEF.expenses} href="/finances/depenses" />
-          <FinancialMetricCard label="Résultat opérationnel estimé" icon={<TrendingUp />} value={snap.current.operatingResult} previous={snap.previous.operatingResult} series={spark("result")} definition={DEF.result} href="/analyses" />
+          <FinancialMetricCard
+            label="Dépenses de la période"
+            icon={<Wallet />}
+            value={snap.current.expenses}
+            previous={snap.previous.expenses}
+            series={spark("expenses")}
+            good="down"
+            definition={DEF.expenses}
+            href="/finances/depenses"
+          />
+          <FinancialMetricCard
+            label="Résultat opérationnel estimé"
+            icon={<TrendingUp />}
+            value={snap.current.operatingResult}
+            previous={snap.previous.operatingResult}
+            series={spark("result")}
+            definition={DEF.result}
+            href="/analyses"
+          />
           <FinancialMetricCard
             label="Marge opérationnelle"
             icon={<Gauge />}
@@ -168,9 +227,32 @@ export function CommandCenter() {
             definition={DEF.margin}
             href="/analyses"
           />
-          <FinancialMetricCard label="MRR" icon={<Repeat />} value={snap.mrr} previous={snap.mrrPrevious} series={spark("mrr")} definition={DEF.mrr} href="/finances/abonnements" comparisonLabel="vs fin de période précédente" />
-          <FinancialMetricCard label="ARR (estimation)" icon={<LineChart />} value={snap.arr} previous={snap.mrrPrevious * 12} definition={DEF.arr} href="/finances/abonnements" comparisonLabel="vs fin de période précédente" />
-          <FinancialMetricCard label="Pipeline commercial" icon={<PiggyBank />} value={pipelineValue(data.opportunities)} definition={`${DEF.pipeline} Valeur pondérée : ${formatEUR(weightedPipeline(data.opportunities))}.`} href="/crm" />
+          <FinancialMetricCard
+            label="MRR"
+            icon={<Repeat />}
+            value={snap.mrr}
+            previous={snap.mrrPrevious}
+            series={spark("mrr")}
+            definition={DEF.mrr}
+            href="/finances/abonnements"
+            comparisonLabel="vs fin de période précédente"
+          />
+          <FinancialMetricCard
+            label="ARR (estimation)"
+            icon={<LineChart />}
+            value={snap.arr}
+            previous={snap.mrrPrevious * 12}
+            definition={DEF.arr}
+            href="/finances/abonnements"
+            comparisonLabel="vs fin de période précédente"
+          />
+          <FinancialMetricCard
+            label="Pipeline commercial"
+            icon={<PiggyBank />}
+            value={pipelineValue(data.opportunities)}
+            definition={`${DEF.pipeline} Valeur pondérée : ${formatEUR(weightedPipeline(data.opportunities))}.`}
+            href="/crm"
+          />
         </div>
         {overdueCount ? (
           <p className="mt-2 text-xs text-danger">
@@ -185,7 +267,15 @@ export function CommandCenter() {
       {/* Alertes + missions */}
       <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
         <section>
-          <SectionTitle title="Alertes prioritaires" description={`${alerts.length} alerte(s) déterminée(s) par des règles configurables`} actions={<Link href="/operations?tab=risques" className="text-xs text-accent hover:underline">Toutes les alertes →</Link>} />
+          <SectionTitle
+            title="Alertes prioritaires"
+            description={`${alerts.length} alerte(s) déterminée(s) par des règles configurables`}
+            actions={
+              <Link href="/operations?tab=risques" className="text-xs text-accent hover:underline">
+                Toutes les alertes →
+              </Link>
+            }
+          />
           {alerts.length ? (
             <div className="space-y-2">
               {alerts.slice(0, 7).map((a) => (
@@ -197,7 +287,15 @@ export function CommandCenter() {
           )}
         </section>
         <section>
-          <SectionTitle title="Missions du jour" description="Recommandées à partir de vos données" actions={<Link href="/missions" className="text-xs text-accent hover:underline">Centre de missions →</Link>} />
+          <SectionTitle
+            title="Missions du jour"
+            description="Recommandées à partir de vos données"
+            actions={
+              <Link href="/missions" className="text-xs text-accent hover:underline">
+                Centre de missions →
+              </Link>
+            }
+          />
           {missions.length ? (
             <div className="space-y-2.5">
               {missions.map((m) => (
@@ -320,6 +418,9 @@ function TopClients() {
     if (s.invoice.baseStatus !== "issued" || s.invoice.issueDate < period.start || s.invoice.issueDate > period.end) continue;
     totals.set(s.invoice.clientId, (totals.get(s.invoice.clientId) ?? 0) + s.totalHT);
   }
-  const items = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([id, value]) => ({ key: id, label: clients.get(id) ?? "—", value }));
+  const items = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([id, value]) => ({ key: id, label: clients.get(id) ?? "—", value }));
   return <HorizontalBars items={items} />;
 }

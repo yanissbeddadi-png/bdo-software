@@ -49,8 +49,23 @@ export function NotificationsPage() {
             <FilterBar
               onReset={f.reset}
               filters={[
-                { id: "category", label: "Catégorie", value: f.values.category, onChange: f.set("category"), options: (Object.keys(NOTIFICATION_CATEGORY) as NotificationCategory[]).map((k) => ({ value: k, label: NOTIFICATION_CATEGORY[k] })) },
-                { id: "read", label: "État", value: f.values.read, onChange: f.set("read"), options: [{ value: "unread", label: "Non lues" }, { value: "read", label: "Lues" }] },
+                {
+                  id: "category",
+                  label: "Catégorie",
+                  value: f.values.category,
+                  onChange: f.set("category"),
+                  options: (Object.keys(NOTIFICATION_CATEGORY) as NotificationCategory[]).map((k) => ({ value: k, label: NOTIFICATION_CATEGORY[k] })),
+                },
+                {
+                  id: "read",
+                  label: "État",
+                  value: f.values.read,
+                  onChange: f.set("read"),
+                  options: [
+                    { value: "unread", label: "Non lues" },
+                    { value: "read", label: "Lues" },
+                  ],
+                },
               ]}
             />
           </div>
@@ -61,7 +76,12 @@ export function NotificationsPage() {
                   const Icon = ICON[n.severity];
                   return (
                     <li key={n.id} className={cn("flex items-start gap-3 px-4 py-3", !n.read && "bg-accent/5")}>
-                      <Icon className={cn("mt-0.5 size-4 shrink-0", n.severity === "danger" ? "text-danger" : n.severity === "warning" ? "text-warning" : n.severity === "success" ? "text-gold" : "text-action")} />
+                      <Icon
+                        className={cn(
+                          "mt-0.5 size-4 shrink-0",
+                          n.severity === "danger" ? "text-danger" : n.severity === "warning" ? "text-warning" : n.severity === "success" ? "text-gold" : "text-action",
+                        )}
+                      />
                       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => open(n)}>
                         <span className={cn("block text-sm", n.read ? "text-muted" : "font-medium text-fg")}>{n.title}</span>
                         <span className="block text-xs text-muted">{n.body}</span>
@@ -72,7 +92,12 @@ export function NotificationsPage() {
                           </time>
                         </span>
                       </button>
-                      <Button size="icon-sm" variant="ghost" aria-label={n.read ? "Marquer comme non lue" : "Marquer comme lue"} onClick={() => run(C.markNotificationRead, { id: n.id, read: !n.read }, { silent: true })}>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={n.read ? "Marquer comme non lue" : "Marquer comme lue"}
+                        onClick={() => run(C.markNotificationRead, { id: n.id, read: !n.read }, { silent: true })}
+                      >
                         {n.read ? <Mail /> : <MailOpen />}
                       </Button>
                     </li>

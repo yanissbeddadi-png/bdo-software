@@ -10,7 +10,11 @@ export function Tooltip({ content, children, side = "top", className }: { conten
     <T.Root delayDuration={200}>
       <T.Trigger asChild>{children}</T.Trigger>
       <T.Portal>
-        <T.Content side={side} sideOffset={6} className={cn("z-50 max-w-72 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-xs leading-relaxed text-fg shadow-xl animate-fade-in", className)}>
+        <T.Content
+          side={side}
+          sideOffset={6}
+          className={cn("z-50 max-w-72 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-xs leading-relaxed text-fg shadow-xl animate-fade-in", className)}
+        >
           {content}
           <T.Arrow className="fill-bg-elevated" />
         </T.Content>

@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "next build && playwright test",
     "seed:sql": "tsx scripts/generate-seed-sql.ts",
-    "format": "prettier --write src e2e"
+    "format": "prettier --write src e2e",
+    "test:sql": "bash scripts/test-sql.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

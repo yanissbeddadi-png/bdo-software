@@ -34,13 +34,7 @@ export function paidAmount(payments: Payment[], asOf?: ISODate): Cents {
  * - `partially_paid` : 0 < encaissé < TTC, non échue ;
  * - `issued` : émise, aucun paiement, non échue.
  */
-export function computeInvoiceStatus(params: {
-  baseStatus: Invoice["baseStatus"];
-  totalTTC: Cents;
-  paid: Cents;
-  dueDate: ISODate;
-  today: ISODate;
-}): InvoiceStatus {
+export function computeInvoiceStatus(params: { baseStatus: Invoice["baseStatus"]; totalTTC: Cents; paid: Cents; dueDate: ISODate; today: ISODate }): InvoiceStatus {
   const { baseStatus, totalTTC, paid, dueDate, today } = params;
   if (baseStatus === "cancelled") return "cancelled";
   if (baseStatus === "draft") return "draft";
@@ -57,7 +51,12 @@ export function summarizeInvoice(invoice: Invoice, payments: Payment[], today: I
   const status = computeInvoiceStatus({ baseStatus: invoice.baseStatus, totalTTC: totals.totalTTC, paid, dueDate: invoice.dueDate, today });
   const balance = invoice.baseStatus === "issued" ? Math.max(totals.totalTTC - paid, 0) : 0;
   const daysOverdue = status === "overdue" ? Math.round((Date.parse(today) - Date.parse(invoice.dueDate)) / 86_400_000) : 0;
-  const lastPaymentDate = relevant.length ? relevant.map((p) => p.date).sort().at(-1)! : null;
+  const lastPaymentDate = relevant.length
+    ? relevant
+        .map((p) => p.date)
+        .sort()
+        .at(-1)!
+    : null;
   return { ...totals, invoice, paid, balance, status, daysOverdue, lastPaymentDate };
 }
 

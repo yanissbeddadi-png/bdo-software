@@ -2,7 +2,8 @@
 import { create } from "zustand";
 import type { PeriodPreset } from "@/lib/calculations/dates";
 
-export type QuickCreateKind = "client" | "lead" | "opportunity" | "project" | "task" | "invoice" | "expense" | "quote" | "note" | "goal" | "mission" | "contact" | "payment" | "activity" | "subscription" | "product" | "employee";
+export type QuickCreateKind =
+  "client" | "lead" | "opportunity" | "project" | "task" | "invoice" | "expense" | "quote" | "note" | "goal" | "mission" | "contact" | "payment" | "activity" | "subscription" | "product" | "employee";
 
 interface UiStore {
   period: PeriodPreset;

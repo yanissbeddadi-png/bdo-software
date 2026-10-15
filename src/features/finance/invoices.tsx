@@ -58,12 +58,31 @@ export function InvoicesPage() {
 
   const columns: Column<Row>[] = [
     { id: "number", header: "Numéro", cell: (r) => <span className="font-medium text-fg">{r.invoice.number}</span>, sortValue: (r) => r.invoice.number, csv: (r) => r.invoice.number },
-    { id: "client", header: "Client", cell: (r) => clients.get(r.invoice.clientId)?.name ?? "—", sortValue: (r) => clients.get(r.invoice.clientId)?.name ?? "", csv: (r) => clients.get(r.invoice.clientId)?.name ?? "" },
+    {
+      id: "client",
+      header: "Client",
+      cell: (r) => clients.get(r.invoice.clientId)?.name ?? "—",
+      sortValue: (r) => clients.get(r.invoice.clientId)?.name ?? "",
+      csv: (r) => clients.get(r.invoice.clientId)?.name ?? "",
+    },
     { id: "issue", header: "Émission", cell: (r) => formatDate(r.invoice.issueDate), sortValue: (r) => r.invoice.issueDate, csv: (r) => r.invoice.issueDate, hideBelow: "md" },
-    { id: "due", header: "Échéance", cell: (r) => <span className={cn(r.status === "overdue" && "text-danger")}>{formatDate(r.invoice.dueDate)}</span>, sortValue: (r) => r.invoice.dueDate, csv: (r) => r.invoice.dueDate },
+    {
+      id: "due",
+      header: "Échéance",
+      cell: (r) => <span className={cn(r.status === "overdue" && "text-danger")}>{formatDate(r.invoice.dueDate)}</span>,
+      sortValue: (r) => r.invoice.dueDate,
+      csv: (r) => r.invoice.dueDate,
+    },
     { id: "ht", header: "Total HT", align: "right", cell: (r) => formatEUR(r.totalHT), sortValue: (r) => r.totalHT, csv: (r) => csvMoney(r.totalHT), hideBelow: "lg" },
     { id: "ttc", header: "Total TTC", align: "right", cell: (r) => formatEUR(r.totalTTC), sortValue: (r) => r.totalTTC, csv: (r) => csvMoney(r.totalTTC) },
-    { id: "balance", header: "Solde", align: "right", cell: (r) => <span className={cn(r.balance > 0 ? "text-fg" : "text-subtle")}>{formatEUR(r.balance)}</span>, sortValue: (r) => r.balance, csv: (r) => csvMoney(r.balance) },
+    {
+      id: "balance",
+      header: "Solde",
+      align: "right",
+      cell: (r) => <span className={cn(r.balance > 0 ? "text-fg" : "text-subtle")}>{formatEUR(r.balance)}</span>,
+      sortValue: (r) => r.balance,
+      csv: (r) => csvMoney(r.balance),
+    },
     { id: "status", header: "Statut", cell: (r) => <StatusBadge meta={INVOICE_STATUS[r.status]} />, sortValue: (r) => r.status, csv: (r) => INVOICE_STATUS[r.status].label },
     {
       id: "actions",
@@ -117,9 +136,25 @@ export function InvoicesPage() {
           <FilterBar
             onReset={f.reset}
             filters={[
-              { id: "status", label: "Statut", value: f.values.status, onChange: f.set("status"), options: (Object.keys(INVOICE_STATUS) as InvoiceStatus[]).map((s) => ({ value: s, label: INVOICE_STATUS[s].label })) },
+              {
+                id: "status",
+                label: "Statut",
+                value: f.values.status,
+                onChange: f.set("status"),
+                options: (Object.keys(INVOICE_STATUS) as InvoiceStatus[]).map((s) => ({ value: s, label: INVOICE_STATUS[s].label })),
+              },
               { id: "client", label: "Client", value: f.values.client, onChange: f.set("client"), options: data.clients.map((c) => ({ value: c.id, label: c.name })) },
-              { id: "kind", label: "Origine", value: f.values.kind, onChange: f.set("kind"), options: [{ value: "project", label: "Projet" }, { value: "subscription", label: "Abonnement" }, { value: "other", label: "Autre" }] },
+              {
+                id: "kind",
+                label: "Origine",
+                value: f.values.kind,
+                onChange: f.set("kind"),
+                options: [
+                  { value: "project", label: "Projet" },
+                  { value: "subscription", label: "Abonnement" },
+                  { value: "other", label: "Autre" },
+                ],
+              },
             ]}
           />
         }
@@ -145,7 +180,18 @@ export function InvoiceDetail({ id }: { id: string }) {
   const [cancelOpen, setCancelOpen] = React.useState(false);
   const [reason, setReason] = React.useState("");
   const s = summaries.find((x) => x.invoice.id === id);
-  if (!s) return <ErrorState title="Facture introuvable" description="Elle a peut-être été supprimée." action={<Button asChild><Link href="/finances/factures">Retour aux factures</Link></Button>} />;
+  if (!s)
+    return (
+      <ErrorState
+        title="Facture introuvable"
+        description="Elle a peut-être été supprimée."
+        action={
+          <Button asChild>
+            <Link href="/finances/factures">Retour aux factures</Link>
+          </Button>
+        }
+      />
+    );
   const inv = s.invoice;
   const client = data.clients.find((c) => c.id === inv.clientId);
   const project = data.projects.find((p) => p.id === inv.projectId);
@@ -165,7 +211,14 @@ export function InvoiceDetail({ id }: { id: string }) {
         title={`Facture ${inv.number}`}
         description={
           <span>
-            {client ? <Link href={`/clients/${client.id}`} className="text-accent hover:underline">{client.name}</Link> : "Client supprimé"} · émise le {formatDate(inv.issueDate)} · échéance le {formatDate(inv.dueDate)}
+            {client ? (
+              <Link href={`/clients/${client.id}`} className="text-accent hover:underline">
+                {client.name}
+              </Link>
+            ) : (
+              "Client supprimé"
+            )}{" "}
+            · émise le {formatDate(inv.issueDate)} · échéance le {formatDate(inv.dueDate)}
           </span>
         }
         actions={
@@ -227,8 +280,16 @@ export function InvoiceDetail({ id }: { id: string }) {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <StatusBadge meta={INVOICE_STATUS[s.status]} />
           {s.status === "overdue" ? <Badge tone="danger">{s.daysOverdue} j de retard</Badge> : null}
-          {project ? <Badge tone="violet"><Link href={`/projets/${project.id}`}>{project.code}</Link></Badge> : null}
-          {quote ? <Badge><Link href={`/crm/devis/${quote.id}`}>Devis {quote.number}</Link></Badge> : null}
+          {project ? (
+            <Badge tone="violet">
+              <Link href={`/projets/${project.id}`}>{project.code}</Link>
+            </Badge>
+          ) : null}
+          {quote ? (
+            <Badge>
+              <Link href={`/crm/devis/${quote.id}`}>Devis {quote.number}</Link>
+            </Badge>
+          ) : null}
           {inv.subscriptionId ? <Badge tone="info">Abonnement</Badge> : null}
         </div>
       </PageHeader>
@@ -335,7 +396,10 @@ export function InvoiceDetail({ id }: { id: string }) {
                   ))}
                 </ul>
               ) : (
-                <EmptyState title="Aucun paiement" description={inv.baseStatus === "draft" ? "Émettez la facture pour pouvoir enregistrer un paiement." : "Aucun encaissement enregistré pour cette facture."} />
+                <EmptyState
+                  title="Aucun paiement"
+                  description={inv.baseStatus === "draft" ? "Émettez la facture pour pouvoir enregistrer un paiement." : "Aucun encaissement enregistré pour cette facture."}
+                />
               )}
             </CardContent>
           </Card>
@@ -359,7 +423,13 @@ export function InvoiceDetail({ id }: { id: string }) {
           </Card>
         </div>
       </div>
-      <FormDialog open={edit} onOpenChange={setEdit} title={`Modifier ${inv.number}`} description={inv.baseStatus === "issued" ? "Facture émise : seuls l'échéance, le projet et les notes restent modifiables." : undefined} wide>
+      <FormDialog
+        open={edit}
+        onOpenChange={setEdit}
+        title={`Modifier ${inv.number}`}
+        description={inv.baseStatus === "issued" ? "Facture émise : seuls l'échéance, le projet et les notes restent modifiables." : undefined}
+        wide
+      >
         <InvoiceForm entity={inv} onDone={() => setEdit(false)} onCancel={() => setEdit(false)} />
       </FormDialog>
       <FormDialog open={pay} onOpenChange={setPay} title="Enregistrer un paiement">

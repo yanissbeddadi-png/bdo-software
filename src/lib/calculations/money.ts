@@ -57,9 +57,7 @@ export function documentTotals(items: Pick<LineItem, "quantity" | "unitPrice" | 
     totalHT += ht;
     byRate.set(item.vatRate, (byRate.get(item.vatRate) ?? 0) + ht);
   }
-  const breakdown: VatBreakdownEntry[] = [...byRate.entries()]
-    .sort((a, b) => b[0] - a[0])
-    .map(([rate, baseHT]) => ({ rate, baseHT, vat: vatOn(baseHT, rate) }));
+  const breakdown: VatBreakdownEntry[] = [...byRate.entries()].sort((a, b) => b[0] - a[0]).map(([rate, baseHT]) => ({ rate, baseHT, vat: vatOn(baseHT, rate) }));
   const totalVAT = breakdown.reduce((sum, e) => sum + e.vat, 0);
   return { totalHT, totalVAT, totalTTC: totalHT + totalVAT, breakdown };
 }

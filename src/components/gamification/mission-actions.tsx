@@ -38,7 +38,18 @@ export function MissionActions({ mission, showCancel }: { mission: Mission; show
       break;
     case "opportunity_touched":
       actions.push(
-        <Button key="o" size="sm" variant="primary" onClick={() => openCreate("activity", { opportunityId: c.opportunityId, clientId: data.opportunities.find((o) => o.id === c.opportunityId)?.clientId ?? null, leadId: data.opportunities.find((o) => o.id === c.opportunityId)?.leadId ?? null })}>
+        <Button
+          key="o"
+          size="sm"
+          variant="primary"
+          onClick={() =>
+            openCreate("activity", {
+              opportunityId: c.opportunityId,
+              clientId: data.opportunities.find((o) => o.id === c.opportunityId)?.clientId ?? null,
+              leadId: data.opportunities.find((o) => o.id === c.opportunityId)?.leadId ?? null,
+            })
+          }
+        >
           <Send /> Consigner un échange
         </Button>,
       );

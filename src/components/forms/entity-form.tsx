@@ -103,17 +103,48 @@ export function EntityForm<T extends FieldValues>({
               control={form.control}
               name={f.name}
               render={({ field }) => (
-                <Field label={f.label} htmlFor={fid} error={error} help={f.help} className={cn(f.span === 2 || f.type === "textarea" || f.type === "lines" || f.type === "multiselect" ? "sm:col-span-2" : "")}>
+                <Field
+                  label={f.label}
+                  htmlFor={fid}
+                  error={error}
+                  help={f.help}
+                  className={cn(f.span === 2 || f.type === "textarea" || f.type === "lines" || f.type === "multiselect" ? "sm:col-span-2" : "")}
+                >
                   {f.type === "textarea" ? (
                     <Textarea id={fid} aria-invalid={!!error} placeholder={f.placeholder} {...field} value={(field.value as string) ?? ""} />
                   ) : f.type === "money" ? (
                     <MoneyInput id={fid} aria-invalid={!!error} value={field.value as number} onChange={field.onChange} onBlur={field.onBlur} />
                   ) : f.type === "number" ? (
-                    <Input id={fid} type="number" inputMode="decimal" aria-invalid={!!error} step={f.step ?? 1} min={f.min} max={f.max} value={Number.isFinite(field.value as number) ? (field.value as number) : ""} onChange={(e) => field.onChange(e.target.value === "" ? Number.NaN : Number(e.target.value))} onBlur={field.onBlur} className="tabular" />
+                    <Input
+                      id={fid}
+                      type="number"
+                      inputMode="decimal"
+                      aria-invalid={!!error}
+                      step={f.step ?? 1}
+                      min={f.min}
+                      max={f.max}
+                      value={Number.isFinite(field.value as number) ? (field.value as number) : ""}
+                      onChange={(e) => field.onChange(e.target.value === "" ? Number.NaN : Number(e.target.value))}
+                      onBlur={field.onBlur}
+                      className="tabular"
+                    />
                   ) : f.type === "date" ? (
-                    <Input id={fid} type="date" aria-invalid={!!error} value={(field.value as string) ?? ""} onChange={(e) => field.onChange(e.target.value === "" && f.nullable ? null : e.target.value)} onBlur={field.onBlur} />
+                    <Input
+                      id={fid}
+                      type="date"
+                      aria-invalid={!!error}
+                      value={(field.value as string) ?? ""}
+                      onChange={(e) => field.onChange(e.target.value === "" && f.nullable ? null : e.target.value)}
+                      onBlur={field.onBlur}
+                    />
                   ) : f.type === "select" ? (
-                    <NativeSelect id={fid} aria-invalid={!!error} value={(field.value as string) ?? ""} onChange={(e) => field.onChange(e.target.value === "" && f.nullable ? null : e.target.value)} onBlur={field.onBlur}>
+                    <NativeSelect
+                      id={fid}
+                      aria-invalid={!!error}
+                      value={(field.value as string) ?? ""}
+                      onChange={(e) => field.onChange(e.target.value === "" && f.nullable ? null : e.target.value)}
+                      onBlur={field.onBlur}
+                    >
                       {f.nullable ? <option value="">— Aucun —</option> : null}
                       {!f.nullable && !(field.value as string) ? <option value="">Choisir…</option> : null}
                       {f.options?.map((o) => (
@@ -129,7 +160,15 @@ export function EntityForm<T extends FieldValues>({
                   ) : f.type === "rating" ? (
                     <div className="flex h-9 items-center gap-1" role="radiogroup" aria-label={f.label}>
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <button key={n} type="button" role="radio" aria-checked={field.value === n} aria-label={`${n} sur 5`} onClick={() => field.onChange(field.value === n ? null : n)} className="cursor-pointer p-0.5">
+                        <button
+                          key={n}
+                          type="button"
+                          role="radio"
+                          aria-checked={field.value === n}
+                          aria-label={`${n} sur 5`}
+                          onClick={() => field.onChange(field.value === n ? null : n)}
+                          className="cursor-pointer p-0.5"
+                        >
                           <Star className={cn("size-5", (field.value as number | null) !== null && n <= (field.value as number) ? "fill-gold text-gold" : "text-subtle")} />
                         </button>
                       ))}

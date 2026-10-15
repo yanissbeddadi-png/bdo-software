@@ -24,7 +24,15 @@ export const updatePreferences: Command<Partial<PreferenceSettings>> = (data, in
 };
 
 export const updateGamificationSettings: Command<Partial<GamificationSettings>> = (data, input, ctx) => {
-  const sensitive: (keyof GamificationSettings)[] = ["xpRewards", "dailyInvoiceXpCap", "dailyCustomMissionXpCap", "pipelineAchievementThreshold", "staleOpportunityDays", "weeklyProspectingTarget", "enabled"];
+  const sensitive: (keyof GamificationSettings)[] = [
+    "xpRewards",
+    "dailyInvoiceXpCap",
+    "dailyCustomMissionXpCap",
+    "pipelineAchievementThreshold",
+    "staleOpportunityDays",
+    "weeklyProspectingTarget",
+    "enabled",
+  ];
   if (Object.keys(input).some((k) => sensitive.includes(k as keyof GamificationSettings))) assertCan(ctx, "settings.write");
   const gamification = { ...data.settings.gamification, ...input };
   if (Object.values(gamification.xpRewards).some((v) => !Number.isInteger(v) || v < 0 || v > 5000)) throw new DomainError("Les récompenses XP doivent être des entiers entre 0 et 5000.");
@@ -81,7 +89,10 @@ export const resetProgression: Command<void> = (data, _input, ctx) => {
     xpTransactions: [],
     retiredXpKeys: [...retired],
     progression: [],
-    settings: { ...data.settings, gamification: { ...data.settings.gamification, announcedLevel: 1, progressionStart: ctx.today, equippedTitle: null, equippedTheme: "theme-default", equippedFrame: null } },
+    settings: {
+      ...data.settings,
+      gamification: { ...data.settings.gamification, announcedLevel: 1, progressionStart: ctx.today, equippedTitle: null, equippedTheme: "theme-default", equippedFrame: null },
+    },
   };
   next = audit(next, ctx, "gamification.reset", null, `${retired.size} clés retirées`);
   next = activity(next, ctx, "data_reset", "Progression du dirigeant réinitialisée", null);

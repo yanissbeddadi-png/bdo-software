@@ -5,7 +5,23 @@ import { buildForecast } from "./cashflow";
 import { emptyData, invoice, line, NOW, TODAY } from "@/test/fixtures";
 import type { AppData, Expense } from "@/lib/domain/types";
 
-const expense = (p: Partial<Expense>): Expense => ({ id: Math.random().toString(), label: "Dépense", supplier: "F", category: "software", date: "2026-10-05", amountHT: 100_000, vatRate: 2000, paid: true, paidDate: "2026-10-05", dueDate: "2026-10-05", projectId: null, notes: "", createdAt: NOW, updatedAt: NOW, ...p });
+const expense = (p: Partial<Expense>): Expense => ({
+  id: Math.random().toString(),
+  label: "Dépense",
+  supplier: "F",
+  category: "software",
+  date: "2026-10-05",
+  amountHT: 100_000,
+  vatRate: 2000,
+  paid: true,
+  paidDate: "2026-10-05",
+  dueDate: "2026-10-05",
+  projectId: null,
+  notes: "",
+  createdAt: NOW,
+  updatedAt: NOW,
+  ...p,
+});
 
 function dataset(): AppData {
   const d = emptyData();
@@ -59,7 +75,28 @@ describe("indicateurs financiers", () => {
 describe("prévisions de trésorerie", () => {
   it("part du solde réel et ordonne les scénarios prudent ≤ central ≤ optimiste", () => {
     const d = dataset();
-    d.opportunities = [{ id: "o", name: "Deal", clientId: null, leadId: "l", contactId: null, amount: 5_000_000, probability: 50, stage: "proposal", expectedCloseDate: "2026-10-20", source: "", ownerId: null, lastInteractionAt: NOW, nextAction: "", notes: "", closedAt: null, lostReason: "", createdAt: NOW, updatedAt: NOW }];
+    d.opportunities = [
+      {
+        id: "o",
+        name: "Deal",
+        clientId: null,
+        leadId: "l",
+        contactId: null,
+        amount: 5_000_000,
+        probability: 50,
+        stage: "proposal",
+        expectedCloseDate: "2026-10-20",
+        source: "",
+        ownerId: null,
+        lastInteractionAt: NOW,
+        nextAction: "",
+        notes: "",
+        closedAt: null,
+        lostReason: "",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ];
     const p = buildForecast(d, TODAY, "prudent");
     const c = buildForecast(d, TODAY, "central");
     const o = buildForecast(d, TODAY, "optimistic");

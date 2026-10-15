@@ -60,7 +60,13 @@ export const setProjectStatus: Command<{ id: string; status: ProjectStatus }, Pr
   }
   const project: Project = { ...current, status, completedAt: status === "done" ? ctx.now : null, updatedAt: ctx.now };
   let next = { ...data, projects: replace(data.projects, project) };
-  next = activity(next, ctx, status === "done" ? "project_completed" : "project_status", status === "done" ? `Projet ${project.code} terminé` : `Projet ${project.code} → ${PROJECT_STATUS_LABELS[status]}`, { type: "project", id });
+  next = activity(
+    next,
+    ctx,
+    status === "done" ? "project_completed" : "project_status",
+    status === "done" ? `Projet ${project.code} terminé` : `Projet ${project.code} → ${PROJECT_STATUS_LABELS[status]}`,
+    { type: "project", id },
+  );
   return { data: next, result: project, message: `Projet ${project.code} : ${PROJECT_STATUS_LABELS[status]}.` };
 };
 
@@ -93,7 +99,11 @@ export const toggleMilestone: Command<{ projectId: string; milestoneId: string }
 export const deleteMilestone: Command<{ projectId: string; milestoneId: string }> = (data, { projectId, milestoneId }, ctx) => {
   assertCan(ctx, "projects.write");
   const project = findOrThrow(data.projects, projectId, "Projet");
-  return { data: { ...data, projects: replace(data.projects, { ...project, milestones: project.milestones.filter((m) => m.id !== milestoneId), updatedAt: ctx.now }) }, result: undefined, message: "Jalon supprimé." };
+  return {
+    data: { ...data, projects: replace(data.projects, { ...project, milestones: project.milestones.filter((m) => m.id !== milestoneId), updatedAt: ctx.now }) },
+    result: undefined,
+    message: "Jalon supprimé.",
+  };
 };
 
 /* ----------------------------- Tâches ----------------------------- */
@@ -182,7 +192,13 @@ export const deleteTask: Command<{ id: string }> = (data, { id }, ctx) => {
   assertCan(ctx, "tasks.write");
   const task = findOrThrow(data.tasks, id, "Tâche");
   return {
-    data: audit({ ...data, tasks: data.tasks.filter((t) => t.id !== id).map((t) => (t.dependsOn.includes(id) ? { ...t, dependsOn: t.dependsOn.filter((d) => d !== id) } : t)) }, ctx, "task.delete", { type: "task", id }, task.title),
+    data: audit(
+      { ...data, tasks: data.tasks.filter((t) => t.id !== id).map((t) => (t.dependsOn.includes(id) ? { ...t, dependsOn: t.dependsOn.filter((d) => d !== id) } : t)) },
+      ctx,
+      "task.delete",
+      { type: "task", id },
+      task.title,
+    ),
     result: undefined,
     message: "Tâche supprimée.",
   };

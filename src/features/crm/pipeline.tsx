@@ -33,7 +33,6 @@ export function PipelinePage() {
   const [lost, setLost] = React.useState<{ id: string; reason: string } | null>(null);
   const [owner, setOwner] = React.useState("all");
 
-
   const opps = data.opportunities.filter((o) => owner === "all" || o.ownerId === owner);
   const move = (id: string, stage: OpportunityStage) => {
     if (stage === "lost") {
@@ -69,7 +68,19 @@ export function PipelinePage() {
         <MetricCard label="Valeur du pipeline" value={formatEUR(pipelineValue(data.opportunities), { round: true })} hint="Somme des montants estimés des opportunités ouvertes." />
         <MetricCard label="Valeur pondérée" value={formatEUR(weightedPipeline(data.opportunities), { round: true })} hint="Σ montant × probabilité des opportunités ouvertes." />
         <MetricCard label="Taux de conversion" value={formatPercent(conv)} hint="Gagnées ÷ (gagnées + perdues)." />
-        <MetricCard label="Ventes gagnées" value={won.length} tone="success" footer={<span className="text-[11px] text-muted">{formatEUR(won.reduce((s, o) => s + o.amount, 0), { round: true })}</span>} />
+        <MetricCard
+          label="Ventes gagnées"
+          value={won.length}
+          tone="success"
+          footer={
+            <span className="text-[11px] text-muted">
+              {formatEUR(
+                won.reduce((s, o) => s + o.amount, 0),
+                { round: true },
+              )}
+            </span>
+          }
+        />
         <MetricCard label="Ventes perdues" value={data.opportunities.filter((o) => o.stage === "lost").length} />
         <MetricCard label="Activités à venir" value={upcoming} href="/crm/activites" />
       </div>
@@ -111,7 +122,11 @@ export function PipelinePage() {
                   <div>
                     <h3 className="text-sm font-medium text-fg">{stage.label}</h3>
                     <p className="text-[11px] tabular text-muted">
-                      {list.length} · {formatEUR(list.reduce((s, o) => s + o.amount, 0), { round: true })}
+                      {list.length} ·{" "}
+                      {formatEUR(
+                        list.reduce((s, o) => s + o.amount, 0),
+                        { round: true },
+                      )}
                     </p>
                   </div>
                   <Badge tone={stage.id === "won" ? "success" : stage.id === "lost" ? "neutral" : "info"}>{stage.defaultProbability} %</Badge>
@@ -129,7 +144,11 @@ export function PipelinePage() {
                         }}
                         onDragEnd={() => setDragging(null)}
                         data-opportunity={o.id}
-                        className={cn("group relative cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm transition active:cursor-grabbing", dragging === o.id && "opacity-50", focus === o.id ? "border-accent" : "border-border hover:border-border-strong")}
+                        className={cn(
+                          "group relative cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm transition active:cursor-grabbing",
+                          dragging === o.id && "opacity-50",
+                          focus === o.id ? "border-accent" : "border-border hover:border-border-strong",
+                        )}
                       >
                         <div className="flex items-start gap-2">
                           <GripVertical className="mt-0.5 size-3.5 shrink-0 text-subtle" aria-hidden />
@@ -143,7 +162,13 @@ export function PipelinePage() {
                           <span className="tabular text-muted">{o.probability} %</span>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-subtle">
-                          {isOpen(o) ? <span className="inline-flex items-center gap-1"><CalendarClock className="size-3" /> {formatDate(o.expectedCloseDate)}</span> : <span>Clôturée le {formatDate(o.closedAt)}</span>}
+                          {isOpen(o) ? (
+                            <span className="inline-flex items-center gap-1">
+                              <CalendarClock className="size-3" /> {formatDate(o.expectedCloseDate)}
+                            </span>
+                          ) : (
+                            <span>Clôturée le {formatDate(o.closedAt)}</span>
+                          )}
                           {stale ? <Badge tone="warning">Inactive</Badge> : null}
                           {o.ownerId ? <span className="ml-auto">{employees.get(o.ownerId)?.firstName}</span> : null}
                         </div>
@@ -203,22 +228,64 @@ function OpportunityDialog({ id, onClose }: { id: string; onClose: () => void })
   const quotes = data.quotes.filter((q) => q.opportunityId === id);
   const projects = data.projects.filter((p) => p.opportunityId === id);
   return (
-    <FormDialog open onOpenChange={(o) => !o && onClose()} title={opp.name} description={`${STAGE_LABELS[opp.stage]} · dernière interaction ${formatDueIn(opp.lastInteractionAt, today)}${opp.lostReason ? ` · motif : ${opp.lostReason}` : ""}`} wide>
+    <FormDialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={opp.name}
+      description={`${STAGE_LABELS[opp.stage]} · dernière interaction ${formatDueIn(opp.lastInteractionAt, today)}${opp.lostReason ? ` · motif : ${opp.lostReason}` : ""}`}
+      wide
+    >
       <div className="mb-5 flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" onClick={() => { onClose(); openCreate("activity", { opportunityId: id, clientId: opp.clientId, leadId: opp.leadId }); }}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            onClose();
+            openCreate("activity", { opportunityId: id, clientId: opp.clientId, leadId: opp.leadId });
+          }}
+        >
           <MessageSquarePlus /> Consigner une activité
         </Button>
         {opp.clientId ? (
-          <Button size="sm" variant="secondary" onClick={() => { onClose(); openCreate("quote", { clientId: opp.clientId, opportunityId: id }); }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              onClose();
+              openCreate("quote", { clientId: opp.clientId, opportunityId: id });
+            }}
+          >
             <FilePlus2 /> Créer un devis
           </Button>
         ) : null}
         {opp.stage === "won" && opp.clientId ? (
-          <Button size="sm" variant="secondary" onClick={() => { onClose(); openCreate("project", { clientId: opp.clientId, opportunityId: id }); }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              onClose();
+              openCreate("project", { clientId: opp.clientId, opportunityId: id });
+            }}
+          >
             <FolderPlus /> Créer le projet
           </Button>
         ) : null}
-        <Button size="sm" variant="ghost" className="ml-auto text-danger" onClick={() => confirm({ title: "Supprimer cette opportunité ?", description: "Les devis, projets et activités liés seront conservés mais détachés.", confirmLabel: "Supprimer", action: () => { const r = run(C.deleteOpportunity, { id }); if (r.ok) onClose(); } })}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto text-danger"
+          onClick={() =>
+            confirm({
+              title: "Supprimer cette opportunité ?",
+              description: "Les devis, projets et activités liés seront conservés mais détachés.",
+              confirmLabel: "Supprimer",
+              action: () => {
+                const r = run(C.deleteOpportunity, { id });
+                if (r.ok) onClose();
+              },
+            })
+          }
+        >
           <Trash2 /> Supprimer
         </Button>
       </div>

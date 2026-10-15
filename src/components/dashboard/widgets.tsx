@@ -106,8 +106,17 @@ export function AlertCard({ alert }: { alert: Alert }) {
   const href = entityHref(alert.ref, data) ?? (alert.kind === "cash_low" || alert.kind === "cash_forecast" ? "/finances/tresorerie" : "/operations");
   const Icon = alert.severity === "danger" ? CircleAlert : alert.severity === "warning" ? AlertTriangle : Info;
   return (
-    <Link href={href} className={cn("group flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-interactive/50", alert.severity === "danger" ? "border-danger/35 bg-danger/5" : alert.severity === "warning" ? "border-warning/30 bg-warning/5" : "border-border bg-bg-elevated")}>
-      <Icon className={cn("mt-0.5 size-4 shrink-0", alert.severity === "danger" ? "text-danger" : alert.severity === "warning" ? "text-warning" : "text-action")} aria-label={alert.severity === "danger" ? "Critique" : alert.severity === "warning" ? "Attention" : "Information"} />
+    <Link
+      href={href}
+      className={cn(
+        "group flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-interactive/50",
+        alert.severity === "danger" ? "border-danger/35 bg-danger/5" : alert.severity === "warning" ? "border-warning/30 bg-warning/5" : "border-border bg-bg-elevated",
+      )}
+    >
+      <Icon
+        className={cn("mt-0.5 size-4 shrink-0", alert.severity === "danger" ? "text-danger" : alert.severity === "warning" ? "text-warning" : "text-action")}
+        aria-label={alert.severity === "danger" ? "Critique" : alert.severity === "warning" ? "Attention" : "Information"}
+      />
       <span className="min-w-0 flex-1">
         <span className="block text-sm text-fg">{alert.title}</span>
         <span className="block truncate text-xs text-muted">{alert.body}</span>
@@ -132,7 +141,8 @@ export function QuickActions() {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
       {actions.map((a) => {
-        const cls = "flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-3 text-left text-xs font-medium text-fg transition-colors hover:border-border-strong hover:bg-interactive/60 cursor-pointer";
+        const cls =
+          "flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-3 text-left text-xs font-medium text-fg transition-colors hover:border-border-strong hover:bg-interactive/60 cursor-pointer";
         const inner = (
           <>
             <a.icon className="size-4 text-accent" />

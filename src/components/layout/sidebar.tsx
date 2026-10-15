@@ -42,7 +42,11 @@ export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNav
             href={item.href}
             onClick={onNavigate}
             aria-current={active && pathname === item.href ? "page" : undefined}
-            className={cn("group relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors", active ? "bg-interactive text-fg" : "text-muted hover:bg-interactive/60 hover:text-fg", collapsed && "justify-center px-0")}
+            className={cn(
+              "group relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors",
+              active ? "bg-interactive text-fg" : "text-muted hover:bg-interactive/60 hover:text-fg",
+              collapsed && "justify-center px-0",
+            )}
           >
             {active ? <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent" aria-hidden /> : null}
             <Icon className={cn("size-[18px] shrink-0", active ? "text-accent" : "text-subtle group-hover:text-muted")} />
@@ -64,7 +68,16 @@ export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNav
             {!collapsed && active && item.children ? (
               <div className="mb-1 ml-[30px] mt-0.5 flex flex-col border-l border-border pl-2">
                 {item.children.map((c) => (
-                  <Link key={c.href} href={c.href} onClick={onNavigate} aria-current={pathname === c.href ? "page" : undefined} className={cn("rounded-md px-2 py-1.5 text-[13px] transition-colors", pathname === c.href || (c.href !== item.href && pathname.startsWith(c.href)) ? "text-fg" : "text-muted hover:text-fg")}>
+                  <Link
+                    key={c.href}
+                    href={c.href}
+                    onClick={onNavigate}
+                    aria-current={pathname === c.href ? "page" : undefined}
+                    className={cn(
+                      "rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                      pathname === c.href || (c.href !== item.href && pathname.startsWith(c.href)) ? "text-fg" : "text-muted hover:text-fg",
+                    )}
+                  >
                     {c.label}
                   </Link>
                 ))}
@@ -116,7 +129,12 @@ export function Sidebar() {
       </div>
       <div className="space-y-2 border-t border-border p-3">
         <ProfileCard collapsed={collapsed} />
-        <button type="button" onClick={toggle} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-subtle hover:bg-interactive hover:text-fg cursor-pointer", collapsed && "justify-center")} aria-label={collapsed ? "Déplier la navigation" : "Réduire la navigation"}>
+        <button
+          type="button"
+          onClick={toggle}
+          className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-subtle hover:bg-interactive hover:text-fg cursor-pointer", collapsed && "justify-center")}
+          aria-label={collapsed ? "Déplier la navigation" : "Réduire la navigation"}
+        >
           {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
           {!collapsed ? "Réduire" : null}
         </button>

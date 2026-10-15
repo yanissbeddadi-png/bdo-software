@@ -31,7 +31,11 @@ export function XPProgressBar({ into, needed, className, label = "Progression ve
 export function LevelBadge({ level, size = "md", frameColor }: { level: number; size?: "sm" | "md" | "lg"; frameColor?: string }) {
   const dims = { sm: "size-8 text-xs", md: "size-12 text-base", lg: "size-16 text-xl" }[size];
   return (
-    <div className={cn("relative grid shrink-0 place-items-center rounded-xl border-2 bg-gradient-to-br from-violet/25 to-accent/10 font-bold tabular text-fg", dims)} style={{ borderColor: frameColor ?? "color-mix(in srgb, var(--violet) 60%, transparent)" }} aria-label={`Niveau ${level}`}>
+    <div
+      className={cn("relative grid shrink-0 place-items-center rounded-xl border-2 bg-gradient-to-br from-violet/25 to-accent/10 font-bold tabular text-fg", dims)}
+      style={{ borderColor: frameColor ?? "color-mix(in srgb, var(--violet) 60%, transparent)" }}
+      aria-label={`Niveau ${level}`}
+    >
       {level}
       <span className="absolute -bottom-1.5 rounded bg-bg px-1 text-[8px] font-semibold uppercase tracking-wider text-violet">niv.</span>
     </div>
@@ -50,7 +54,11 @@ export function AchievementCard({ def, unlockedAt, progress }: { def: Achievemen
   const unlocked = Boolean(unlockedAt);
   return (
     <div className={cn("flex gap-3 rounded-xl border bg-card p-3.5 transition-colors", unlocked ? RARITY_STYLE[def.rarity] : "border-border opacity-80")}>
-      <div className={cn("grid size-11 shrink-0 place-items-center rounded-lg border", unlocked ? cn(RARITY_STYLE[def.rarity], "bg-interactive animate-pop") : "border-border bg-bg-elevated text-subtle")}>{unlocked ? <Icon className="size-5" /> : <Lock className="size-4" />}</div>
+      <div
+        className={cn("grid size-11 shrink-0 place-items-center rounded-lg border", unlocked ? cn(RARITY_STYLE[def.rarity], "bg-interactive animate-pop") : "border-border bg-bg-elevated text-subtle")}
+      >
+        {unlocked ? <Icon className="size-5" /> : <Lock className="size-4" />}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <p className={cn("text-sm font-medium", unlocked ? "text-fg" : "text-muted")}>{def.name}</p>

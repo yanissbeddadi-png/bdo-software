@@ -2,7 +2,7 @@ import { chromium } from "@playwright/test";
 const base = process.argv[2] ?? "http://localhost:3100";
 const outDir = process.argv[3] ?? "/tmp/claude-0/shots";
 const routes = ["/", "/missions", "/finances", "/finances/factures", "/finances/depenses", "/finances/tresorerie", "/finances/abonnements", "/crm", "/crm/prospects", "/crm/devis", "/crm/activites", "/clients", "/projets", "/taches", "/equipe", "/catalogue", "/operations", "/analyses", "/objectifs", "/progression", "/notifications", "/parametres"];
-const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 let errors = [];

@@ -1,7 +1,7 @@
 import { chromium } from "@playwright/test";
 const base = process.argv[2] ?? "http://localhost:3200";
 const routes = ["/", "/missions", "/finances", "/finances/factures", "/finances/depenses", "/finances/tresorerie", "/finances/abonnements", "/crm", "/crm/prospects", "/crm/devis", "/crm/activites", "/clients", "/clients/cli_novaretail", "/projets", "/projets/prj_006", "/taches", "/equipe", "/catalogue", "/operations", "/analyses", "/objectifs", "/progression", "/notifications", "/parametres"];
-const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 for (const r of routes) {
   await page.goto(base + r, { waitUntil: "networkidle" });

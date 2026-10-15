@@ -46,11 +46,7 @@ export const RANKS: RankDefinition[] = [
     rank: 3,
     name: "Agence en croissance",
     description: "Des revenus récurrents et un rythme de livraison établi.",
-    criteria: (m) => [
-      crit("clients", "Clients actifs", m.activeClients, 6, count),
-      crit("mrr", "MRR", m.mrr, 300_000, euros),
-      crit("projects", "Projets livrés", m.projectsDone, 3, count),
-    ],
+    criteria: (m) => [crit("clients", "Clients actifs", m.activeClients, 6, count), crit("mrr", "MRR", m.mrr, 300_000, euros), crit("projects", "Projets livrés", m.projectsDone, 3, count)],
   },
   {
     rank: 4,

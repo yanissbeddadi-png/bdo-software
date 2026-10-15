@@ -48,11 +48,28 @@ export function SubscriptionsPage() {
 
   const rows = data.subscriptions.filter((s) => f.match("status", s.status) && f.match("periodicity", s.periodicity));
   const columns: Column<Subscription>[] = [
-    { id: "client", header: "Client", cell: (s) => <Link className="text-fg hover:underline" href={`/clients/${s.clientId}`}>{clients.get(s.clientId)?.name ?? "—"}</Link>, sortValue: (s) => clients.get(s.clientId)?.name ?? "", csv: (s) => clients.get(s.clientId)?.name ?? "" },
+    {
+      id: "client",
+      header: "Client",
+      cell: (s) => (
+        <Link className="text-fg hover:underline" href={`/clients/${s.clientId}`}>
+          {clients.get(s.clientId)?.name ?? "—"}
+        </Link>
+      ),
+      sortValue: (s) => clients.get(s.clientId)?.name ?? "",
+      csv: (s) => clients.get(s.clientId)?.name ?? "",
+    },
     { id: "offer", header: "Offre", cell: (s) => s.offer, sortValue: (s) => s.offer, csv: (s) => s.offer },
     { id: "amount", header: "Montant / période", align: "right", cell: (s) => formatEUR(s.amount), sortValue: (s) => s.amount, csv: (s) => csvMoney(s.amount), hideBelow: "md" },
     { id: "periodicity", header: "Périodicité", cell: (s) => PERIODICITY_LABELS[s.periodicity], csv: (s) => PERIODICITY_LABELS[s.periodicity], hideBelow: "md" },
-    { id: "mrr", header: "MRR", align: "right", cell: (s) => (isSubscriptionActiveOn(s, today) ? formatEUR(monthlyValue(s)) : <span className="text-subtle">—</span>), sortValue: (s) => (isSubscriptionActiveOn(s, today) ? monthlyValue(s) : 0), csv: (s) => (isSubscriptionActiveOn(s, today) ? csvMoney(monthlyValue(s)) : 0) },
+    {
+      id: "mrr",
+      header: "MRR",
+      align: "right",
+      cell: (s) => (isSubscriptionActiveOn(s, today) ? formatEUR(monthlyValue(s)) : <span className="text-subtle">—</span>),
+      sortValue: (s) => (isSubscriptionActiveOn(s, today) ? monthlyValue(s) : 0),
+      csv: (s) => (isSubscriptionActiveOn(s, today) ? csvMoney(monthlyValue(s)) : 0),
+    },
     { id: "start", header: "Début", cell: (s) => formatDate(s.startDate), sortValue: (s) => s.startDate, csv: (s) => s.startDate, hideBelow: "lg" },
     {
       id: "end",
@@ -82,7 +99,12 @@ export function SubscriptionsPage() {
         }
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="MRR" value={formatEUR(mrr)} hint="Σ des abonnements actifs ramenés au mois (trimestriel ÷ 3, annuel ÷ 12)." footer={<span className="text-[11px] text-muted">Il y a un mois : {formatEUR(lastMonthMrr)}</span>} />
+        <MetricCard
+          label="MRR"
+          value={formatEUR(mrr)}
+          hint="Σ des abonnements actifs ramenés au mois (trimestriel ÷ 3, annuel ÷ 12)."
+          footer={<span className="text-[11px] text-muted">Il y a un mois : {formatEUR(lastMonthMrr)}</span>}
+        />
         <MetricCard label="ARR (estimation)" value={formatEUR(computeARR(mrr))} hint="MRR × 12." />
         <MetricCard label="Contrats actifs" value={data.subscriptions.filter((s) => s.status === "active").length} />
         <MetricCard label="Échéances à facturer" value={unbilled.length} tone={unbilled.length ? "gold" : "default"} hint="Échéances exigibles sans facture correspondante." />
@@ -103,7 +125,9 @@ export function SubscriptionsPage() {
               unbilled.slice(0, 8).map((u) => (
                 <div key={`${u.sub.id}-${u.date}`} className="flex items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-fg">{clients.get(u.sub.clientId)?.name} · {u.sub.offer}</p>
+                    <p className="truncate text-fg">
+                      {clients.get(u.sub.clientId)?.name} · {u.sub.offer}
+                    </p>
                     <p className="text-[11px] text-muted">
                       Échéance du {formatDate(u.date)} · {formatEUR(u.sub.amount)} HT
                     </p>
@@ -133,7 +157,13 @@ export function SubscriptionsPage() {
             onReset={f.reset}
             filters={[
               { id: "status", label: "Statut", value: f.values.status, onChange: f.set("status"), options: Object.entries(SUBSCRIPTION_STATUS).map(([value, m]) => ({ value, label: m.label })) },
-              { id: "periodicity", label: "Périodicité", value: f.values.periodicity, onChange: f.set("periodicity"), options: Object.entries(PERIODICITY_LABELS).map(([value, label]) => ({ value, label })) },
+              {
+                id: "periodicity",
+                label: "Périodicité",
+                value: f.values.periodicity,
+                onChange: f.set("periodicity"),
+                options: Object.entries(PERIODICITY_LABELS).map(([value, label]) => ({ value, label })),
+              },
             ]}
           />
         }

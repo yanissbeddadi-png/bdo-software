@@ -43,8 +43,22 @@ export function LineItemsEditor({ value, onChange }: { value: LineItem[]; onChan
               </option>
             ))}
           </NativeSelect>
-          <Input aria-label={`Désignation ligne ${i + 1}`} className="col-span-12 sm:col-span-8" placeholder="Désignation" value={l.description} onChange={(e) => update(l.id, { description: e.target.value })} />
-          <Input aria-label={`Quantité ligne ${i + 1}`} className="col-span-3 tabular" type="number" step="0.01" min="0" value={Number.isFinite(l.quantity) ? l.quantity : ""} onChange={(e) => update(l.id, { quantity: e.target.value === "" ? Number.NaN : Number(e.target.value) })} />
+          <Input
+            aria-label={`Désignation ligne ${i + 1}`}
+            className="col-span-12 sm:col-span-8"
+            placeholder="Désignation"
+            value={l.description}
+            onChange={(e) => update(l.id, { description: e.target.value })}
+          />
+          <Input
+            aria-label={`Quantité ligne ${i + 1}`}
+            className="col-span-3 tabular"
+            type="number"
+            step="0.01"
+            min="0"
+            value={Number.isFinite(l.quantity) ? l.quantity : ""}
+            onChange={(e) => update(l.id, { quantity: e.target.value === "" ? Number.NaN : Number(e.target.value) })}
+          />
           <MoneyInput aria-label={`Prix unitaire HT ligne ${i + 1}`} className="col-span-4" allowNegative value={l.unitPrice} onChange={(c) => update(l.id, { unitPrice: c })} />
           <NativeSelect aria-label={`TVA ligne ${i + 1}`} className="col-span-3" value={String(l.vatRate)} onChange={(e) => update(l.id, { vatRate: Number(e.target.value) })}>
             {vatRates.map((r) => (

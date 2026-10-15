@@ -1,7 +1,19 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export function PageHeader({ title, description, actions, className, children }: { title: string; description?: React.ReactNode; actions?: React.ReactNode; className?: string; children?: React.ReactNode }) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  className,
+  children,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
     <header className={cn("mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between", className)}>
       <div className="min-w-0">

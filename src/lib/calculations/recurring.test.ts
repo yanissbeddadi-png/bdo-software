@@ -3,7 +3,21 @@ import { billingDates, computeARR, computeMRR, monthlyValue } from "./recurring"
 import type { Subscription } from "@/lib/domain/types";
 import { NOW } from "@/test/fixtures";
 
-const sub = (p: Partial<Subscription>): Subscription => ({ id: "s", clientId: "c", productId: null, offer: "Offre", amount: 100_000, periodicity: "monthly", startDate: "2026-01-01", endDate: null, status: "active", renewalTerms: "", createdAt: NOW, updatedAt: NOW, ...p });
+const sub = (p: Partial<Subscription>): Subscription => ({
+  id: "s",
+  clientId: "c",
+  productId: null,
+  offer: "Offre",
+  amount: 100_000,
+  periodicity: "monthly",
+  startDate: "2026-01-01",
+  endDate: null,
+  status: "active",
+  renewalTerms: "",
+  createdAt: NOW,
+  updatedAt: NOW,
+  ...p,
+});
 
 describe("revenus récurrents", () => {
   it("normalise les périodicités au mois", () => {

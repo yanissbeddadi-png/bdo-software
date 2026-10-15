@@ -43,7 +43,10 @@ function useOptions() {
   return React.useMemo(
     () => ({
       clients: [...data.clients].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((c) => ({ value: c.id, label: c.name })),
-      activeClients: data.clients.filter((c) => c.status !== "churned").sort((a, b) => a.name.localeCompare(b.name, "fr")).map((c) => ({ value: c.id, label: c.name })),
+      activeClients: data.clients
+        .filter((c) => c.status !== "churned")
+        .sort((a, b) => a.name.localeCompare(b.name, "fr"))
+        .map((c) => ({ value: c.id, label: c.name })),
       employees: data.employees.filter((e) => e.status !== "left").map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })),
       projects: data.projects.filter((p) => p.status !== "cancelled").map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })),
       leads: data.leads.filter((l) => l.status !== "converted").map((l) => ({ value: l.id, label: l.company })),
@@ -76,7 +79,11 @@ export function ClientForm({ entity, onDone, onCancel }: FormProps<Client>) {
   return (
     <EntityForm<S.ClientInput>
       schema={S.clientSchema}
-      defaultValues={entity ? { name: entity.name, sector: entity.sector, status: entity.status, city: entity.city, website: entity.website, satisfaction: entity.satisfaction, notes: entity.notes } : { name: "", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "" }}
+      defaultValues={
+        entity
+          ? { name: entity.name, sector: entity.sector, status: entity.status, city: entity.city, website: entity.website, satisfaction: entity.satisfaction, notes: entity.notes }
+          : { name: "", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "" }
+      }
       fields={fields}
       onCancel={onCancel}
       submitLabel={entity ? "Enregistrer" : "Créer le client"}
@@ -110,7 +117,17 @@ export function ContactForm({ entity, defaults, onDone, onCancel }: FormProps<Co
       schema={S.contactSchema}
       defaultValues={
         entity
-          ? { clientId: entity.clientId, leadId: entity.leadId, firstName: entity.firstName, lastName: entity.lastName, jobTitle: entity.jobTitle, email: entity.email, phone: entity.phone, isPrimary: entity.isPrimary, notes: entity.notes }
+          ? {
+              clientId: entity.clientId,
+              leadId: entity.leadId,
+              firstName: entity.firstName,
+              lastName: entity.lastName,
+              jobTitle: entity.jobTitle,
+              email: entity.email,
+              phone: entity.phone,
+              isPrimary: entity.isPrimary,
+              notes: entity.notes,
+            }
           : { clientId: pick(defaults, "clientId", null), leadId: pick(defaults, "leadId", null), firstName: "", lastName: "", jobTitle: "", email: "", phone: "", isPrimary: false, notes: "" }
       }
       fields={fields}
@@ -148,8 +165,32 @@ export function LeadForm({ entity, onDone, onCancel }: FormProps<Lead>) {
       schema={S.leadSchema}
       defaultValues={
         entity
-          ? { company: entity.company, contactName: entity.contactName, email: entity.email, phone: entity.phone, sector: entity.sector, source: entity.source, priority: entity.priority, status: entity.status, nextAction: entity.nextAction, nextActionDate: entity.nextActionDate, notes: entity.notes }
-          : { company: "", contactName: "", email: "", phone: "", sector: "", source: "Site web", priority: "normal", status: "new", nextAction: "Premier appel de découverte", nextActionDate: addDays(today, 2), notes: "" }
+          ? {
+              company: entity.company,
+              contactName: entity.contactName,
+              email: entity.email,
+              phone: entity.phone,
+              sector: entity.sector,
+              source: entity.source,
+              priority: entity.priority,
+              status: entity.status,
+              nextAction: entity.nextAction,
+              nextActionDate: entity.nextActionDate,
+              notes: entity.notes,
+            }
+          : {
+              company: "",
+              contactName: "",
+              email: "",
+              phone: "",
+              sector: "",
+              source: "Site web",
+              priority: "normal",
+              status: "new",
+              nextAction: "Premier appel de découverte",
+              nextActionDate: addDays(today, 2),
+              notes: "",
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -177,7 +218,12 @@ export function OpportunityForm({ entity, defaults, onDone, onCancel }: FormProp
     { name: "probability", label: "Probabilité (%)", type: "number", min: 0, max: 100 },
     { name: "stage", label: "Étape", type: "select", options: STAGES.map((s) => ({ value: s.id, label: s.label })) },
     { name: "expectedCloseDate", label: "Clôture estimée", type: "date" },
-    { name: "source", label: "Source", type: "select", options: ["Site web", "Salon", "Recommandation", "LinkedIn", "Partenaire", "Client existant", "Appel entrant"].map((v) => ({ value: v, label: v })) },
+    {
+      name: "source",
+      label: "Source",
+      type: "select",
+      options: ["Site web", "Salon", "Recommandation", "LinkedIn", "Partenaire", "Client existant", "Appel entrant"].map((v) => ({ value: v, label: v })),
+    },
     { name: "ownerId", label: "Commercial responsable", type: "select", nullable: true, options: o.employees },
     { name: "nextAction", label: "Prochaine action", type: "text", span: 2 },
     { name: "notes", label: "Notes", type: "textarea" },
@@ -187,8 +233,34 @@ export function OpportunityForm({ entity, defaults, onDone, onCancel }: FormProp
       schema={S.opportunitySchema}
       defaultValues={
         entity
-          ? { name: entity.name, clientId: entity.clientId, leadId: entity.leadId, contactId: entity.contactId, amount: entity.amount, probability: entity.probability, stage: entity.stage, expectedCloseDate: entity.expectedCloseDate, source: entity.source, ownerId: entity.ownerId, nextAction: entity.nextAction, notes: entity.notes }
-          : { name: "", clientId: pick(defaults, "clientId", null), leadId: pick(defaults, "leadId", null), contactId: null, amount: 0, probability: 10, stage: "new", expectedCloseDate: addDays(today, 45), source: "Site web", ownerId: "emp_camille", nextAction: "", notes: "" }
+          ? {
+              name: entity.name,
+              clientId: entity.clientId,
+              leadId: entity.leadId,
+              contactId: entity.contactId,
+              amount: entity.amount,
+              probability: entity.probability,
+              stage: entity.stage,
+              expectedCloseDate: entity.expectedCloseDate,
+              source: entity.source,
+              ownerId: entity.ownerId,
+              nextAction: entity.nextAction,
+              notes: entity.notes,
+            }
+          : {
+              name: "",
+              clientId: pick(defaults, "clientId", null),
+              leadId: pick(defaults, "leadId", null),
+              contactId: null,
+              amount: 0,
+              probability: 10,
+              stage: "new",
+              expectedCloseDate: addDays(today, 45),
+              source: "Site web",
+              ownerId: "emp_camille",
+              nextAction: "",
+              notes: "",
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -221,7 +293,18 @@ export function ActivityForm({ defaults, onDone, onCancel }: FormProps<unknown>)
   return (
     <EntityForm<S.SalesActivityInput>
       schema={S.salesActivitySchema}
-      defaultValues={{ type: "call", date: today, subject: "", notes: "", clientId: pick(defaults, "clientId", null), leadId: pick(defaults, "leadId", null), opportunityId: pick(defaults, "opportunityId", null), invoiceId: null, ownerId: null, done: true }}
+      defaultValues={{
+        type: "call",
+        date: today,
+        subject: "",
+        notes: "",
+        clientId: pick(defaults, "clientId", null),
+        leadId: pick(defaults, "leadId", null),
+        opportunityId: pick(defaults, "opportunityId", null),
+        invoiceId: null,
+        ownerId: null,
+        done: true,
+      }}
       fields={fields}
       onCancel={onCancel}
       submitLabel="Enregistrer l'activité"
@@ -243,19 +326,62 @@ export function ProductForm({ entity, onDone, onCancel }: FormProps<Product>) {
   const fields: FieldConfig<S.ProductInput>[] = [
     { name: "name", label: "Nom", type: "text" },
     { name: "sku", label: "Référence", type: "text" },
-    { name: "type", label: "Type", type: "select", options: Object.entries(PRODUCT_TYPE_LABELS).filter(([k]) => k !== "other").map(([value, label]) => ({ value, label })) },
+    {
+      name: "type",
+      label: "Type",
+      type: "select",
+      options: Object.entries(PRODUCT_TYPE_LABELS)
+        .filter(([k]) => k !== "other")
+        .map(([value, label]) => ({ value, label })),
+    },
     { name: "category", label: "Catégorie", type: "text" },
     { name: "unitPrice", label: "Prix de vente HT", type: "money" },
     { name: "unitCost", label: "Coût estimé", type: "money" },
     { name: "billingMode", label: "Mode de facturation", type: "select", options: options(BILLING_MODE) },
-    { name: "vatRate", label: "TVA par défaut", type: "custom", render: ({ value, onChange }) => <NativeSelect value={String(value)} onChange={(e) => onChange(Number(e.target.value))}>{o.vat.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</NativeSelect> },
-    { name: "status", label: "Statut", type: "select", options: [{ value: "active", label: "Actif" }, { value: "archived", label: "Archivé" }] },
+    {
+      name: "vatRate",
+      label: "TVA par défaut",
+      type: "custom",
+      render: ({ value, onChange }) => (
+        <NativeSelect value={String(value)} onChange={(e) => onChange(Number(e.target.value))}>
+          {o.vat.map((v) => (
+            <option key={v.value} value={v.value}>
+              {v.label}
+            </option>
+          ))}
+        </NativeSelect>
+      ),
+    },
+    {
+      name: "status",
+      label: "Statut",
+      type: "select",
+      options: [
+        { value: "active", label: "Actif" },
+        { value: "archived", label: "Archivé" },
+      ],
+    },
     { name: "description", label: "Description", type: "textarea" },
   ];
   return (
     <EntityForm<S.ProductInput>
       schema={S.productSchema}
-      defaultValues={entity ? { name: entity.name, sku: entity.sku, description: entity.description, type: entity.type, category: entity.category, unitPrice: entity.unitPrice, unitCost: entity.unitCost, billingMode: entity.billingMode, vatRate: entity.vatRate, status: entity.status } : { name: "", sku: "", description: "", type: "saas", category: "", unitPrice: 0, unitCost: 0, billingMode: "monthly", vatRate: 2000, status: "active" }}
+      defaultValues={
+        entity
+          ? {
+              name: entity.name,
+              sku: entity.sku,
+              description: entity.description,
+              type: entity.type,
+              category: entity.category,
+              unitPrice: entity.unitPrice,
+              unitCost: entity.unitCost,
+              billingMode: entity.billingMode,
+              vatRate: entity.vatRate,
+              status: entity.status,
+            }
+          : { name: "", sku: "", description: "", type: "saas", category: "", unitPrice: 0, unitCost: 0, billingMode: "monthly", vatRate: 2000, status: "active" }
+      }
       fields={fields}
       onCancel={onCancel}
       onSubmit={(values) => {
@@ -287,7 +413,14 @@ export function QuoteForm({ entity, defaults, onDone, onCancel }: FormProps<Quot
       defaultValues={
         entity
           ? { clientId: entity.clientId, opportunityId: entity.opportunityId, issueDate: entity.issueDate, expiryDate: entity.expiryDate, items: entity.items, notes: entity.notes }
-          : { clientId: pick(defaults, "clientId", ""), opportunityId: pick(defaults, "opportunityId", null), issueDate: today, expiryDate: addDays(today, 30), items: [{ id: newId("li"), productId: null, description: "", quantity: 1, unitPrice: 0, vatRate: 2000 }], notes: "" }
+          : {
+              clientId: pick(defaults, "clientId", ""),
+              opportunityId: pick(defaults, "opportunityId", null),
+              issueDate: today,
+              expiryDate: addDays(today, 30),
+              items: [{ id: newId("li"), productId: null, description: "", quantity: 1, unitPrice: 0, vatRate: 2000 }],
+              notes: "",
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -323,7 +456,15 @@ export function InvoiceForm({ entity, defaults, onDone, onCancel }: FormProps<In
       defaultValues={
         entity
           ? { clientId: entity.clientId, issueDate: entity.issueDate, dueDate: entity.dueDate, items: entity.items, projectId: entity.projectId, notes: entity.notes, issue: false }
-          : { clientId: pick(defaults, "clientId", ""), issueDate: today, dueDate: addDays(today, 30), items: [{ id: newId("li"), productId: null, description: "", quantity: 1, unitPrice: 0, vatRate: 2000 }], projectId: pick(defaults, "projectId", null), notes: "", issue: true }
+          : {
+              clientId: pick(defaults, "clientId", ""),
+              issueDate: today,
+              dueDate: addDays(today, 30),
+              items: [{ id: newId("li"), productId: null, description: "", quantity: 1, unitPrice: 0, vatRate: 2000 }],
+              projectId: pick(defaults, "projectId", null),
+              notes: "",
+              issue: true,
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -349,7 +490,13 @@ export function PaymentForm({ defaults, onDone, onCancel }: FormProps<unknown>) 
   const invoiceId = pick<string>(defaults, "invoiceId", open[0]?.invoice.id ?? "");
   const balance = summaries.find((s) => s.invoice.id === invoiceId)?.balance ?? 0;
   const fields: FieldConfig<S.PaymentInput>[] = [
-    { name: "invoiceId", label: "Facture", type: "select", span: 2, options: open.map((s) => ({ value: s.invoice.id, label: `${s.invoice.number} · ${clients.get(s.invoice.clientId)} · reste ${formatEUR(s.balance)}` })) },
+    {
+      name: "invoiceId",
+      label: "Facture",
+      type: "select",
+      span: 2,
+      options: open.map((s) => ({ value: s.invoice.id, label: `${s.invoice.number} · ${clients.get(s.invoice.clientId)} · reste ${formatEUR(s.balance)}` })),
+    },
     { name: "date", label: "Date de paiement", type: "date" },
     { name: "amount", label: "Montant reçu", type: "money", help: "Ne peut pas dépasser le solde restant." },
     { name: "method", label: "Moyen de paiement", type: "select", options: options(PAYMENT_METHOD) },
@@ -386,7 +533,20 @@ export function ExpenseForm({ entity, defaults, onDone, onCancel }: FormProps<Ex
     { name: "date", label: "Date", type: "date" },
     { name: "dueDate", label: "Échéance", type: "date" },
     { name: "amountHT", label: "Montant HT", type: "money" },
-    { name: "vatRate", label: "TVA", type: "custom", render: ({ value, onChange }) => <NativeSelect value={String(value)} onChange={(e) => onChange(Number(e.target.value))}>{o.vat.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}</NativeSelect> },
+    {
+      name: "vatRate",
+      label: "TVA",
+      type: "custom",
+      render: ({ value, onChange }) => (
+        <NativeSelect value={String(value)} onChange={(e) => onChange(Number(e.target.value))}>
+          {o.vat.map((v) => (
+            <option key={v.value} value={v.value}>
+              {v.label}
+            </option>
+          ))}
+        </NativeSelect>
+      ),
+    },
     { name: "paid", label: "Déjà payée", type: "switch" },
     { name: "paidDate", label: "Date de paiement", type: "date", nullable: true },
     { name: "projectId", label: "Projet associé", type: "select", nullable: true, options: o.projects },
@@ -397,8 +557,32 @@ export function ExpenseForm({ entity, defaults, onDone, onCancel }: FormProps<Ex
       schema={S.expenseSchema}
       defaultValues={
         entity
-          ? { label: entity.label, supplier: entity.supplier, category: entity.category, date: entity.date, amountHT: entity.amountHT, vatRate: entity.vatRate, paid: entity.paid, paidDate: entity.paidDate, dueDate: entity.dueDate, projectId: entity.projectId, notes: entity.notes }
-          : { label: "", supplier: "", category: "misc", date: today, amountHT: 0, vatRate: 2000, paid: false, paidDate: null, dueDate: addDays(today, 30), projectId: pick(defaults, "projectId", null), notes: "" }
+          ? {
+              label: entity.label,
+              supplier: entity.supplier,
+              category: entity.category,
+              date: entity.date,
+              amountHT: entity.amountHT,
+              vatRate: entity.vatRate,
+              paid: entity.paid,
+              paidDate: entity.paidDate,
+              dueDate: entity.dueDate,
+              projectId: entity.projectId,
+              notes: entity.notes,
+            }
+          : {
+              label: "",
+              supplier: "",
+              category: "misc",
+              date: today,
+              amountHT: 0,
+              vatRate: 2000,
+              paid: false,
+              paidDate: null,
+              dueDate: addDays(today, 30),
+              projectId: pick(defaults, "projectId", null),
+              notes: "",
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -423,7 +607,16 @@ export function SubscriptionForm({ entity, defaults, onDone, onCancel }: FormPro
     { name: "productId", label: "Offre du catalogue", type: "select", nullable: true, options: o.products },
     { name: "offer", label: "Libellé de l'offre", type: "text", span: 2 },
     { name: "amount", label: "Montant HT par période", type: "money" },
-    { name: "periodicity", label: "Périodicité", type: "select", options: [{ value: "monthly", label: "Mensuelle" }, { value: "quarterly", label: "Trimestrielle" }, { value: "yearly", label: "Annuelle" }] },
+    {
+      name: "periodicity",
+      label: "Périodicité",
+      type: "select",
+      options: [
+        { value: "monthly", label: "Mensuelle" },
+        { value: "quarterly", label: "Trimestrielle" },
+        { value: "yearly", label: "Annuelle" },
+      ],
+    },
     { name: "startDate", label: "Date de début", type: "date" },
     { name: "endDate", label: "Date de fin (optionnelle)", type: "date", nullable: true },
     { name: "status", label: "Statut", type: "select", options: options(SUBSCRIPTION_STATUS) },
@@ -434,8 +627,28 @@ export function SubscriptionForm({ entity, defaults, onDone, onCancel }: FormPro
       schema={S.subscriptionSchema}
       defaultValues={
         entity
-          ? { clientId: entity.clientId, productId: entity.productId, offer: entity.offer, amount: entity.amount, periodicity: entity.periodicity, startDate: entity.startDate, endDate: entity.endDate, status: entity.status, renewalTerms: entity.renewalTerms }
-          : { clientId: pick(defaults, "clientId", ""), productId: null, offer: "", amount: 0, periodicity: "monthly", startDate: today, endDate: null, status: "active", renewalTerms: "Tacite reconduction annuelle, préavis 2 mois" }
+          ? {
+              clientId: entity.clientId,
+              productId: entity.productId,
+              offer: entity.offer,
+              amount: entity.amount,
+              periodicity: entity.periodicity,
+              startDate: entity.startDate,
+              endDate: entity.endDate,
+              status: entity.status,
+              renewalTerms: entity.renewalTerms,
+            }
+          : {
+              clientId: pick(defaults, "clientId", ""),
+              productId: null,
+              offer: "",
+              amount: 0,
+              periodicity: "monthly",
+              startDate: today,
+              endDate: null,
+              status: "active",
+              renewalTerms: "Tacite reconduction annuelle, préavis 2 mois",
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -475,8 +688,38 @@ export function ProjectForm({ entity, defaults, onDone, onCancel }: FormProps<Pr
       schema={S.projectSchema}
       defaultValues={
         entity
-          ? { name: entity.name, clientId: entity.clientId, opportunityId: entity.opportunityId, description: entity.description, managerId: entity.managerId, memberIds: entity.memberIds, startDate: entity.startDate, dueDate: entity.dueDate, budget: entity.budget, salePrice: entity.salePrice, estimatedCost: entity.estimatedCost, priority: entity.priority, status: entity.status, risks: entity.risks }
-          : { name: "", clientId: pick(defaults, "clientId", ""), opportunityId: pick(defaults, "opportunityId", null), description: "", managerId: "emp_thomas", memberIds: [], startDate: today, dueDate: addDays(today, 60), budget: 0, salePrice: 0, estimatedCost: 0, priority: "normal", status: "planned", risks: "" }
+          ? {
+              name: entity.name,
+              clientId: entity.clientId,
+              opportunityId: entity.opportunityId,
+              description: entity.description,
+              managerId: entity.managerId,
+              memberIds: entity.memberIds,
+              startDate: entity.startDate,
+              dueDate: entity.dueDate,
+              budget: entity.budget,
+              salePrice: entity.salePrice,
+              estimatedCost: entity.estimatedCost,
+              priority: entity.priority,
+              status: entity.status,
+              risks: entity.risks,
+            }
+          : {
+              name: "",
+              clientId: pick(defaults, "clientId", ""),
+              opportunityId: pick(defaults, "opportunityId", null),
+              description: "",
+              managerId: "emp_thomas",
+              memberIds: [],
+              startDate: today,
+              dueDate: addDays(today, 60),
+              budget: 0,
+              salePrice: 0,
+              estimatedCost: 0,
+              priority: "normal",
+              status: "planned",
+              risks: "",
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -497,7 +740,9 @@ export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>
   const o = useOptions();
   const data = useData();
   const today = useToday();
-  const dependencyOptions = data.tasks.filter((t) => t.id !== entity?.id && t.status !== "cancelled" && (!entity?.projectId || t.projectId === entity.projectId)).map((t) => ({ value: t.id, label: t.title }));
+  const dependencyOptions = data.tasks
+    .filter((t) => t.id !== entity?.id && t.status !== "cancelled" && (!entity?.projectId || t.projectId === entity.projectId))
+    .map((t) => ({ value: t.id, label: t.title }));
   const fields: FieldConfig<S.TaskInput>[] = [
     { name: "title", label: "Titre", type: "text", span: 2 },
     { name: "assigneeId", label: "Responsable", type: "select", nullable: true, options: o.employees },
@@ -509,7 +754,16 @@ export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>
     { name: "projectId", label: "Projet", type: "select", nullable: true, options: o.projects },
     { name: "clientId", label: "Client", type: "select", nullable: true, options: o.clients },
     { name: "goalId", label: "Objectif", type: "select", nullable: true, options: o.goals },
-    { name: "recurrence", label: "Récurrence", type: "select", options: [{ value: "none", label: "Aucune" }, { value: "weekly", label: "Hebdomadaire" }, { value: "monthly", label: "Mensuelle" }] },
+    {
+      name: "recurrence",
+      label: "Récurrence",
+      type: "select",
+      options: [
+        { value: "none", label: "Aucune" },
+        { value: "weekly", label: "Hebdomadaire" },
+        { value: "monthly", label: "Mensuelle" },
+      ],
+    },
     { name: "dependsOn", label: "Dépend de", type: "multiselect", options: dependencyOptions.slice(0, 60) },
     { name: "description", label: "Description", type: "textarea" },
   ];
@@ -518,8 +772,36 @@ export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>
       schema={S.taskSchema}
       defaultValues={
         entity
-          ? { title: entity.title, description: entity.description, assigneeId: entity.assigneeId, priority: entity.priority, status: entity.status, complexity: entity.complexity, dueDate: entity.dueDate, estimateHours: entity.estimateHours, projectId: entity.projectId, clientId: entity.clientId, goalId: entity.goalId, dependsOn: entity.dependsOn, recurrence: entity.recurrence }
-          : { title: "", description: "", assigneeId: pick(defaults, "assigneeId", null), priority: "normal", status: "todo", complexity: "standard", dueDate: pick(defaults, "dueDate", addDays(today, 7)), estimateHours: 2, projectId: pick(defaults, "projectId", null), clientId: pick(defaults, "clientId", null), goalId: null, dependsOn: [], recurrence: "none" }
+          ? {
+              title: entity.title,
+              description: entity.description,
+              assigneeId: entity.assigneeId,
+              priority: entity.priority,
+              status: entity.status,
+              complexity: entity.complexity,
+              dueDate: entity.dueDate,
+              estimateHours: entity.estimateHours,
+              projectId: entity.projectId,
+              clientId: entity.clientId,
+              goalId: entity.goalId,
+              dependsOn: entity.dependsOn,
+              recurrence: entity.recurrence,
+            }
+          : {
+              title: "",
+              description: "",
+              assigneeId: pick(defaults, "assigneeId", null),
+              priority: "normal",
+              status: "todo",
+              complexity: "standard",
+              dueDate: pick(defaults, "dueDate", addDays(today, 7)),
+              estimateHours: 2,
+              projectId: pick(defaults, "projectId", null),
+              clientId: pick(defaults, "clientId", null),
+              goalId: null,
+              dependsOn: [],
+              recurrence: "none",
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -547,7 +829,16 @@ export function EmployeeForm({ entity, onDone, onCancel }: FormProps<Employee>) 
     { name: "email", label: "E-mail (fictif)", type: "email" },
     { name: "hireDate", label: "Date d'arrivée", type: "date" },
     { name: "monthlyCost", label: "Coût mensuel chargé estimé", type: "money" },
-    { name: "status", label: "Statut", type: "select", options: [{ value: "active", label: "Actif" }, { value: "leave", label: "En congé" }, { value: "left", label: "Parti" }] },
+    {
+      name: "status",
+      label: "Statut",
+      type: "select",
+      options: [
+        { value: "active", label: "Actif" },
+        { value: "leave", label: "En congé" },
+        { value: "left", label: "Parti" },
+      ],
+    },
     {
       name: "skills",
       label: "Compétences (ludique, 1 à 5)",
@@ -587,7 +878,21 @@ export function EmployeeForm({ entity, onDone, onCancel }: FormProps<Employee>) 
   return (
     <EntityForm<S.EmployeeInput>
       schema={S.employeeSchema}
-      defaultValues={entity ? { firstName: entity.firstName, lastName: entity.lastName, jobTitle: entity.jobTitle, department: entity.department, email: entity.email, hireDate: entity.hireDate, status: entity.status, monthlyCost: entity.monthlyCost, skills: entity.skills as Record<string, number> } : { firstName: "", lastName: "", jobTitle: "", department: "development", email: "", hireDate: today, status: "active", monthlyCost: 0, skills: {} }}
+      defaultValues={
+        entity
+          ? {
+              firstName: entity.firstName,
+              lastName: entity.lastName,
+              jobTitle: entity.jobTitle,
+              department: entity.department,
+              email: entity.email,
+              hireDate: entity.hireDate,
+              status: entity.status,
+              monthlyCost: entity.monthlyCost,
+              skills: entity.skills as Record<string, number>,
+            }
+          : { firstName: "", lastName: "", jobTitle: "", department: "development", email: "", hireDate: today, status: "active", monthlyCost: 0, skills: {} }
+      }
       fields={fields}
       onCancel={onCancel}
       onSubmit={(values) => {
@@ -609,7 +914,14 @@ export function GoalForm({ entity, onDone, onCancel }: FormProps<Goal>) {
     { name: "title", label: "Titre", type: "text", span: 2 },
     { name: "type", label: "Type", type: "select", options: options(GOAL_TYPE) },
     { name: "ownerId", label: "Responsable", type: "select", nullable: true, options: o.employees },
-    { name: "metric", label: "Mesure", type: "select", span: 2, options: Object.entries(GOAL_METRICS).map(([value, m]) => ({ value, label: m.auto ? `${m.label} (automatique)` : m.label })), help: "Une mesure automatique est recalculée depuis les données ; « Saisie manuelle » est indiquée comme telle." },
+    {
+      name: "metric",
+      label: "Mesure",
+      type: "select",
+      span: 2,
+      options: Object.entries(GOAL_METRICS).map(([value, m]) => ({ value, label: m.auto ? `${m.label} (automatique)` : m.label })),
+      help: "Une mesure automatique est recalculée depuis les données ; « Saisie manuelle » est indiquée comme telle.",
+    },
     { name: "periodLabel", label: "Libellé de période", type: "text", placeholder: "T4 2026" },
     { name: "unit", label: "Unité", type: "text" },
     { name: "periodStart", label: "Début", type: "date" },
@@ -631,8 +943,36 @@ export function GoalForm({ entity, onDone, onCancel }: FormProps<Goal>) {
       schema={S.goalSchema}
       defaultValues={
         entity
-          ? { title: entity.title, description: entity.description, type: entity.type, periodLabel: entity.periodLabel, periodStart: entity.periodStart, periodEnd: entity.periodEnd, ownerId: entity.ownerId, metric: entity.metric, startValue: entity.startValue, targetValue: entity.targetValue, manualValue: entity.manualValue, unit: entity.unit, keyResults: entity.keyResults }
-          : { title: "", description: "", type: "financial", periodLabel: "", periodStart: today, periodEnd: addDays(today, 90), ownerId: null, metric: "manual", startValue: 0, targetValue: 100, manualValue: 0, unit: "", keyResults: [] }
+          ? {
+              title: entity.title,
+              description: entity.description,
+              type: entity.type,
+              periodLabel: entity.periodLabel,
+              periodStart: entity.periodStart,
+              periodEnd: entity.periodEnd,
+              ownerId: entity.ownerId,
+              metric: entity.metric,
+              startValue: entity.startValue,
+              targetValue: entity.targetValue,
+              manualValue: entity.manualValue,
+              unit: entity.unit,
+              keyResults: entity.keyResults,
+            }
+          : {
+              title: "",
+              description: "",
+              type: "financial",
+              periodLabel: "",
+              periodStart: today,
+              periodEnd: addDays(today, 90),
+              ownerId: null,
+              metric: "manual",
+              startValue: 0,
+              targetValue: 100,
+              manualValue: 0,
+              unit: "",
+              keyResults: [],
+            }
       }
       fields={fields}
       onCancel={onCancel}
@@ -651,10 +991,33 @@ function KeyResultsEditor({ value, onChange }: { value: S.GoalInput["keyResults"
     <div className="space-y-2">
       {value.map((kr, i) => (
         <div key={kr.id} className="grid grid-cols-12 gap-2">
-          <input aria-label={`Résultat clé ${i + 1}`} className="col-span-12 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-6" value={kr.title} onChange={(e) => update(kr.id, { title: e.target.value })} placeholder="Résultat clé" />
-          <input aria-label="Actuel" type="number" className="col-span-3 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-2" value={kr.current} onChange={(e) => update(kr.id, { current: Number(e.target.value) })} />
-          <input aria-label="Cible" type="number" className="col-span-3 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-2" value={kr.target} onChange={(e) => update(kr.id, { target: Number(e.target.value) })} />
-          <input aria-label="Unité" className="col-span-4 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-1" value={kr.unit} onChange={(e) => update(kr.id, { unit: e.target.value })} />
+          <input
+            aria-label={`Résultat clé ${i + 1}`}
+            className="col-span-12 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-6"
+            value={kr.title}
+            onChange={(e) => update(kr.id, { title: e.target.value })}
+            placeholder="Résultat clé"
+          />
+          <input
+            aria-label="Actuel"
+            type="number"
+            className="col-span-3 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-2"
+            value={kr.current}
+            onChange={(e) => update(kr.id, { current: Number(e.target.value) })}
+          />
+          <input
+            aria-label="Cible"
+            type="number"
+            className="col-span-3 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-2"
+            value={kr.target}
+            onChange={(e) => update(kr.id, { target: Number(e.target.value) })}
+          />
+          <input
+            aria-label="Unité"
+            className="col-span-4 h-8 rounded-lg border border-border bg-bg-elevated px-2 text-sm sm:col-span-1"
+            value={kr.unit}
+            onChange={(e) => update(kr.id, { unit: e.target.value })}
+          />
           <button type="button" className="col-span-2 text-xs text-danger hover:underline sm:col-span-1" onClick={() => onChange(value.filter((k) => k.id !== kr.id))}>
             Retirer
           </button>
@@ -713,7 +1076,11 @@ export function NoteForm({ entity, defaults, onDone, onCancel }: FormProps<Note>
   return (
     <EntityForm<S.NoteInput>
       schema={S.noteSchema}
-      defaultValues={entity ? { title: entity.title, body: entity.body, clientId: entity.clientId, projectId: entity.projectId } : { title: "", body: "", clientId: pick(defaults, "clientId", null), projectId: pick(defaults, "projectId", null) }}
+      defaultValues={
+        entity
+          ? { title: entity.title, body: entity.body, clientId: entity.clientId, projectId: entity.projectId }
+          : { title: "", body: "", clientId: pick(defaults, "clientId", null), projectId: pick(defaults, "projectId", null) }
+      }
       fields={fields}
       onCancel={onCancel}
       onSubmit={(values) => {

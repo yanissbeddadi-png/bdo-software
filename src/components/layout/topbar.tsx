@@ -2,7 +2,27 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Building2, CalendarDays, ChevronRight, FileText, FolderPlus, Handshake, ListPlus, Menu, NotebookPen, Plus, ReceiptText, Search, Target, UserPlus, Wallet, Settings, Trophy, UserCog } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  FileText,
+  FolderPlus,
+  Handshake,
+  ListPlus,
+  Menu,
+  NotebookPen,
+  Plus,
+  ReceiptText,
+  Search,
+  Target,
+  UserPlus,
+  Wallet,
+  Settings,
+  Trophy,
+  UserCog,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/misc";
@@ -119,7 +139,13 @@ function NotificationBell() {
                   if (href) router.push(href);
                 }}
               >
-                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.severity === "danger" ? "bg-danger" : n.severity === "warning" ? "bg-warning" : n.severity === "success" ? "bg-success" : "bg-action", n.read && "opacity-30")} />
+                <span
+                  className={cn(
+                    "mt-1.5 size-2 shrink-0 rounded-full",
+                    n.severity === "danger" ? "bg-danger" : n.severity === "warning" ? "bg-warning" : n.severity === "success" ? "bg-success" : "bg-action",
+                    n.read && "opacity-30",
+                  )}
+                />
                 <span className="min-w-0">
                   <span className="block truncate text-sm text-fg">{n.title}</span>
                   <span className="line-clamp-2 block text-xs text-muted">{n.body}</span>
@@ -169,7 +195,12 @@ export function Topbar() {
       </Button>
       <Breadcrumb />
       <div className="ml-auto flex items-center gap-1.5 md:gap-2">
-        <button type="button" onClick={() => setSearch(true)} className="flex h-8 items-center gap-2 rounded-lg border border-border bg-bg-elevated px-2.5 text-xs text-subtle hover:text-fg md:w-56 cursor-pointer" aria-label="Recherche globale (Ctrl+K)">
+        <button
+          type="button"
+          onClick={() => setSearch(true)}
+          className="flex h-8 items-center gap-2 rounded-lg border border-border bg-bg-elevated px-2.5 text-xs text-subtle hover:text-fg md:w-56 cursor-pointer"
+          aria-label="Recherche globale (Ctrl+K)"
+        >
           <Search className="size-4" />
           <span className="hidden md:inline">Rechercher…</span>
           <kbd className="ml-auto hidden rounded border border-border px-1 text-[10px] md:inline">Ctrl K</kbd>
@@ -184,7 +215,11 @@ export function Topbar() {
         <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-accent/40 to-violet/40 text-xs font-semibold text-fg ring-1 ring-border cursor-pointer" aria-label="Menu du profil">
+            <button
+              type="button"
+              className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-accent/40 to-violet/40 text-xs font-semibold text-fg ring-1 ring-border cursor-pointer"
+              aria-label="Menu du profil"
+            >
               {initials(data.settings.user.name)}
             </button>
           </DropdownMenuTrigger>
@@ -212,4 +247,3 @@ export function Topbar() {
     </header>
   );
 }
-

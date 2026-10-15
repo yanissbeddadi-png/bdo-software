@@ -86,15 +86,18 @@ export function computeAlerts(data: AppData, today: ISODate, summaries: InvoiceS
 
   const cash = cashBalance(data, today);
   if (cash < data.settings.company.cashAlertThreshold) {
-    push({
-      key: `cash-low:${isoWeekKey(today)}`,
-      kind: "cash_low",
-      category: "finance",
-      severity: "danger",
-      title: "Trésorerie sous le seuil d'alerte",
-      body: `Solde ${formatEUR(cash)} pour un seuil de ${formatEUR(data.settings.company.cashAlertThreshold)}.`,
-      ref: null,
-    }, 50);
+    push(
+      {
+        key: `cash-low:${isoWeekKey(today)}`,
+        kind: "cash_low",
+        category: "finance",
+        severity: "danger",
+        title: "Trésorerie sous le seuil d'alerte",
+        body: `Solde ${formatEUR(cash)} pour un seuil de ${formatEUR(data.settings.company.cashAlertThreshold)}.`,
+        ref: null,
+      },
+      50,
+    );
   } else {
     const forecast = buildForecast(data, today, "prudent", 3, summaries);
     if (forecast.lowestMonth && forecast.lowestBalance < data.settings.company.cashAlertThreshold) {
@@ -112,43 +115,102 @@ export function computeAlerts(data: AppData, today: ISODate, summaries: InvoiceS
 
   for (const e of data.expenses) {
     if (e.paid || e.dueDate >= today) continue;
-    push({ key: `expense-overdue:${e.id}`, kind: "expense_overdue", category: "finance", severity: "warning", title: `Dépense échue : ${e.label}`, body: `${e.supplier} · échéance ${e.dueDate.split("-").reverse().join("/")}`, ref: { type: "expense", id: e.id } });
+    push({
+      key: `expense-overdue:${e.id}`,
+      kind: "expense_overdue",
+      category: "finance",
+      severity: "warning",
+      title: `Dépense échue : ${e.label}`,
+      body: `${e.supplier} · échéance ${e.dueDate.split("-").reverse().join("/")}`,
+      ref: { type: "expense", id: e.id },
+    });
   }
 
   for (const p of data.projects) {
     if (isProjectLate(p, today)) {
       const late = Math.max(daysBetween(p.dueDate, today), 0);
-      push({ key: `project-late:${p.id}`, kind: "project_late", category: "projet", severity: late > 14 ? "danger" : "warning", title: `Projet ${p.code} en retard`, body: late > 0 ? `${p.name} · échéance dépassée de ${late} j` : `${p.name} · jalon en retard`, ref: { type: "project", id: p.id } }, late);
+      push(
+        {
+          key: `project-late:${p.id}`,
+          kind: "project_late",
+          category: "projet",
+          severity: late > 14 ? "danger" : "warning",
+          title: `Projet ${p.code} en retard`,
+          body: late > 0 ? `${p.name} · échéance dépassée de ${late} j` : `${p.name} · jalon en retard`,
+          ref: { type: "project", id: p.id },
+        },
+        late,
+      );
     }
     if (p.status !== "done" && p.status !== "cancelled") {
       const f = projectFinancials(p, data, summaries);
       if (f.budgetVariance > 0) {
-        push({ key: `project-budget:${p.id}`, kind: "project_budget", category: "projet", severity: "warning", title: `Dépassement budgétaire ${p.code}`, body: `Coût réel ${formatEUR(f.actualCost)} / budget ${formatEUR(f.budget)}`, ref: { type: "project", id: p.id } });
+        push({
+          key: `project-budget:${p.id}`,
+          kind: "project_budget",
+          category: "projet",
+          severity: "warning",
+          title: `Dépassement budgétaire ${p.code}`,
+          body: `Coût réel ${formatEUR(f.actualCost)} / budget ${formatEUR(f.budget)}`,
+          ref: { type: "project", id: p.id },
+        });
       }
     }
   }
 
   for (const o of data.opportunities) {
     if (!isStale(o, today, data.settings.gamification.staleOpportunityDays)) continue;
-    push({ key: `opp-stale:${o.id}:${o.lastInteractionAt.slice(0, 10)}`, kind: "opportunity_stale", category: "commercial", severity: "info", title: `Opportunité inactive : ${o.name}`, body: `Dernière interaction il y a ${daysBetween(o.lastInteractionAt.slice(0, 10), today)} j · ${formatEUR(o.amount)}`, ref: { type: "opportunity", id: o.id } });
+    push({
+      key: `opp-stale:${o.id}:${o.lastInteractionAt.slice(0, 10)}`,
+      kind: "opportunity_stale",
+      category: "commercial",
+      severity: "info",
+      title: `Opportunité inactive : ${o.name}`,
+      body: `Dernière interaction il y a ${daysBetween(o.lastInteractionAt.slice(0, 10), today)} j · ${formatEUR(o.amount)}`,
+      ref: { type: "opportunity", id: o.id },
+    });
   }
 
   for (const sub of data.subscriptions) {
     if (sub.status !== "active" || !sub.endDate) continue;
     const days = daysBetween(today, sub.endDate);
     if (days < 0 || days > rules.contractNoticeDays) continue;
-    push({ key: `sub-ending:${sub.id}:${sub.endDate}`, kind: "contract_ending", category: "commercial", severity: days <= 15 ? "danger" : "warning", title: `Contrat ${sub.offer} à renouveler`, body: `${clients.get(sub.clientId) ?? ""} · fin dans ${days} j`, ref: { type: "subscription", id: sub.id } });
+    push({
+      key: `sub-ending:${sub.id}:${sub.endDate}`,
+      kind: "contract_ending",
+      category: "commercial",
+      severity: days <= 15 ? "danger" : "warning",
+      title: `Contrat ${sub.offer} à renouveler`,
+      body: `${clients.get(sub.clientId) ?? ""} · fin dans ${days} j`,
+      ref: { type: "subscription", id: sub.id },
+    });
   }
 
   const tasks = new Map(data.tasks.map((t) => [t.id, t]));
   for (const t of data.tasks) {
     if (!isTaskOpen(t)) continue;
     if (t.priority === "critical" && t.dueDate && t.dueDate <= addDays(today, rules.criticalTaskDays)) {
-      push({ key: `task-critical:${t.id}`, kind: "task_critical", category: "taches", severity: t.dueDate < today ? "danger" : "warning", title: `Tâche critique : ${t.title}`, body: t.dueDate < today ? "En retard" : `Échéance le ${t.dueDate.split("-").reverse().join("/")}`, ref: { type: "task", id: t.id } });
+      push({
+        key: `task-critical:${t.id}`,
+        kind: "task_critical",
+        category: "taches",
+        severity: t.dueDate < today ? "danger" : "warning",
+        title: `Tâche critique : ${t.title}`,
+        body: t.dueDate < today ? "En retard" : `Échéance le ${t.dueDate.split("-").reverse().join("/")}`,
+        ref: { type: "task", id: t.id },
+      });
     }
     const blocking = t.dependsOn.map((id) => tasks.get(id)).filter((d) => d && isTaskLate(d, today));
     if (blocking.length) {
-      push({ key: `dependency:${t.id}`, kind: "dependency", category: "taches", severity: "warning", title: `Dépendance bloquante : ${t.title}`, body: `Bloquée par ${blocking.map((d) => `« ${d!.title} »`).join(", ")} (en retard)`, ref: { type: "task", id: t.id } });
+      push({
+        key: `dependency:${t.id}`,
+        kind: "dependency",
+        category: "taches",
+        severity: "warning",
+        title: `Dépendance bloquante : ${t.title}`,
+        body: `Bloquée par ${blocking.map((d) => `« ${d!.title} »`).join(", ")} (en retard)`,
+        ref: { type: "task", id: t.id },
+      });
     }
   }
 
@@ -156,17 +218,31 @@ export function computeAlerts(data: AppData, today: ISODate, summaries: InvoiceS
     if (goal.archived) continue;
     const ev = evaluateGoal(goal, data, today, summaries);
     if (ev.status !== "at_risk") continue;
-    push({ key: `goal-risk:${goal.id}:${monthKey(today)}`, kind: "goal_risk", category: "objectifs", severity: "warning", title: `Objectif en risque : ${goal.title}`, body: `Progression ${ev.progress.toFixed(0)} % · échéance ${goal.periodEnd.split("-").reverse().join("/")}`, ref: { type: "goal", id: goal.id } });
+    push({
+      key: `goal-risk:${goal.id}:${monthKey(today)}`,
+      kind: "goal_risk",
+      category: "objectifs",
+      severity: "warning",
+      title: `Objectif en risque : ${goal.title}`,
+      body: `Progression ${ev.progress.toFixed(0)} % · échéance ${goal.periodEnd.split("-").reverse().join("/")}`,
+      ref: { type: "goal", id: goal.id },
+    });
   }
 
   const horizon = addDays(today, 14);
   for (const emp of data.employees) {
     if (emp.status !== "active") continue;
-    const hours = data.tasks
-      .filter((t) => t.assigneeId === emp.id && isTaskOpen(t) && t.dueDate && t.dueDate <= horizon)
-      .reduce((s, t) => s + Math.max(t.estimateHours - t.actualHours, 0), 0);
+    const hours = data.tasks.filter((t) => t.assigneeId === emp.id && isTaskOpen(t) && t.dueDate && t.dueDate <= horizon).reduce((s, t) => s + Math.max(t.estimateHours - t.actualHours, 0), 0);
     if (hours > rules.workloadHoursThreshold) {
-      push({ key: `workload:${emp.id}:${isoWeekKey(today)}`, kind: "workload", category: "taches", severity: "warning", title: `Charge élevée : ${emp.firstName} ${emp.lastName}`, body: `${Math.round(hours)} h de travail restant à échéance sous 14 jours (seuil ${rules.workloadHoursThreshold} h).`, ref: { type: "employee", id: emp.id } });
+      push({
+        key: `workload:${emp.id}:${isoWeekKey(today)}`,
+        kind: "workload",
+        category: "taches",
+        severity: "warning",
+        title: `Charge élevée : ${emp.firstName} ${emp.lastName}`,
+        body: `${Math.round(hours)} h de travail restant à échéance sous 14 jours (seuil ${rules.workloadHoursThreshold} h).`,
+        ref: { type: "employee", id: emp.id },
+      });
     }
   }
 

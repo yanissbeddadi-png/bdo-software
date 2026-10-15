@@ -1,32 +1,8 @@
-import type {
-  AppData,
-  ISODate,
-  ISODateTime,
-  Mission,
-  MissionCategory,
-  MissionCondition,
-  MissionDifficulty,
-  MissionStatus,
-  MissionType,
-  Priority,
-} from "@/lib/domain/types";
-import {
-  addDays,
-  endOfMonthISO,
-  isoWeekKey,
-  monthKey,
-  weekPeriod,
-} from "@/lib/calculations/dates";
-import {
-  summarizeInvoices,
-  type InvoiceSummary,
-} from "@/lib/calculations/invoices";
+import type { AppData, ISODate, ISODateTime, Mission, MissionCategory, MissionCondition, MissionDifficulty, MissionStatus, MissionType, Priority } from "@/lib/domain/types";
+import { addDays, endOfMonthISO, isoWeekKey, monthKey, weekPeriod } from "@/lib/calculations/dates";
+import { summarizeInvoices, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { isStale } from "@/lib/calculations/pipeline";
-import {
-  isTaskLate,
-  isTaskOpen,
-  projectFinancials,
-} from "@/lib/calculations/projects";
+import { isTaskLate, isTaskOpen, projectFinancials } from "@/lib/calculations/projects";
 import { computeMRR } from "@/lib/calculations/recurring";
 import { formatEUR } from "@/lib/formatters";
 
@@ -78,12 +54,7 @@ export interface MissionEvaluation {
   obsolete: boolean;
 }
 
-export function evaluateCondition(
-  condition: MissionCondition,
-  data: AppData,
-  today: ISODate,
-  summaries: InvoiceSummary[],
-): MissionEvaluation {
+export function evaluateCondition(condition: MissionCondition, data: AppData, today: ISODate, summaries: InvoiceSummary[]): MissionEvaluation {
   const yes = (current = 1, target = 1): MissionEvaluation => ({
     satisfied: true,
     current,
@@ -111,12 +82,7 @@ export function evaluateCondition(
       if (!s || s.status === "cancelled") return obsolete;
       if (s.status === "paid") return yes();
       if (condition.kind === "invoice_paid") return no();
-      const followed = data.salesActivities.some(
-        (a) =>
-          a.invoiceId === condition.invoiceId &&
-          a.type === "followup" &&
-          a.done,
-      );
+      const followed = data.salesActivities.some((a) => a.invoiceId === condition.invoiceId && a.type === "followup" && a.done);
       return followed ? yes() : no();
     }
     case "task_done": {
@@ -125,50 +91,27 @@ export function evaluateCondition(
       return t.status === "done" ? yes() : no();
     }
     case "opportunity_touched": {
-      const o = data.opportunities.find(
-        (x) => x.id === condition.opportunityId,
-      );
+      const o = data.opportunities.find((x) => x.id === condition.opportunityId);
       if (!o) return obsolete;
-      return o.lastInteractionAt > condition.since ||
-        o.stage === "won" ||
-        o.stage === "lost"
-        ? yes()
-        : no();
+      return o.lastInteractionAt > condition.since || o.stage === "won" || o.stage === "lost" ? yes() : no();
     }
     case "leads_created": {
-      const n = data.leads.filter(
-        (l) => l.createdAt.slice(0, 10) >= condition.since,
-      ).length;
-      return n >= condition.count
-        ? yes(n, condition.count)
-        : no(n, condition.count);
+      const n = data.leads.filter((l) => l.createdAt.slice(0, 10) >= condition.since).length;
+      return n >= condition.count ? yes(n, condition.count) : no(n, condition.count);
     }
     case "sales_activities_logged": {
-      const n = data.salesActivities.filter(
-        (a) =>
-          a.done &&
-          a.date.slice(0, 10) >= condition.since &&
-          a.date.slice(0, 10) <= today,
-      ).length;
-      return n >= condition.count
-        ? yes(n, condition.count)
-        : no(n, condition.count);
+      const n = data.salesActivities.filter((a) => a.done && a.date.slice(0, 10) >= condition.since && a.date.slice(0, 10) <= today).length;
+      return n >= condition.count ? yes(n, condition.count) : no(n, condition.count);
     }
     case "projects_done": {
-      const list = data.projects.filter(
-        (p) => condition.projectIds.includes(p.id) && p.status !== "cancelled",
-      );
+      const list = data.projects.filter((p) => condition.projectIds.includes(p.id) && p.status !== "cancelled");
       if (!list.length) return obsolete;
       const done = list.filter((p) => p.status === "done").length;
-      return done === list.length
-        ? yes(done, list.length)
-        : no(done, list.length);
+      return done === list.length ? yes(done, list.length) : no(done, list.length);
     }
     case "mrr_reached": {
       const mrr = computeMRR(data.subscriptions, today);
-      return mrr >= condition.target
-        ? yes(mrr, condition.target)
-        : no(mrr, condition.target);
+      return mrr >= condition.target ? yes(mrr, condition.target) : no(mrr, condition.target);
     }
     case "cash_review": {
       const at = data.settings.gamification.lastCashReviewAt;
@@ -199,11 +142,7 @@ interface AutoMissionDraft {
  * Règles de génération des missions automatiques. Chaque mission porte une clé
  * `autoKey` déterministe : une même situation ne recrée jamais la même mission.
  */
-export function autoMissionDrafts(
-  data: AppData,
-  today: ISODate,
-  summaries: InvoiceSummary[],
-): AutoMissionDraft[] {
+export function autoMissionDrafts(data: AppData, today: ISODate, summaries: InvoiceSummary[]): AutoMissionDraft[] {
   const g = data.settings.gamification;
   const daily = g.xpRewards.mission_daily;
   const clients = new Map(data.clients.map((c) => [c.id, c.name]));
@@ -290,8 +229,7 @@ export function autoMissionDrafts(
   drafts.push({
     autoKey: `revue-tresorerie:${weekKey}`,
     title: "Mettre à jour les prévisions de trésorerie",
-    description:
-      "Passez en revue les scénarios de trésorerie et validez la revue depuis la page Trésorerie.",
+    description: "Passez en revue les scénarios de trésorerie et validez la revue depuis la page Trésorerie.",
     category: "finance",
     type: "weekly",
     difficulty: "easy",
@@ -305,8 +243,7 @@ export function autoMissionDrafts(
   drafts.push({
     autoKey: `prospection:${weekKey}`,
     title: `Prospecter : ${g.weeklyProspectingTarget} nouveaux prospects`,
-    description:
-      "Ajoutez de nouveaux prospects qualifiables dans le CRM cette semaine.",
+    description: "Ajoutez de nouveaux prospects qualifiables dans le CRM cette semaine.",
     category: "commercial",
     type: "weekly",
     difficulty: "medium",
@@ -324,8 +261,7 @@ export function autoMissionDrafts(
   drafts.push({
     autoKey: `activites:${weekKey}`,
     title: "Réaliser 5 activités commerciales",
-    description:
-      "Appels, rendez-vous, démonstrations ou relances consignés dans le CRM cette semaine.",
+    description: "Appels, rendez-vous, démonstrations ou relances consignés dans le CRM cette semaine.",
     category: "commercial",
     type: "weekly",
     difficulty: "medium",
@@ -339,16 +275,12 @@ export function autoMissionDrafts(
   // Missions mensuelles : générées uniquement si elles représentent un vrai défi
   // (pas de MRR nul, pas de mission « zéro retard » déjà remplie à la création).
   const mrr = computeMRR(data.subscriptions, today);
-  const target = Math.max(
-    Math.ceil((mrr * 1.05) / 50_000) * 50_000,
-    mrr + 50_000,
-  );
+  const target = Math.max(Math.ceil((mrr * 1.05) / 50_000) * 50_000, mrr + 50_000);
   if (mrr > 0)
     drafts.push({
       autoKey: `mrr:${month}`,
       title: `Atteindre ${formatEUR(target, { round: true })} de MRR`,
-      description:
-        "Faites progresser le revenu mensuel récurrent d'environ 5 % ce mois-ci (nouveaux abonnements ou montées en gamme).",
+      description: "Faites progresser le revenu mensuel récurrent d'environ 5 % ce mois-ci (nouveaux abonnements ou montées en gamme).",
       category: "strategy",
       type: "monthly",
       difficulty: "hard",
@@ -364,8 +296,7 @@ export function autoMissionDrafts(
     drafts.push({
       autoKey: `zero-retard:${month}`,
       title: "Zéro tâche en retard",
-      description:
-        "Ramenez à zéro le nombre de tâches en retard avant la fin du mois.",
+      description: "Ramenez à zéro le nombre de tâches en retard avant la fin du mois.",
       category: "operations",
       type: "monthly",
       difficulty: "hard",
@@ -376,12 +307,7 @@ export function autoMissionDrafts(
       entity: null,
     });
 
-  const priorityProjects = data.projects.filter(
-    (p) =>
-      (p.priority === "high" || p.priority === "critical") &&
-      p.status !== "done" &&
-      p.status !== "cancelled",
-  );
+  const priorityProjects = data.projects.filter((p) => (p.priority === "high" || p.priority === "critical") && p.status !== "done" && p.status !== "cancelled");
   if (priorityProjects.length) {
     const quarter = `${today.slice(0, 4)}-T${Math.floor((Number(today.slice(5, 7)) - 1) / 3) + 1}`;
     drafts.push({
@@ -408,12 +334,7 @@ export function autoMissionDrafts(
   return drafts;
 }
 
-export function draftToMission(
-  d: AutoMissionDraft,
-  id: string,
-  today: ISODate,
-  now: ISODateTime,
-): Mission {
+export function draftToMission(d: AutoMissionDraft, id: string, today: ISODate, now: ISODateTime): Mission {
   return {
     id,
     title: d.title,
@@ -441,10 +362,7 @@ export function draftToMission(
   };
 }
 
-export function missionsSummaries(
-  data: AppData,
-  today: ISODate,
-): InvoiceSummary[] {
+export function missionsSummaries(data: AppData, today: ISODate): InvoiceSummary[] {
   return summarizeInvoices(data.invoices, data.payments, today);
 }
 
@@ -456,24 +374,12 @@ export const PRIORITY_ORDER: Record<Priority, number> = {
 };
 
 /** Missions recommandées du jour : actives, triées par priorité puis échéance. */
-export function recommendedMissions(
-  missions: Mission[],
-  today: ISODate,
-  limit = 5,
-): Mission[] {
+export function recommendedMissions(missions: Mission[], today: ISODate, limit = 5): Mission[] {
   return missions
-    .filter(
-      (m) =>
-        m.status !== "done" && m.status !== "cancelled" && m.startDate <= today,
-    )
+    .filter((m) => m.status !== "done" && m.status !== "cancelled" && m.startDate <= today)
     .sort((a, b) => {
-      const order = (m: Mission) =>
-        m.type === "daily" ? 0 : m.type === "weekly" ? 1 : 2;
-      return (
-        PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] ||
-        order(a) - order(b) ||
-        a.dueDate.localeCompare(b.dueDate)
-      );
+      const order = (m: Mission) => (m.type === "daily" ? 0 : m.type === "weekly" ? 1 : 2);
+      return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || order(a) - order(b) || a.dueDate.localeCompare(b.dueDate);
     })
     .slice(0, limit);
 }

@@ -46,7 +46,9 @@ export function ProjectsPage() {
   const openCreate = useUiStore((s) => s.openCreate);
   const [view, setView] = React.useState<"list" | "kanban" | "calendar">("list");
   const f = useFilters(["status", "client", "manager", "late"] as const);
-  const rows = data.projects.filter((p) => f.match("status", p.status) && f.match("client", p.clientId) && f.match("manager", p.managerId ?? "") && f.match("late", isProjectLate(p, today) ? "late" : "ok"));
+  const rows = data.projects.filter(
+    (p) => f.match("status", p.status) && f.match("client", p.clientId) && f.match("manager", p.managerId ?? "") && f.match("late", isProjectLate(p, today) ? "late" : "ok"),
+  );
   const fin = React.useMemo(() => new Map(data.projects.map((p) => [p.id, projectFinancials(p, data, summaries)])), [data, summaries]);
   const active = data.projects.filter(isProjectActive);
   const sum = (k: "budget" | "actualCost" | "estimatedHours" | "actualHours" | "estimatedMargin", list = active) => list.reduce((s, p) => s + fin.get(p.id)![k], 0);
@@ -55,8 +57,21 @@ export function ProjectsPage() {
   const columns: Column<Project>[] = [
     { id: "code", header: "Code", cell: (p) => <span className="font-mono text-xs text-muted">{p.code}</span>, sortValue: (p) => p.code, csv: (p) => p.code },
     { id: "name", header: "Projet", cell: (p) => <span className="font-medium text-fg">{p.name}</span>, sortValue: (p) => p.name, csv: (p) => p.name },
-    { id: "client", header: "Client", cell: (p) => clients.get(p.clientId)?.name ?? "—", sortValue: (p) => clients.get(p.clientId)?.name ?? "", csv: (p) => clients.get(p.clientId)?.name ?? "", hideBelow: "md" },
-    { id: "manager", header: "Responsable", cell: (p) => (p.managerId ? employees.get(p.managerId)?.firstName : "—"), csv: (p) => (p.managerId ? `${employees.get(p.managerId)?.firstName} ${employees.get(p.managerId)?.lastName}` : ""), hideBelow: "lg" },
+    {
+      id: "client",
+      header: "Client",
+      cell: (p) => clients.get(p.clientId)?.name ?? "—",
+      sortValue: (p) => clients.get(p.clientId)?.name ?? "",
+      csv: (p) => clients.get(p.clientId)?.name ?? "",
+      hideBelow: "md",
+    },
+    {
+      id: "manager",
+      header: "Responsable",
+      cell: (p) => (p.managerId ? employees.get(p.managerId)?.firstName : "—"),
+      csv: (p) => (p.managerId ? `${employees.get(p.managerId)?.firstName} ${employees.get(p.managerId)?.lastName}` : ""),
+      hideBelow: "lg",
+    },
     { id: "due", header: "Échéance", cell: (p) => <span className={cn(isProjectLate(p, today) && "text-danger")}>{formatDate(p.dueDate)}</span>, sortValue: (p) => p.dueDate, csv: (p) => p.dueDate },
     {
       id: "progress",
@@ -73,15 +88,47 @@ export function ProjectsPage() {
       sortValue: (p) => projectProgress(p, data.tasks),
       csv: (p) => projectProgress(p, data.tasks),
     },
-    { id: "budget", header: "Budget consommé", align: "right", cell: (p) => { const x = fin.get(p.id)!; return <span className={cn(x.budgetVariance > 0 && "text-danger")}>{formatPercent(x.budgetConsumption, 0)}</span>; }, sortValue: (p) => fin.get(p.id)!.budgetConsumption ?? 0, csv: (p) => Math.round(fin.get(p.id)!.budgetConsumption ?? 0), hideBelow: "lg" },
+    {
+      id: "budget",
+      header: "Budget consommé",
+      align: "right",
+      cell: (p) => {
+        const x = fin.get(p.id)!;
+        return <span className={cn(x.budgetVariance > 0 && "text-danger")}>{formatPercent(x.budgetConsumption, 0)}</span>;
+      },
+      sortValue: (p) => fin.get(p.id)!.budgetConsumption ?? 0,
+      csv: (p) => Math.round(fin.get(p.id)!.budgetConsumption ?? 0),
+      hideBelow: "lg",
+    },
     { id: "price", header: "Prix de vente", align: "right", cell: (p) => formatEUR(p.salePrice, { round: true }), sortValue: (p) => p.salePrice, csv: (p) => csvMoney(p.salePrice), hideBelow: "md" },
-    { id: "priority", header: "Priorité", cell: (p) => <StatusBadge meta={PRIORITY[p.priority]} />, sortValue: (p) => ["critical", "high", "normal", "low"].indexOf(p.priority), csv: (p) => PRIORITY[p.priority].label, hideBelow: "lg" },
+    {
+      id: "priority",
+      header: "Priorité",
+      cell: (p) => <StatusBadge meta={PRIORITY[p.priority]} />,
+      sortValue: (p) => ["critical", "high", "normal", "low"].indexOf(p.priority),
+      csv: (p) => PRIORITY[p.priority].label,
+      hideBelow: "lg",
+    },
     { id: "status", header: "Statut", cell: (p) => <StatusBadge meta={PROJECT_STATUS[p.status]} />, sortValue: (p) => STATUS_ORDER.indexOf(p.status), csv: (p) => PROJECT_STATUS[p.status].label },
   ];
 
   const events: CalendarEvent[] = [
-    ...rows.map((p) => ({ id: `due-${p.id}`, date: p.dueDate, title: `${p.code} · échéance`, tone: (p.status === "done" ? "success" : isProjectLate(p, today) ? "danger" : "accent") as CalendarEvent["tone"], href: `/projets/${p.id}` })),
-    ...rows.flatMap((p) => p.milestones.map((m) => ({ id: m.id, date: m.dueDate, title: `${p.code} · ${m.title}`, tone: (m.done ? "success" : m.dueDate < today ? "danger" : "violet") as CalendarEvent["tone"], href: `/projets/${p.id}` }))),
+    ...rows.map((p) => ({
+      id: `due-${p.id}`,
+      date: p.dueDate,
+      title: `${p.code} · échéance`,
+      tone: (p.status === "done" ? "success" : isProjectLate(p, today) ? "danger" : "accent") as CalendarEvent["tone"],
+      href: `/projets/${p.id}`,
+    })),
+    ...rows.flatMap((p) =>
+      p.milestones.map((m) => ({
+        id: m.id,
+        date: m.dueDate,
+        title: `${p.code} · ${m.title}`,
+        tone: (m.done ? "success" : m.dueDate < today ? "danger" : "violet") as CalendarEvent["tone"],
+        href: `/projets/${p.id}`,
+      })),
+    ),
   ];
 
   return (
@@ -103,7 +150,12 @@ export function ProjectsPage() {
         <MetricCard label="Budget consommé" value={formatEUR(sum("actualCost"), { compact: true })} hint="Coûts réels saisis (dépenses + temps) des projets actifs." />
         <MetricCard label="Charge estimée" value={`${formatNumber(sum("estimatedHours"))} h`} />
         <MetricCard label="Charge réalisée" value={`${formatNumber(sum("actualHours"))} h`} />
-        <MetricCard label="Marge estimée (actifs)" value={formatEUR(sum("estimatedMargin"), { compact: true })} hint="Σ (prix de vente − coût estimé) des projets actifs." footer={<span className="text-[11px] text-muted">Livraison à l&apos;heure : {formatPercent(onTimeDeliveryRate(data.projects), 0)}</span>} />
+        <MetricCard
+          label="Marge estimée (actifs)"
+          value={formatEUR(sum("estimatedMargin"), { compact: true })}
+          hint="Σ (prix de vente − coût estimé) des projets actifs."
+          footer={<span className="text-[11px] text-muted">Livraison à l&apos;heure : {formatPercent(onTimeDeliveryRate(data.projects), 0)}</span>}
+        />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
@@ -120,14 +172,38 @@ export function ProjectsPage() {
           onReset={f.reset}
           filters={[
             { id: "status", label: "Statut", value: f.values.status, onChange: f.set("status"), options: STATUS_ORDER.map((s) => ({ value: s, label: PROJECT_STATUS_LABELS[s] })) },
-            { id: "client", label: "Client", value: f.values.client, onChange: f.set("client"), options: data.clients.filter((c) => data.projects.some((p) => p.clientId === c.id)).map((c) => ({ value: c.id, label: c.name })) },
+            {
+              id: "client",
+              label: "Client",
+              value: f.values.client,
+              onChange: f.set("client"),
+              options: data.clients.filter((c) => data.projects.some((p) => p.clientId === c.id)).map((c) => ({ value: c.id, label: c.name })),
+            },
             { id: "manager", label: "Responsable", value: f.values.manager, onChange: f.set("manager"), options: data.employees.map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })) },
-            { id: "late", label: "Délais", value: f.values.late, onChange: f.set("late"), options: [{ value: "late", label: "En retard" }, { value: "ok", label: "Dans les délais" }] },
+            {
+              id: "late",
+              label: "Délais",
+              value: f.values.late,
+              onChange: f.set("late"),
+              options: [
+                { value: "late", label: "En retard" },
+                { value: "ok", label: "Dans les délais" },
+              ],
+            },
           ]}
         />
       </div>
       {view === "list" ? (
-        <DataTable caption="Liste des projets" rows={rows} columns={columns} searchText={(p) => `${p.code} ${p.name} ${clients.get(p.clientId)?.name ?? ""}`} rowHref={(p) => `/projets/${p.id}`} exportName="projets" initialSort={{ id: "due", dir: "asc" }} emptyTitle="Aucun projet" />
+        <DataTable
+          caption="Liste des projets"
+          rows={rows}
+          columns={columns}
+          searchText={(p) => `${p.code} ${p.name} ${clients.get(p.clientId)?.name ?? ""}`}
+          rowHref={(p) => `/projets/${p.id}`}
+          exportName="projets"
+          initialSort={{ id: "due", dir: "asc" }}
+          emptyTitle="Aucun projet"
+        />
       ) : view === "kanban" ? (
         <KanbanBoard
           columns={STATUS_ORDER.map((s) => ({ id: s, label: PROJECT_STATUS_LABELS[s] }))}
@@ -146,7 +222,18 @@ export function ProjectsPage() {
           )}
         />
       ) : (
-        <MonthCalendar events={events} today={today} legend={<><LegendDot tone="accent" label="Échéance" /><LegendDot tone="violet" label="Jalon" /><LegendDot tone="danger" label="En retard" /><LegendDot tone="success" label="Terminé" /></>} />
+        <MonthCalendar
+          events={events}
+          today={today}
+          legend={
+            <>
+              <LegendDot tone="accent" label="Échéance" />
+              <LegendDot tone="violet" label="Jalon" />
+              <LegendDot tone="danger" label="En retard" />
+              <LegendDot tone="success" label="Terminé" />
+            </>
+          }
+        />
       )}
     </div>
   );
@@ -165,7 +252,17 @@ export function ProjectDetail({ id }: { id: string }) {
   const [ms, setMs] = React.useState({ title: "", dueDate: today });
   const focus = useParam("focus");
   const project = data.projects.find((p) => p.id === id);
-  if (!project) return <ErrorState title="Projet introuvable" action={<Button asChild><Link href="/projets">Retour aux projets</Link></Button>} />;
+  if (!project)
+    return (
+      <ErrorState
+        title="Projet introuvable"
+        action={
+          <Button asChild>
+            <Link href="/projets">Retour aux projets</Link>
+          </Button>
+        }
+      />
+    );
   const f = projectFinancials(project, data, summaries);
   const progress = projectProgress(project, data.tasks);
   const tasks = data.tasks.filter((t) => t.projectId === id);
@@ -186,7 +283,8 @@ export function ProjectDetail({ id }: { id: string }) {
             <Link href={`/clients/${project.clientId}`} className="text-accent hover:underline">
               {clients.get(project.clientId)?.name}
             </Link>{" "}
-            · du {formatDate(project.startDate)} au {formatDate(project.dueDate)} · responsable {project.managerId ? `${employees.get(project.managerId)?.firstName} ${employees.get(project.managerId)?.lastName}` : "—"}
+            · du {formatDate(project.startDate)} au {formatDate(project.dueDate)} · responsable{" "}
+            {project.managerId ? `${employees.get(project.managerId)?.firstName} ${employees.get(project.managerId)?.lastName}` : "—"}
           </span>
         }
         actions={
@@ -208,7 +306,22 @@ export function ProjectDetail({ id }: { id: string }) {
                 { label: "Facturer ce projet", icon: <FilePlus2 />, onSelect: () => openCreate("invoice", { clientId: project.clientId, projectId: id }) },
                 { label: "Ajouter une dépense", icon: <Wallet />, onSelect: () => openCreate("expense", { projectId: id }) },
                 { label: "Ajouter une note", icon: <NotebookPen />, onSelect: () => openCreate("note", { projectId: id, clientId: project.clientId }) },
-                { label: "Supprimer", icon: <Trash2 />, danger: true, separatorBefore: true, onSelect: () => confirm({ title: "Supprimer ce projet ?", description: "Possible uniquement sans tâches, dépenses ni factures rattachées ; sinon, passez-le au statut « Annulé ».", confirmLabel: "Supprimer", action: () => { const r = run(C.deleteProject, { id }); if (r.ok) router.push("/projets"); } }) },
+                {
+                  label: "Supprimer",
+                  icon: <Trash2 />,
+                  danger: true,
+                  separatorBefore: true,
+                  onSelect: () =>
+                    confirm({
+                      title: "Supprimer ce projet ?",
+                      description: "Possible uniquement sans tâches, dépenses ni factures rattachées ; sinon, passez-le au statut « Annulé ».",
+                      confirmLabel: "Supprimer",
+                      action: () => {
+                        const r = run(C.deleteProject, { id });
+                        if (r.ok) router.push("/projets");
+                      },
+                    }),
+                },
               ]}
             />
           </>
@@ -256,85 +369,87 @@ export function ProjectDetail({ id }: { id: string }) {
         <TaskTable tasks={tasks} focusId={focus} compact />
       </section>
       <div className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <div>
-                <CardTitle>Jalons</CardTitle>
-                <CardDescription>{project.milestones.filter((m) => m.done).length}/{project.milestones.length} atteints</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ol className="space-y-2">
-                {project.milestones.map((m) => (
-                  <li key={m.id} className="flex items-center gap-3 text-sm">
-                    <Checkbox checked={m.done} onCheckedChange={() => run(C.toggleMilestone, { projectId: id, milestoneId: m.id }, { silent: true })} aria-label={`Jalon ${m.title}`} />
-                    <Flag className={cn("size-3.5", m.done ? "text-success" : m.dueDate < today ? "text-danger" : "text-violet")} />
-                    <span className={cn("flex-1", m.done && "text-muted line-through")}>{m.title}</span>
-                    <span className={cn("text-xs tabular", !m.done && m.dueDate < today ? "text-danger" : "text-muted")}>{formatDate(m.dueDate)}</span>
-                    <Button size="icon-sm" variant="ghost" aria-label="Supprimer le jalon" onClick={() => run(C.deleteMilestone, { projectId: id, milestoneId: m.id })}>
-                      <Trash2 />
-                    </Button>
-                  </li>
-                ))}
-                {!project.milestones.length ? <li className="text-sm text-muted">Aucun jalon défini.</li> : null}
-              </ol>
-              <form
-                className="flex flex-wrap gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const r = run(C.addMilestone, { projectId: id, ...ms });
-                  if (r.ok) setMs({ title: "", dueDate: today });
-                }}
-              >
-                <Input aria-label="Titre du jalon" placeholder="Nouveau jalon" className="min-w-40 flex-1" value={ms.title} onChange={(e) => setMs({ ...ms, title: e.target.value })} />
-                <Input aria-label="Date du jalon" type="date" className="w-40" value={ms.dueDate} onChange={(e) => setMs({ ...ms, dueDate: e.target.value })} />
-                <Button type="submit" variant="secondary" size="icon" aria-label="Ajouter le jalon">
-                  <Plus />
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Équipe et risques</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex flex-wrap gap-1.5">
-                {project.memberIds.map((m) => (
-                  <Link key={m} href={`/equipe?focus=${m}`}>
-                    <Badge tone="info">
-                      {employees.get(m)?.firstName} {employees.get(m)?.lastName}
-                    </Badge>
-                  </Link>
-                ))}
-                {!project.memberIds.length ? <span className="text-muted">Aucun membre.</span> : null}
-              </div>
-              <p className="text-xs text-muted">{project.description}</p>
-              {project.risks ? <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">{project.risks}</p> : null}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Factures et dépenses</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5 text-sm">
-              {invoices.map((s) => (
-                <Link key={s.invoice.id} href={`/finances/factures/${s.invoice.id}`} className="flex items-center gap-2 rounded px-1 py-1 hover:bg-interactive/40">
-                  <span className="flex-1 truncate">{s.invoice.number}</span>
-                  <StatusBadge meta={INVOICE_STATUS[s.status]} />
-                  <span className="w-24 text-right tabular">{formatEUR(s.totalHT, { round: true })}</span>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Jalons</CardTitle>
+              <CardDescription>
+                {project.milestones.filter((m) => m.done).length}/{project.milestones.length} atteints
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ol className="space-y-2">
+              {project.milestones.map((m) => (
+                <li key={m.id} className="flex items-center gap-3 text-sm">
+                  <Checkbox checked={m.done} onCheckedChange={() => run(C.toggleMilestone, { projectId: id, milestoneId: m.id }, { silent: true })} aria-label={`Jalon ${m.title}`} />
+                  <Flag className={cn("size-3.5", m.done ? "text-success" : m.dueDate < today ? "text-danger" : "text-violet")} />
+                  <span className={cn("flex-1", m.done && "text-muted line-through")}>{m.title}</span>
+                  <span className={cn("text-xs tabular", !m.done && m.dueDate < today ? "text-danger" : "text-muted")}>{formatDate(m.dueDate)}</span>
+                  <Button size="icon-sm" variant="ghost" aria-label="Supprimer le jalon" onClick={() => run(C.deleteMilestone, { projectId: id, milestoneId: m.id })}>
+                    <Trash2 />
+                  </Button>
+                </li>
+              ))}
+              {!project.milestones.length ? <li className="text-sm text-muted">Aucun jalon défini.</li> : null}
+            </ol>
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const r = run(C.addMilestone, { projectId: id, ...ms });
+                if (r.ok) setMs({ title: "", dueDate: today });
+              }}
+            >
+              <Input aria-label="Titre du jalon" placeholder="Nouveau jalon" className="min-w-40 flex-1" value={ms.title} onChange={(e) => setMs({ ...ms, title: e.target.value })} />
+              <Input aria-label="Date du jalon" type="date" className="w-40" value={ms.dueDate} onChange={(e) => setMs({ ...ms, dueDate: e.target.value })} />
+              <Button type="submit" variant="secondary" size="icon" aria-label="Ajouter le jalon">
+                <Plus />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Équipe et risques</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-1.5">
+              {project.memberIds.map((m) => (
+                <Link key={m} href={`/equipe?focus=${m}`}>
+                  <Badge tone="info">
+                    {employees.get(m)?.firstName} {employees.get(m)?.lastName}
+                  </Badge>
                 </Link>
               ))}
-              {expenses.map((e) => (
-                <Link key={e.id} href={`/finances/depenses?focus=${e.id}`} className="flex items-center gap-2 rounded px-1 py-1 text-muted hover:bg-interactive/40">
-                  <span className="flex-1 truncate">{e.label}</span>
-                  <Badge>{e.paid ? "Payée" : "À payer"}</Badge>
-                  <span className="w-24 text-right tabular">−{formatEUR(expenseTTC(e), { round: true })}</span>
-                </Link>
-              ))}
-              {!invoices.length && !expenses.length ? <p className="text-muted">Aucune pièce rattachée.</p> : null}
-            </CardContent>
-          </Card>
+              {!project.memberIds.length ? <span className="text-muted">Aucun membre.</span> : null}
+            </div>
+            <p className="text-xs text-muted">{project.description}</p>
+            {project.risks ? <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">{project.risks}</p> : null}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Factures et dépenses</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5 text-sm">
+            {invoices.map((s) => (
+              <Link key={s.invoice.id} href={`/finances/factures/${s.invoice.id}`} className="flex items-center gap-2 rounded px-1 py-1 hover:bg-interactive/40">
+                <span className="flex-1 truncate">{s.invoice.number}</span>
+                <StatusBadge meta={INVOICE_STATUS[s.status]} />
+                <span className="w-24 text-right tabular">{formatEUR(s.totalHT, { round: true })}</span>
+              </Link>
+            ))}
+            {expenses.map((e) => (
+              <Link key={e.id} href={`/finances/depenses?focus=${e.id}`} className="flex items-center gap-2 rounded px-1 py-1 text-muted hover:bg-interactive/40">
+                <span className="flex-1 truncate">{e.label}</span>
+                <Badge>{e.paid ? "Payée" : "À payer"}</Badge>
+                <span className="w-24 text-right tabular">−{formatEUR(expenseTTC(e), { round: true })}</span>
+              </Link>
+            ))}
+            {!invoices.length && !expenses.length ? <p className="text-muted">Aucune pièce rattachée.</p> : null}
+          </CardContent>
+        </Card>
       </div>
       {notes.length ? (
         <section>

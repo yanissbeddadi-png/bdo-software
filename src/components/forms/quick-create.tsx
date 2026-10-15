@@ -85,7 +85,21 @@ export function QuickCreateHost() {
 }
 
 /** Dialogue d'édition contrôlé, utilisé par les pages de module. */
-export function FormDialog({ open, onOpenChange, title, description, wide, children }: { open: boolean; onOpenChange: (o: boolean) => void; title: string; description?: string; wide?: boolean; children: React.ReactNode }) {
+export function FormDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  wide,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  title: string;
+  description?: string;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (

@@ -1,3 +1,4 @@
+// Outil de diagnostic : affiche les indicateurs clés du jeu de démonstration. Usage : npx tsx scripts/seed-report.ts [AAAA-MM-JJ]
 import { createSeedData } from "../src/lib/database/seed";
 import { summarizeInvoices } from "../src/lib/calculations/invoices";
 import { monthlySeries, financialSnapshot } from "../src/lib/calculations/finance";

@@ -45,7 +45,13 @@ export function TaskTable({ tasks, focusId, compact, toolbar }: { tasks: Task[];
       id: "check",
       header: "",
       cell: (t) => (
-        <button type="button" onClick={() => toggle(t)} disabled={t.status === "cancelled"} aria-label={t.status === "done" ? `Rouvrir « ${t.title} »` : `Terminer « ${t.title} »`} className="grid place-items-center text-subtle hover:text-success cursor-pointer">
+        <button
+          type="button"
+          onClick={() => toggle(t)}
+          disabled={t.status === "cancelled"}
+          aria-label={t.status === "done" ? `Rouvrir « ${t.title} »` : `Terminer « ${t.title} »`}
+          className="grid place-items-center text-subtle hover:text-success cursor-pointer"
+        >
           {t.status === "done" ? <CheckCircle2 className="size-5 text-success" /> : <Circle className="size-5" />}
         </button>
       ),
@@ -65,23 +71,60 @@ export function TaskTable({ tasks, focusId, compact, toolbar }: { tasks: Task[];
               </span>
             ) : null}
           </p>
-          {!compact && t.projectId ? <p className="text-[11px] text-muted">{projects.get(t.projectId)?.code} · {projects.get(t.projectId)?.name}</p> : null}
+          {!compact && t.projectId ? (
+            <p className="text-[11px] text-muted">
+              {projects.get(t.projectId)?.code} · {projects.get(t.projectId)?.name}
+            </p>
+          ) : null}
         </div>
       ),
       sortValue: (t) => t.title,
       csv: (t) => t.title,
     },
-    { id: "assignee", header: "Responsable", cell: (t) => (t.assigneeId ? `${employees.get(t.assigneeId)?.firstName ?? ""}` : <span className="text-subtle">—</span>), sortValue: (t) => (t.assigneeId ? (employees.get(t.assigneeId)?.firstName ?? "") : ""), csv: (t) => (t.assigneeId ? `${employees.get(t.assigneeId)?.firstName} ${employees.get(t.assigneeId)?.lastName}` : ""), hideBelow: "md" },
-    { id: "priority", header: "Priorité", cell: (t) => <StatusBadge meta={PRIORITY[t.priority]} />, sortValue: (t) => ["critical", "high", "normal", "low"].indexOf(t.priority), csv: (t) => PRIORITY[t.priority].label },
+    {
+      id: "assignee",
+      header: "Responsable",
+      cell: (t) => (t.assigneeId ? `${employees.get(t.assigneeId)?.firstName ?? ""}` : <span className="text-subtle">—</span>),
+      sortValue: (t) => (t.assigneeId ? (employees.get(t.assigneeId)?.firstName ?? "") : ""),
+      csv: (t) => (t.assigneeId ? `${employees.get(t.assigneeId)?.firstName} ${employees.get(t.assigneeId)?.lastName}` : ""),
+      hideBelow: "md",
+    },
+    {
+      id: "priority",
+      header: "Priorité",
+      cell: (t) => <StatusBadge meta={PRIORITY[t.priority]} />,
+      sortValue: (t) => ["critical", "high", "normal", "low"].indexOf(t.priority),
+      csv: (t) => PRIORITY[t.priority].label,
+    },
     {
       id: "due",
       header: "Échéance",
-      cell: (t) => <span className={cn("whitespace-nowrap text-xs", isTaskLate(t, today) ? "text-danger" : "text-muted")}>{t.dueDate ? `${formatDate(t.dueDate)} · ${formatDueIn(t.dueDate, today)}` : "—"}</span>,
+      cell: (t) => (
+        <span className={cn("whitespace-nowrap text-xs", isTaskLate(t, today) ? "text-danger" : "text-muted")}>{t.dueDate ? `${formatDate(t.dueDate)} · ${formatDueIn(t.dueDate, today)}` : "—"}</span>
+      ),
       sortValue: (t) => t.dueDate ?? "9999",
       csv: (t) => t.dueDate ?? "",
     },
-    { id: "time", header: "Temps", align: "right", cell: (t) => <span className="text-xs">{formatNumber(t.actualHours, 1)} / {formatNumber(t.estimateHours, 1)} h</span>, sortValue: (t) => t.estimateHours, csv: (t) => `${t.actualHours}/${t.estimateHours}`, hideBelow: "lg" },
-    { id: "status", header: "Statut", cell: (t) => <StatusBadge meta={isTaskLate(t, today) ? { label: "En retard", tone: "danger" } : TASK_STATUS[t.status]} />, sortValue: (t) => STATUSES.indexOf(t.status), csv: (t) => TASK_STATUS[t.status].label },
+    {
+      id: "time",
+      header: "Temps",
+      align: "right",
+      cell: (t) => (
+        <span className="text-xs">
+          {formatNumber(t.actualHours, 1)} / {formatNumber(t.estimateHours, 1)} h
+        </span>
+      ),
+      sortValue: (t) => t.estimateHours,
+      csv: (t) => `${t.actualHours}/${t.estimateHours}`,
+      hideBelow: "lg",
+    },
+    {
+      id: "status",
+      header: "Statut",
+      cell: (t) => <StatusBadge meta={isTaskLate(t, today) ? { label: "En retard", tone: "danger" } : TASK_STATUS[t.status]} />,
+      sortValue: (t) => STATUSES.indexOf(t.status),
+      csv: (t) => TASK_STATUS[t.status].label,
+    },
     {
       id: "actions",
       header: "",
@@ -92,7 +135,13 @@ export function TaskTable({ tasks, focusId, compact, toolbar }: { tasks: Task[];
             { label: "Ouvrir", icon: <Pencil />, onSelect: () => setOpen(t.id) },
             t.status !== "in_progress" && t.status !== "done" && { label: "Démarrer", icon: <Clock />, onSelect: () => run(C.setTaskStatus, { id: t.id, status: "in_progress" }) },
             isTaskOpen(t) && { label: "Annuler", onSelect: () => run(C.setTaskStatus, { id: t.id, status: "cancelled" }) },
-            { label: "Supprimer", icon: <Trash2 />, danger: true, separatorBefore: true, onSelect: () => confirm({ title: "Supprimer cette tâche ?", description: t.title, confirmLabel: "Supprimer", action: () => run(C.deleteTask, { id: t.id }) }) },
+            {
+              label: "Supprimer",
+              icon: <Trash2 />,
+              danger: true,
+              separatorBefore: true,
+              onSelect: () => confirm({ title: "Supprimer cette tâche ?", description: t.title, confirmLabel: "Supprimer", action: () => run(C.deleteTask, { id: t.id }) }),
+            },
           ]}
         />
       ),
@@ -100,7 +149,20 @@ export function TaskTable({ tasks, focusId, compact, toolbar }: { tasks: Task[];
   ];
   return (
     <>
-      <DataTable caption="Tâches" rows={tasks} columns={columns} searchText={compact ? undefined : (t) => `${t.title} ${t.description}`} onRowClick={(t) => setOpen(t.id)} highlightId={focusId} exportName={compact ? undefined : "taches"} initialSort={{ id: "due", dir: "asc" }} toolbar={toolbar} pageSize={compact ? 10 : 20} emptyTitle="Aucune tâche" rowClassName={(t) => (isTaskLate(t, today) ? "bg-danger/5" : undefined)} />
+      <DataTable
+        caption="Tâches"
+        rows={tasks}
+        columns={columns}
+        searchText={compact ? undefined : (t) => `${t.title} ${t.description}`}
+        onRowClick={(t) => setOpen(t.id)}
+        highlightId={focusId}
+        exportName={compact ? undefined : "taches"}
+        initialSort={{ id: "due", dir: "asc" }}
+        toolbar={toolbar}
+        pageSize={compact ? 10 : 20}
+        emptyTitle="Aucune tâche"
+        rowClassName={(t) => (isTaskLate(t, today) ? "bg-danger/5" : undefined)}
+      />
       {open ? <TaskDialog id={open} onClose={() => setOpen(null)} /> : null}
       {dialog}
     </>
@@ -254,7 +316,15 @@ export function TasksPage() {
     return true;
   });
   const rows = scoped.filter((t) => f.match("status", t.status) && f.match("priority", t.priority) && f.match("assignee", t.assigneeId ?? "") && f.match("project", t.projectId ?? "none"));
-  const events: CalendarEvent[] = rows.filter((t) => t.dueDate).map((t) => ({ id: t.id, date: t.dueDate!, title: t.title, tone: t.status === "done" ? "success" : isTaskLate(t, today) ? "danger" : t.priority === "critical" ? "warning" : "accent", href: `/taches?focus=${t.id}` }));
+  const events: CalendarEvent[] = rows
+    .filter((t) => t.dueDate)
+    .map((t) => ({
+      id: t.id,
+      date: t.dueDate!,
+      title: t.title,
+      tone: t.status === "done" ? "success" : isTaskLate(t, today) ? "danger" : t.priority === "critical" ? "warning" : "accent",
+      href: `/taches?focus=${t.id}`,
+    }));
 
   const filterBar = (
     <FilterBar
@@ -263,7 +333,13 @@ export function TasksPage() {
         { id: "status", label: "Statut", value: f.values.status, onChange: f.set("status"), options: STATUSES.map((s) => ({ value: s, label: TASK_STATUS[s].label })) },
         { id: "priority", label: "Priorité", value: f.values.priority, onChange: f.set("priority"), options: Object.entries(PRIORITY).map(([value, m]) => ({ value, label: m.label })) },
         { id: "assignee", label: "Responsable", value: f.values.assignee, onChange: f.set("assignee"), options: data.employees.map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })) },
-        { id: "project", label: "Projet", value: f.values.project, onChange: f.set("project"), options: [{ value: "none", label: "Sans projet" }, ...data.projects.filter((p) => p.status !== "cancelled").map((p) => ({ value: p.id, label: p.code }))] },
+        {
+          id: "project",
+          label: "Projet",
+          value: f.values.project,
+          onChange: f.set("project"),
+          options: [{ value: "none", label: "Sans projet" }, ...data.projects.filter((p) => p.status !== "cancelled").map((p) => ({ value: p.id, label: p.code }))],
+        },
       ]}
     />
   );
@@ -284,14 +360,32 @@ export function TasksPage() {
         <MetricCard label="Aujourd'hui" value={data.tasks.filter((t) => isTaskOpen(t) && t.dueDate === today).length} />
         <MetricCard label="En retard" value={data.tasks.filter((t) => isTaskLate(t, today)).length} tone={data.tasks.some((t) => isTaskLate(t, today)) ? "danger" : "default"} />
         <MetricCard label="Critiques ouvertes" value={data.tasks.filter((t) => isTaskOpen(t) && t.priority === "critical").length} />
-        <MetricCard label="Terminées (30 j)" value={data.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) >= new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)).length} tone="success" />
+        <MetricCard
+          label="Terminées (30 j)"
+          value={data.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) >= new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)).length}
+          tone="success"
+        />
       </div>
       <form
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (!quick.trim()) return;
-          const r = run(C.createTask, { title: quick, description: "", assigneeId: scope === "mine" ? me : null, priority: "normal", status: "todo", complexity: "standard", dueDate: today, estimateHours: 1, projectId: null, clientId: null, goalId: null, dependsOn: [], recurrence: "none" });
+          const r = run(C.createTask, {
+            title: quick,
+            description: "",
+            assigneeId: scope === "mine" ? me : null,
+            priority: "normal",
+            status: "todo",
+            complexity: "standard",
+            dueDate: today,
+            estimateHours: 1,
+            projectId: null,
+            clientId: null,
+            goalId: null,
+            dependsOn: [],
+            recurrence: "none",
+          });
           if (r.ok) setQuick("");
         }}
       >
@@ -353,7 +447,18 @@ export function TasksPage() {
           )}
         />
       ) : view === "calendar" ? (
-        <MonthCalendar events={events} today={today} legend={<><LegendDot tone="accent" label="À faire" /><LegendDot tone="warning" label="Critique" /><LegendDot tone="danger" label="En retard" /><LegendDot tone="success" label="Terminée" /></>} />
+        <MonthCalendar
+          events={events}
+          today={today}
+          legend={
+            <>
+              <LegendDot tone="accent" label="À faire" />
+              <LegendDot tone="warning" label="Critique" />
+              <LegendDot tone="danger" label="En retard" />
+              <LegendDot tone="success" label="Terminée" />
+            </>
+          }
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {data.employees.map((e) => {

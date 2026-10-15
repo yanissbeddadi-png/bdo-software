@@ -149,9 +149,40 @@ function CompanyTab() {
           <CardContent className="space-y-2">
             {c.vatRates.map((r, i) => (
               <div key={r.id} className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
-                <Input aria-label="Libellé du taux" value={r.label} onChange={(e) => set("vatRates", c.vatRates.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
-                <Input aria-label="Taux en %" inputMode="decimal" className="text-right tabular" value={String(r.rate / 100).replace(".", ",")} onChange={(e) => set("vatRates", c.vatRates.map((x, j) => (j === i ? { ...x, rate: Math.round(Number(e.target.value.replace(",", ".")) * 100) } : x)))} />
-                <Button variant="ghost" size="icon-sm" aria-label="Supprimer le taux" disabled={c.vatRates.length <= 1} onClick={() => set("vatRates", c.vatRates.filter((_, j) => j !== i))}>
+                <Input
+                  aria-label="Libellé du taux"
+                  value={r.label}
+                  onChange={(e) =>
+                    set(
+                      "vatRates",
+                      c.vatRates.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                    )
+                  }
+                />
+                <Input
+                  aria-label="Taux en %"
+                  inputMode="decimal"
+                  className="text-right tabular"
+                  value={String(r.rate / 100).replace(".", ",")}
+                  onChange={(e) =>
+                    set(
+                      "vatRates",
+                      c.vatRates.map((x, j) => (j === i ? { ...x, rate: Math.round(Number(e.target.value.replace(",", ".")) * 100) } : x)),
+                    )
+                  }
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Supprimer le taux"
+                  disabled={c.vatRates.length <= 1}
+                  onClick={() =>
+                    set(
+                      "vatRates",
+                      c.vatRates.filter((_, j) => j !== i),
+                    )
+                  }
+                >
                   <Trash2 />
                 </Button>
               </div>
@@ -244,7 +275,9 @@ function PreferencesTab() {
         <CardHeader>
           <div>
             <CardTitle>Date de référence de la simulation</CardTitle>
-            <CardDescription>Permet de « voyager dans le temps » : échéances, retards, missions et prévisions sont recalculés par rapport à cette date. Laisser vide pour utiliser la date du jour.</CardDescription>
+            <CardDescription>
+              Permet de « voyager dans le temps » : échéances, retards, missions et prévisions sont recalculés par rapport à cette date. Laisser vide pour utiliser la date du jour.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-2">
@@ -277,7 +310,12 @@ function GamificationTab() {
   const g = data.settings.gamification;
   const { confirm, dialog } = useConfirm();
   const [xp, setXp] = React.useState<Record<XpRuleKey, number>>(g.xpRewards);
-  const [vals, setVals] = React.useState({ dailyInvoiceXpCap: g.dailyInvoiceXpCap, dailyCustomMissionXpCap: g.dailyCustomMissionXpCap, staleOpportunityDays: g.staleOpportunityDays, weeklyProspectingTarget: g.weeklyProspectingTarget });
+  const [vals, setVals] = React.useState({
+    dailyInvoiceXpCap: g.dailyInvoiceXpCap,
+    dailyCustomMissionXpCap: g.dailyCustomMissionXpCap,
+    staleOpportunityDays: g.staleOpportunityDays,
+    weeklyProspectingTarget: g.weeklyProspectingTarget,
+  });
   const [threshold, setThreshold] = React.useState(g.pipelineAchievementThreshold);
   const [rules, setRules] = React.useState<RuleSettings>(data.settings.rules);
   return (
@@ -394,7 +432,17 @@ function GamificationTab() {
             </div>
           </CardHeader>
           <CardContent>
-            <Button variant="danger" onClick={() => confirm({ title: "Réinitialiser la progression ?", description: `${formatInt(data.xpTransactions.reduce((s, x) => s + x.amount, 0))} XP et le journal de progression seront effacés. Cette action est journalisée et irréversible.`, confirmLabel: "Réinitialiser", action: () => run(C.resetProgression, undefined) })}>
+            <Button
+              variant="danger"
+              onClick={() =>
+                confirm({
+                  title: "Réinitialiser la progression ?",
+                  description: `${formatInt(data.xpTransactions.reduce((s, x) => s + x.amount, 0))} XP et le journal de progression seront effacés. Cette action est journalisée et irréversible.`,
+                  confirmLabel: "Réinitialiser",
+                  action: () => run(C.resetProgression, undefined),
+                })
+              }
+            >
               <RotateCcw /> Réinitialiser la progression
             </Button>
           </CardContent>
@@ -414,14 +462,81 @@ function DataTab() {
   const fileRef = React.useRef<HTMLInputElement>(null);
   const clients = new Map(data.clients.map((c) => [c.id, c.name]));
   const exports: { label: string; run: () => void }[] = [
-    { label: "Clients", run: () => downloadCSV("clients", ["Nom", "Secteur", "Statut", "Ville", "Créé le"], data.clients.map((c) => [c.name, c.sector, c.status, c.city, c.createdAt.slice(0, 10)])) },
-    { label: "Factures", run: () => downloadCSV("factures", ["Numéro", "Client", "Émission", "Échéance", "Statut stocké", "HT", "TTC"], data.invoices.map((i) => { const t = documentTotals(i.items); return [i.number, clients.get(i.clientId) ?? "", i.issueDate, i.dueDate, i.baseStatus, csvMoney(t.totalHT), csvMoney(t.totalTTC)]; })) },
-    { label: "Paiements", run: () => downloadCSV("paiements", ["Facture", "Date", "Montant", "Moyen", "Référence"], data.payments.map((p) => [data.invoices.find((i) => i.id === p.invoiceId)?.number ?? "", p.date, csvMoney(p.amount), p.method, p.reference])) },
-    { label: "Dépenses", run: () => downloadCSV("depenses", ["Date", "Libellé", "Fournisseur", "Catégorie", "HT", "TVA %", "Payée"], data.expenses.map((e) => [e.date, e.label, e.supplier, e.category, csvMoney(e.amountHT), e.vatRate / 100, e.paid ? "oui" : "non"])) },
-    { label: "Opportunités", run: () => downloadCSV("opportunites", ["Nom", "Étape", "Montant", "Probabilité", "Clôture estimée"], data.opportunities.map((o) => [o.name, o.stage, csvMoney(o.amount), o.probability, o.expectedCloseDate])) },
-    { label: "Projets", run: () => downloadCSV("projets", ["Code", "Nom", "Client", "Statut", "Début", "Échéance", "Prix", "Budget"], data.projects.map((p) => [p.code, p.name, clients.get(p.clientId) ?? "", p.status, p.startDate, p.dueDate, csvMoney(p.salePrice), csvMoney(p.budget)])) },
-    { label: "Tâches", run: () => downloadCSV("taches", ["Titre", "Statut", "Priorité", "Échéance", "Estimation h", "Réalisé h"], data.tasks.map((t) => [t.title, t.status, t.priority, t.dueDate ?? "", t.estimateHours, t.actualHours])) },
-    { label: "Journal XP", run: () => downloadCSV("journal-xp", ["Date", "XP", "Motif", "Clé d'idempotence"], data.xpTransactions.map((x) => [x.at, x.amount, x.reason, x.idempotencyKey])) },
+    {
+      label: "Clients",
+      run: () =>
+        downloadCSV(
+          "clients",
+          ["Nom", "Secteur", "Statut", "Ville", "Créé le"],
+          data.clients.map((c) => [c.name, c.sector, c.status, c.city, c.createdAt.slice(0, 10)]),
+        ),
+    },
+    {
+      label: "Factures",
+      run: () =>
+        downloadCSV(
+          "factures",
+          ["Numéro", "Client", "Émission", "Échéance", "Statut stocké", "HT", "TTC"],
+          data.invoices.map((i) => {
+            const t = documentTotals(i.items);
+            return [i.number, clients.get(i.clientId) ?? "", i.issueDate, i.dueDate, i.baseStatus, csvMoney(t.totalHT), csvMoney(t.totalTTC)];
+          }),
+        ),
+    },
+    {
+      label: "Paiements",
+      run: () =>
+        downloadCSV(
+          "paiements",
+          ["Facture", "Date", "Montant", "Moyen", "Référence"],
+          data.payments.map((p) => [data.invoices.find((i) => i.id === p.invoiceId)?.number ?? "", p.date, csvMoney(p.amount), p.method, p.reference]),
+        ),
+    },
+    {
+      label: "Dépenses",
+      run: () =>
+        downloadCSV(
+          "depenses",
+          ["Date", "Libellé", "Fournisseur", "Catégorie", "HT", "TVA %", "Payée"],
+          data.expenses.map((e) => [e.date, e.label, e.supplier, e.category, csvMoney(e.amountHT), e.vatRate / 100, e.paid ? "oui" : "non"]),
+        ),
+    },
+    {
+      label: "Opportunités",
+      run: () =>
+        downloadCSV(
+          "opportunites",
+          ["Nom", "Étape", "Montant", "Probabilité", "Clôture estimée"],
+          data.opportunities.map((o) => [o.name, o.stage, csvMoney(o.amount), o.probability, o.expectedCloseDate]),
+        ),
+    },
+    {
+      label: "Projets",
+      run: () =>
+        downloadCSV(
+          "projets",
+          ["Code", "Nom", "Client", "Statut", "Début", "Échéance", "Prix", "Budget"],
+          data.projects.map((p) => [p.code, p.name, clients.get(p.clientId) ?? "", p.status, p.startDate, p.dueDate, csvMoney(p.salePrice), csvMoney(p.budget)]),
+        ),
+    },
+    {
+      label: "Tâches",
+      run: () =>
+        downloadCSV(
+          "taches",
+          ["Titre", "Statut", "Priorité", "Échéance", "Estimation h", "Réalisé h"],
+          data.tasks.map((t) => [t.title, t.status, t.priority, t.dueDate ?? "", t.estimateHours, t.actualHours]),
+        ),
+    },
+    {
+      label: "Journal XP",
+      run: () =>
+        downloadCSV(
+          "journal-xp",
+          ["Date", "XP", "Motif", "Clé d'idempotence"],
+          data.xpTransactions.map((x) => [x.at, x.amount, x.reason, x.idempotencyKey]),
+        ),
+    },
   ];
   return (
     <div className="grid gap-6 xl:grid-cols-2">
@@ -439,7 +554,8 @@ function DataTab() {
             {repositoryKind === "local-demo" ? "navigateur (localStorage), uniquement sur cet appareil" : "Supabase"}
           </p>
           <p>
-            <span className="text-muted">Jeu de données : </span>version {data.settings.demo.version}, généré le {formatDateTime(data.settings.demo.seededAt)} (date d&apos;ancrage {formatDate(data.settings.demo.anchorDate)})
+            <span className="text-muted">Jeu de données : </span>version {data.settings.demo.version}, généré le {formatDateTime(data.settings.demo.seededAt)} (date d&apos;ancrage{" "}
+            {formatDate(data.settings.demo.anchorDate)})
           </p>
           <p>
             <span className="text-muted">Volume : </span>
@@ -472,7 +588,10 @@ function DataTab() {
             </span>
             {ext.supabaseConfigured ? <Badge tone="warning">Variables détectées — synchronisation non activée</Badge> : <Badge>Non configuré</Badge>}
           </div>
-          <p className="text-xs text-muted">Le schéma, les politiques RLS et le seed SQL sont fournis dans le dossier « supabase/ ». L&apos;adaptateur applicatif de synchronisation n&apos;est pas encore branché : l&apos;application continue d&apos;utiliser le stockage local, même si les variables sont présentes.</p>
+          <p className="text-xs text-muted">
+            Le schéma, les politiques RLS et le seed SQL sont fournis dans le dossier « supabase/ ». L&apos;adaptateur applicatif de synchronisation n&apos;est pas encore branché : l&apos;application
+            continue d&apos;utiliser le stockage local, même si les variables sont présentes.
+          </p>
           <div className="flex items-center justify-between gap-3">
             <span>Banque / paiement en ligne</span>
             <Badge>Non disponible</Badge>
@@ -526,7 +645,15 @@ function DataTab() {
                   toast.error("Fichier incompatible : structure de sauvegarde BDO Software non reconnue.");
                   return;
                 }
-                confirm({ title: "Importer cette sauvegarde ?", description: "Les données actuelles de ce navigateur seront remplacées.", confirmLabel: "Importer", action: () => { replaceAll(parsed); toast.success("Sauvegarde importée."); } });
+                confirm({
+                  title: "Importer cette sauvegarde ?",
+                  description: "Les données actuelles de ce navigateur seront remplacées.",
+                  confirmLabel: "Importer",
+                  action: () => {
+                    replaceAll(parsed);
+                    toast.success("Sauvegarde importée.");
+                  },
+                });
               } catch {
                 toast.error("Fichier JSON illisible.");
               }
@@ -535,7 +662,20 @@ function DataTab() {
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>
             <Upload /> Importer une sauvegarde
           </Button>
-          <Button variant="danger" onClick={() => confirm({ title: "Réinitialiser le jeu de données ?", description: "Toutes les données de ce navigateur seront remplacées par un nouveau jeu de démonstration (dates recalculées à partir d'aujourd'hui). Action irréversible.", confirmLabel: "Réinitialiser", action: () => { resetDemo(); toast.success("Jeu de démonstration régénéré."); } })}>
+          <Button
+            variant="danger"
+            onClick={() =>
+              confirm({
+                title: "Réinitialiser le jeu de données ?",
+                description: "Toutes les données de ce navigateur seront remplacées par un nouveau jeu de démonstration (dates recalculées à partir d'aujourd'hui). Action irréversible.",
+                confirmLabel: "Réinitialiser",
+                action: () => {
+                  resetDemo();
+                  toast.success("Jeu de démonstration régénéré.");
+                },
+              })
+            }
+          >
             <RotateCcw /> Réinitialiser les données de démo
           </Button>
         </CardContent>
@@ -556,7 +696,10 @@ function RolesTab() {
         <CardHeader>
           <div>
             <CardTitle>Rôle de l&apos;utilisateur courant (démonstration)</CardTitle>
-            <CardDescription>Changez de rôle pour vérifier les permissions : les commandes refusent les actions non autorisées. En production, le rôle proviendrait de l&apos;authentification Supabase et serait vérifié par les politiques RLS côté serveur.</CardDescription>
+            <CardDescription>
+              Changez de rôle pour vérifier les permissions : les commandes refusent les actions non autorisées. En production, le rôle proviendrait de l&apos;authentification Supabase et serait
+              vérifié par les politiques RLS côté serveur.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
@@ -567,7 +710,9 @@ function RolesTab() {
               </option>
             ))}
           </NativeSelect>
-          <span className="text-sm text-muted">Utilisateur : {data.settings.user.name} ({data.settings.user.email})</span>
+          <span className="text-sm text-muted">
+            Utilisateur : {data.settings.user.name} ({data.settings.user.email})
+          </span>
         </CardContent>
       </Card>
       <Card>
@@ -595,7 +740,15 @@ function RolesTab() {
                   <td className="py-2">{PERMISSION_LABELS[p]}</td>
                   {roles.map((r) => (
                     <td key={r} className="py-2 text-center">
-                      {ROLE_PERMISSIONS[r].includes(p) ? <span className="text-success" aria-label="autorisé">●</span> : <span className="text-subtle" aria-label="refusé">—</span>}
+                      {ROLE_PERMISSIONS[r].includes(p) ? (
+                        <span className="text-success" aria-label="autorisé">
+                          ●
+                        </span>
+                      ) : (
+                        <span className="text-subtle" aria-label="refusé">
+                          —
+                        </span>
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -618,7 +771,17 @@ function AuditTab() {
           <CardTitle>Journal d&apos;audit</CardTitle>
           <CardDescription>Opérations sensibles : émission/annulation de factures, paiements, suppressions, paramètres, réinitialisations.</CardDescription>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => downloadCSV("audit", ["Date", "Acteur", "Rôle", "Action", "Détails"], logs.map((l) => [l.at, l.actor, l.role, l.action, l.details]))}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            downloadCSV(
+              "audit",
+              ["Date", "Acteur", "Rôle", "Action", "Détails"],
+              logs.map((l) => [l.at, l.actor, l.role, l.action, l.details]),
+            )
+          }
+        >
           <Download /> CSV
         </Button>
       </CardHeader>

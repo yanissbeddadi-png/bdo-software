@@ -30,20 +30,77 @@ export function FinanceOverview() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Finances" description={`Vue générale — ${label.toLowerCase()}. Les données facturées, encaissées et estimées sont distinguées ; chaque indicateur affiche sa définition.`} actions={<PeriodSelect />} />
+      <PageHeader
+        title="Finances"
+        description={`Vue générale — ${label.toLowerCase()}. Les données facturées, encaissées et estimées sont distinguées ; chaque indicateur affiche sa définition.`}
+        actions={<PeriodSelect />}
+      />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <FinancialMetricCard label="CA facturé HT" value={s.current.billed} previous={s.previous.billed} definition="Somme HT des factures émises dans la période (hors brouillons/annulées)." href="/finances/factures" />
+        <FinancialMetricCard
+          label="CA facturé HT"
+          value={s.current.billed}
+          previous={s.previous.billed}
+          definition="Somme HT des factures émises dans la période (hors brouillons/annulées)."
+          href="/finances/factures"
+        />
         <FinancialMetricCard label="Encaissements TTC" value={s.current.collected} previous={s.previous.collected} definition="Paiements clients reçus dans la période." href="/finances/factures" />
-        <FinancialMetricCard label="Décaissements TTC" value={s.current.disbursed} previous={s.previous.disbursed} good="down" definition="Dépenses payées dans la période (date de paiement)." href="/finances/depenses" />
-        <FinancialMetricCard label="Trésorerie" value={s.cash} previous={s.cashPrevious} definition="Solde d'ouverture + encaissements − décaissements réalisés." href="/finances/tresorerie" comparisonLabel="vs fin de période précédente" />
+        <FinancialMetricCard
+          label="Décaissements TTC"
+          value={s.current.disbursed}
+          previous={s.previous.disbursed}
+          good="down"
+          definition="Dépenses payées dans la période (date de paiement)."
+          href="/finances/depenses"
+        />
+        <FinancialMetricCard
+          label="Trésorerie"
+          value={s.cash}
+          previous={s.cashPrevious}
+          definition="Solde d'ouverture + encaissements − décaissements réalisés."
+          href="/finances/tresorerie"
+          comparisonLabel="vs fin de période précédente"
+        />
         <FinancialMetricCard label="Créances clients" value={s.receivables} good="down" definition="Soldes restant dus sur les factures émises." href="/finances/factures?status=overdue" />
         <FinancialMetricCard label="Dettes fournisseurs" value={s.payables} good="down" definition="Dépenses non payées (TTC)." href="/finances/depenses" />
-        <FinancialMetricCard label="Dépenses engagées HT" value={s.current.expenses} previous={s.previous.expenses} good="down" definition="Dépenses datées dans la période, payées ou non." href="/finances/depenses" />
-        <FinancialMetricCard label="Résultat opérationnel estimé" value={s.current.operatingResult} previous={s.previous.operatingResult} definition="CA facturé HT − dépenses engagées HT (estimation de gestion)." />
-        <FinancialMetricCard label="Marge opérationnelle" value={s.current.operatingMargin === null ? null : Math.round(s.current.operatingMargin * 10) / 10} previous={s.previous.operatingMargin === null ? null : Math.round(s.previous.operatingMargin * 10) / 10} money={false} formatValue={(v) => formatPercent(v)} missing="Non calculable (CA nul)" definition="Résultat opérationnel estimé ÷ CA facturé HT." />
-        <FinancialMetricCard label="MRR" value={s.mrr} previous={s.mrrPrevious} definition="Revenu mensuel récurrent normalisé des contrats actifs." href="/finances/abonnements" comparisonLabel="vs fin de période précédente" />
+        <FinancialMetricCard
+          label="Dépenses engagées HT"
+          value={s.current.expenses}
+          previous={s.previous.expenses}
+          good="down"
+          definition="Dépenses datées dans la période, payées ou non."
+          href="/finances/depenses"
+        />
+        <FinancialMetricCard
+          label="Résultat opérationnel estimé"
+          value={s.current.operatingResult}
+          previous={s.previous.operatingResult}
+          definition="CA facturé HT − dépenses engagées HT (estimation de gestion)."
+        />
+        <FinancialMetricCard
+          label="Marge opérationnelle"
+          value={s.current.operatingMargin === null ? null : Math.round(s.current.operatingMargin * 10) / 10}
+          previous={s.previous.operatingMargin === null ? null : Math.round(s.previous.operatingMargin * 10) / 10}
+          money={false}
+          formatValue={(v) => formatPercent(v)}
+          missing="Non calculable (CA nul)"
+          definition="Résultat opérationnel estimé ÷ CA facturé HT."
+        />
+        <FinancialMetricCard
+          label="MRR"
+          value={s.mrr}
+          previous={s.mrrPrevious}
+          definition="Revenu mensuel récurrent normalisé des contrats actifs."
+          href="/finances/abonnements"
+          comparisonLabel="vs fin de période précédente"
+        />
         <FinancialMetricCard label="ARR (estimation)" value={s.arr} definition="MRR × 12 — estimation annualisée." href="/finances/abonnements" />
-        <FinancialMetricCard label="Factures en retard" value={s.overdueReceivables} good="down" definition={`${s.overdueCount} facture(s) dont l'échéance est dépassée et le solde non nul.`} href="/finances/factures?status=overdue" />
+        <FinancialMetricCard
+          label="Factures en retard"
+          value={s.overdueReceivables}
+          good="down"
+          definition={`${s.overdueCount} facture(s) dont l'échéance est dépassée et le solde non nul.`}
+          href="/finances/factures?status=overdue"
+        />
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <ChartCard title="Résultat opérationnel estimé par mois" description="CA facturé HT − dépenses engagées HT">
@@ -83,7 +140,9 @@ export function FinanceOverview() {
           </CardContent>
         </Card>
       </div>
-      <p className="text-[11px] text-subtle">Outil de gestion interne — ce module n&apos;est pas un logiciel comptable certifié et ne garantit aucune conformité fiscale. Les taux de TVA sont des paramètres de simulation.</p>
+      <p className="text-[11px] text-subtle">
+        Outil de gestion interne — ce module n&apos;est pas un logiciel comptable certifié et ne garantit aucune conformité fiscale. Les taux de TVA sont des paramètres de simulation.
+      </p>
     </div>
   );
 }
