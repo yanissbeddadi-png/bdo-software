@@ -155,3 +155,8 @@ body {
     background: transparent !important;
   }
 }
+
+/* Les éléments de grille ne doivent pas imposer leur largeur minimale de contenu. */
+.grid > * {
+  min-width: 0;
+}

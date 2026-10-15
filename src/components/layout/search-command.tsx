@@ -3,7 +3,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Dialog as D } from "radix-ui";
-import { Building2, CornerDownLeft, FileText, FolderKanban, Handshake, ListTodo, Plus, ReceiptText, Swords, User, UserRound, Search } from "lucide-react";
+import { Building2, CornerDownLeft, FileText, FolderKanban, Handshake, ListTodo, ReceiptText, Swords, User, UserRound, Search } from "lucide-react";
 import { useData } from "@/lib/store/hooks";
 import { useUiStore } from "@/lib/store/ui-store";
 import { NAV } from "./nav";
@@ -109,12 +109,6 @@ export function SearchCommand() {
                     </Command.Group>
                   ))
                 : null}
-              {q ? (
-                <Command.Group heading="Actions">
-                  <Row value={`créer client ${q}`} onSelect={() => create("client")} icon={<Plus />} label="Créer un client" />
-                  <Row value={`créer tâche ${q}`} onSelect={() => create("task")} icon={<Plus />} label="Créer une tâche" />
-                </Command.Group>
-              ) : null}
             </Command.List>
           </Command>
         </D.Content>

@@ -109,7 +109,7 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
     for (const draft of autoMissionDrafts(data, today, summaries)) {
       if (autoKeys.has(draft.autoKey)) continue;
       autoKeys.add(draft.autoKey);
-      missions.push(draftToMission(draft, newId("mis"), today, now));
+      missions.push(draftToMission(draft, `mis_auto_${stableHash(draft.autoKey)}`, today, now));
     }
   }
   const completedMissions: Mission[] = [];
@@ -285,6 +285,16 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
     activity,
   };
   return { data, awarded, unlockedAchievements, levelUps, rankUp, completedMissions };
+}
+
+/** Hachage déterministe (FNV-1a 32 bits) : une même clé de mission donne toujours le même identifiant. */
+export function stableHash(value: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    h ^= value.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
 }
 
 export function totalXp(data: Pick<AppData, "xpTransactions">): number {

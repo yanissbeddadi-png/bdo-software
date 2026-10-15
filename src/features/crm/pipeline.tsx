@@ -129,7 +129,7 @@ export function PipelinePage() {
                         }}
                         onDragEnd={() => setDragging(null)}
                         data-opportunity={o.id}
-                        className={cn("group cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm transition active:cursor-grabbing", dragging === o.id && "opacity-50", focus === o.id ? "border-accent" : "border-border hover:border-border-strong")}
+                        className={cn("group relative cursor-grab rounded-lg border bg-card p-3 text-left shadow-sm transition active:cursor-grabbing", dragging === o.id && "opacity-50", focus === o.id ? "border-accent" : "border-border hover:border-border-strong")}
                       >
                         <div className="flex items-start gap-2">
                           <GripVertical className="mt-0.5 size-3.5 shrink-0 text-subtle" aria-hidden />

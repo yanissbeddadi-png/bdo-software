@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <TooltipProvider>
       <div className="flex min-h-screen" style={style} data-motion={g?.animations === false ? "off" : "on"}>
         <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
           <Topbar />
           <DemoBanner />
           <main id="contenu" className="mx-auto w-full max-w-[1500px] flex-1 px-4 py-6 md:px-6 lg:px-8">

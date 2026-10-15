@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "next build && playwright test",
+    "seed:sql": "tsx scripts/generate-seed-sql.ts",
+    "format": "prettier --write src e2e"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
