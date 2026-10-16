@@ -60,25 +60,31 @@ test("la recherche sans résultat propose de créer un élément", async ({ page
   await expect(page.getByRole("button", { name: "Créer un client" })).toBeVisible();
 });
 
-test("bureaux 3D : scène, zones et collaborateurs interactifs", async ({ page }) => {
+test("bureaux 3D : carte plein écran, fiches au clic depuis la liste", async ({ page }) => {
+  // Rendu logiciel en CI : qualité basse pour garder une page fluide.
+  await page.addInitScript(() => localStorage.setItem("bdo-office-quality", "low"));
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page, "/bureaux");
   await expect(page.getByTestId("office-canvas").locator("canvas")).toBeVisible();
-  const zones = page.locator("ul").filter({ hasText: "Salle de réunion" }).last();
-  await zones.getByRole("button", { name: /^Finance/ }).click();
+  const pick = async (name: RegExp) => {
+    await page.getByRole("button", { name: "Liste des zones et collaborateurs" }).click();
+    await page.getByTestId("office-list").getByRole("button", { name }).click();
+    await expect(page.getByTestId("office-list")).toHaveCount(0);
+  };
+  await pick(/^Finance/);
   const zonePanel = page.getByTestId("zone-panel");
   await expect(zonePanel.getByText("Trésorerie")).toBeVisible();
   await expect(zonePanel.getByRole("link", { name: /Ouvrir le module/ })).toHaveAttribute("href", "/finances");
-  await page
-    .getByRole("button", { name: /^Camille/ })
-    .last()
-    .click();
+  await pick(/^Camille/);
   const person = page.getByTestId("person-panel");
   await expect(person.getByText("Agenda du jour")).toBeVisible();
   await expect(person.getByRole("link", { name: /Fiche collaborateur/ })).toHaveAttribute("href", "/equipe?focus=emp_camille");
+  await page.keyboard.press("Escape");
+  await expect(person).toHaveCount(0);
   // Zone verrouillée par le rang.
-  await zones.getByRole("button", { name: /Laboratoire R&D/ }).click();
+  await pick(/Laboratoire R&D/);
   await expect(page.getByText(/Zone verrouillée — débloquée au rang 4/)).toBeVisible();
   // Heure simulée : à 8 h, les bureaux sont fermés.
   await page.getByLabel("Heure simulée").fill("480");
-  await expect(page.getByText("Bureaux fermés")).toBeVisible();
+  await expect(page.getByText(/Bureaux fermés/)).toBeVisible();
 });

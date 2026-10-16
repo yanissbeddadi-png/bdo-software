@@ -102,7 +102,7 @@ e2e/                        Parcours Playwright
 | --- | --- |
 | `/` | Command Center : progression, 10 KPI avec comparaison et définition, alertes, missions du jour, 7 graphiques, activité, actions rapides |
 | `/missions` | Centre de missions (auto + personnalisées, filtres, historique) |
-| `/bureaux` | Bureaux 3D (three.js) : zones par service avec indicateurs et alertes, collaborateurs animés selon leurs tâches et rendez-vous, horloge en direct / ×60 / heure choisie, zones débloquées par le rang |
+| `/bureaux` | Carte 3D plein écran style « figurines en blocs » (three.js) : bâtiment, extérieur, personnages animés selon leurs tâches et rendez-vous, cycle jour / nuit ; infobulle au survol et fiche au clic (zones, collaborateurs, postes) ; horloge en direct / ×60 / heure choisie ; zones débloquées par le rang ; qualité haute (ombres, occlusion, halo) ou basse, ajustée automatiquement ; mode animations réduites |
 | `/finances` | Synthèse financière, échéancier des créances |
 | `/finances/factures`, `/finances/factures/[id]` | Factures : CRUD, émission, duplication, paiements, avoirs, remboursements, relances, impression |
 | `/finances/avoirs`, `/finances/avoirs/[id]` | Avoirs émis, trop-perçus à rembourser, avoir imprimable |

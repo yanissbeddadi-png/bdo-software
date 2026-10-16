@@ -1,43 +1,45 @@
 "use client";
 import * as React from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { AlertTriangle, ArrowRight, Clock, Lock, Pause, Play, FastForward, Users } from "lucide-react";
+import { Crosshair, FastForward, List, Pause, Play, Sparkles, X } from "lucide-react";
 import { useData, useSummaries, useToday } from "@/lib/store/hooks";
 import { useProgression } from "@/lib/store/progression";
 import { computeAlerts } from "@/lib/calculations/alerts";
 import {
   ACTIVITY_LABELS,
-  DIRECTOR_ID,
-  directorPresence,
   activityFeed,
   daySchedule,
+  DIRECTOR_ID,
+  directorPresence,
   formatMinute,
   localDateMinute,
   officePresence,
   WORKDAY,
+  zoneById,
   zoneStates,
   type EmployeePresence,
-  type ZoneKpi,
   type ZoneState,
 } from "@/lib/calculations/office";
-import { entityHref } from "@/lib/domain/routes";
-import { DEPARTMENT } from "@/lib/formatters/labels";
-import { formatDateLong, formatEUR, formatNumber, initials } from "@/lib/formatters";
-import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Segmented } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { formatDateLong } from "@/lib/formatters";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { ACTIVITY_COLORS, type OfficeSelection } from "./office-scene";
+import { RING } from "./office-character";
+import { formatKpi, PersonPanel, ZonePanel } from "./office-panels";
+import type { OfficeTarget } from "./office-world";
+import type { Quality } from "./office-scene";
 
 const OfficeScene = dynamic(() => import("./office-scene").then((m) => m.OfficeScene), {
   ssr: false,
-  loading: () => <SceneMessage text="Chargement de la vue 3D…" />,
+  loading: () => <SceneMessage text="Construction des bureaux…" />,
 });
 
 type Speed = "live" | "fast" | "pause";
+
+function subscribeReducedMotion(onChange: () => void) {
+  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
 
 function supportsWebGL(): boolean {
   try {
@@ -46,6 +48,16 @@ function supportsWebGL(): boolean {
   } catch {
     return false;
   }
+}
+
+function defaultQuality(): Quality {
+  try {
+    const saved = window.localStorage.getItem("bdo-office-quality");
+    if (saved === "high" || saved === "low") return saved;
+  } catch {
+    // stockage indisponible : valeur par défaut
+  }
+  return window.innerWidth < 768 || (navigator.hardwareConcurrency ?? 8) <= 4 ? "low" : "high";
 }
 
 /** Horloge des bureaux : temps réel (fuseau de l'entreprise), accélérée ×60 ou figée. */
@@ -65,383 +77,346 @@ function useOfficeClock(timeZone: string) {
   return { minute, setMinute, speed, setSpeed: changeSpeed };
 }
 
+const glass = "rounded-xl border border-white/15 bg-slate-950/70 text-slate-100 shadow-2xl backdrop-blur-md";
+
 export function OfficePage() {
   const data = useData();
   const today = useToday();
   const summaries = useSummaries();
   const { rank } = useProgression();
   const clock = useOfficeClock(data.settings.company.timezone);
-  const [selection, setSelection] = React.useState<OfficeSelection>(null);
+  const [hovered, setHovered] = React.useState<OfficeTarget>(null);
+  const [selected, setSelected] = React.useState<OfficeTarget>(null);
+  const [quality, setQualityState] = React.useState<Quality>(defaultQuality);
+  const [homeTick, setHomeTick] = React.useState(0);
+  const [listOpen, setListOpen] = React.useState(false);
   const [webgl] = React.useState(supportsWebGL);
+  const prefersReduced = React.useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  );
+  const reducedMotion = prefersReduced || data.settings.gamification.animations === false;
+  const wrapper = React.useRef<HTMLDivElement>(null);
+  const tip = React.useRef<HTMLDivElement>(null);
 
   const schedule = React.useMemo(() => daySchedule(data, today), [data, today]);
   const presence = React.useMemo(() => officePresence(data, today, clock.minute, schedule), [data, today, clock.minute, schedule]);
   const alerts = React.useMemo(() => computeAlerts(data, today, summaries), [data, today, summaries]);
   const zones = React.useMemo(() => zoneStates(data, today, summaries, alerts, rank.rank, presence), [data, today, summaries, alerts, rank.rank, presence]);
-  const feed = activityFeed(data, schedule, clock.minute, 8);
-
-  const selectedZone = selection?.type === "zone" ? zones.find((z) => z.zone.id === selection.id) : undefined;
-  const selectedPerson = selection?.type === "employee" ? presence.find((p) => p.employee.id === selection.id) : undefined;
-  const onSite = presence.filter((p) => p.location !== "away");
   const directionCount = presence.filter((p) => p.zone === "direction").length;
-  const scenePresence = React.useMemo(() => [...presence, directorPresence(data, clock.minute, directionCount)], [presence, data, clock.minute, directionCount]);
-  const select = (s: OfficeSelection) => setSelection(s?.type === "employee" && s.id === DIRECTOR_ID ? { type: "zone", id: "direction" } : s);
+  const director = React.useMemo(() => directorPresence(data, clock.minute, directionCount), [data, clock.minute, directionCount]);
+  const scenePresence = React.useMemo(() => [...presence, director], [presence, director]);
+  const feed = activityFeed(data, schedule, clock.minute, 4);
   const open = clock.minute >= WORKDAY.start && clock.minute < WORKDAY.end;
 
+  const setQuality = (q: Quality) => {
+    setQualityState(q);
+    try {
+      window.localStorage.setItem("bdo-office-quality", q);
+    } catch {
+      // préférence non mémorisée
+    }
+  };
+  // L'avatar du dirigeant renvoie vers la zone Direction.
+  const select = React.useCallback((t: OfficeTarget) => setSelected(t && (t.type === "employee" || t.type === "desk") && t.id === DIRECTOR_ID ? { type: "zone", id: "direction" } : t), []);
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const moveTip = (e: React.PointerEvent) => {
+    const el = tip.current;
+    const box = wrapper.current?.getBoundingClientRect();
+    if (!el || !box) return;
+    const x = e.clientX - box.left;
+    const y = e.clientY - box.top;
+    const left = x + 18 + el.offsetWidth > box.width ? x - el.offsetWidth - 14 : x + 18;
+    const top = y + 18 + el.offsetHeight > box.height ? y - el.offsetHeight - 14 : y + 18;
+    el.style.transform = `translate(${left}px, ${top}px)`;
+  };
+
+  // Un personnage qui quitte les bureaux ne déclenche pas de « pointerout » : on ignore son survol.
+  const hover: OfficeTarget = hovered?.type === "employee" && !scenePresence.some((p) => p.employee.id === hovered.id && p.location !== "away") ? null : hovered;
+  const tooltip = hover && !(selected && hover.type === selected.type && hover.id === selected.id) ? describe(hover, zones, scenePresence) : null;
+  const card = selected ? renderCard(selected, zones, scenePresence, rank.rank, schedule, data.settings.rules.workloadHoursThreshold, select) : null;
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Bureaux"
-        description="Les locaux de BDO Software en 3D. Chaque zone reflète les indicateurs et les alertes de son service ; la présence des collaborateurs est simulée à partir de leurs tâches, de leurs rendez-vous et des pauses de la journée. Glissez pour tourner, molette pour zoomer."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-elevated px-2.5 py-1.5 text-xs tabular text-fg" aria-live="polite">
-              <Clock className="size-3.5 text-muted" /> {formatDateLong(today)} · {formatMinute(clock.minute)}
-            </span>
-            <Segmented
-              label="Vitesse de la simulation"
-              value={clock.speed}
-              onChange={clock.setSpeed}
-              options={[
-                { value: "live", label: "Direct", icon: <Play className="size-3.5" /> },
-                { value: "fast", label: "×60", icon: <FastForward className="size-3.5" /> },
-                { value: "pause", label: "Pause", icon: <Pause className="size-3.5" /> },
-              ]}
-            />
-          </div>
-        }
-      />
+    <div ref={wrapper} className="relative h-full min-h-[420px] w-full overflow-hidden bg-[#0b1533]" onPointerMove={moveTip} data-testid="office-canvas">
+      {webgl ? (
+        <OfficeScene
+          zones={zones}
+          presence={scenePresence}
+          minute={clock.minute}
+          quality={quality}
+          hovered={hover}
+          selected={selected}
+          onHover={setHovered}
+          onSelect={select}
+          homeTick={homeTick}
+          onDecline={() => setQualityState("low")}
+          paused={listOpen}
+          reducedMotion={reducedMotion}
+        />
+      ) : (
+        <SceneMessage text="La 3D (WebGL) n'est pas disponible sur cet appareil : ouvrez la liste pour consulter les zones et les collaborateurs." />
+      )}
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
-        <Card className="overflow-hidden">
-          <div className="relative h-[380px] sm:h-[520px]" data-testid="office-canvas">
-            {webgl ? (
-              <OfficeScene zones={zones} presence={scenePresence} selection={selection} onSelect={select} />
-            ) : (
-              <SceneMessage text="La 3D (WebGL) n'est pas disponible sur cet appareil : utilisez les listes ci-dessous." />
-            )}
-            <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-2 text-[11px] text-slate-200">
-              {(
-                [
-                  ["working", "Au travail"],
-                  ["meeting", "Réunion / appel"],
-                  ["coffee", "Pause"],
-                  ["available", "Disponible"],
-                ] as const
-              ).map(([k, l]) => (
-                <span key={k} className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2 py-0.5">
-                  <span className="size-2 rounded-full" style={{ background: ACTIVITY_COLORS[k] }} /> {l}
-                </span>
-              ))}
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2 py-0.5">
-                <span className="size-2 rounded-full bg-red-500" /> Surcharge / alerte
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-2.5">
-            <label htmlFor="office-time" className="text-xs text-muted">
-              Heure simulée
-            </label>
-            <input
-              id="office-time"
-              type="range"
-              min={7 * 60}
-              max={20 * 60}
-              step={5}
-              value={Math.min(Math.max(clock.minute, 7 * 60), 20 * 60)}
-              onChange={(e) => {
-                clock.setSpeed("pause");
-                clock.setMinute(Number(e.target.value));
-              }}
-              className="min-w-40 flex-1 accent-[var(--accent)]"
-            />
-            <span className="text-xs tabular text-muted">{open ? `${onSite.length} présent(s) sur ${presence.length}` : "Bureaux fermés"}</span>
-          </div>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-5">
-            {selectedZone ? (
-              <ZonePanel state={selectedZone} rank={rank.rank} presence={presence} onSelect={setSelection} />
-            ) : selectedPerson ? (
-              <PersonPanel p={selectedPerson} schedule={schedule.filter((e) => e.employeeId === selectedPerson.employee.id)} threshold={data.settings.rules.workloadHoursThreshold} />
-            ) : (
-              <Overview presence={presence} zones={zones} open={open} />
-            )}
-          </CardContent>
-        </Card>
+      {/* HUD : titre, horloge, vitesse */}
+      <div className={cn(glass, "absolute left-3 top-3 w-[min(330px,calc(100%-1.5rem))] p-3")}>
+        <div className="flex items-baseline justify-between gap-2">
+          <h1 className="text-base font-black tracking-tight">Bureaux</h1>
+          <span className="text-xs tabular text-slate-300" aria-live="polite">
+            <span className="hidden sm:inline">{formatDateLong(today)} · </span>
+            <span className="font-bold text-white">{formatMinute(clock.minute)}</span>
+          </span>
+        </div>
+        <div className="mt-2 flex items-center gap-1" role="group" aria-label="Vitesse de la simulation">
+          {(
+            [
+              ["live", "Direct", Play],
+              ["fast", "×60", FastForward],
+              ["pause", "Pause", Pause],
+            ] as const
+          ).map(([k, label, Icon]) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={clock.speed === k}
+              onClick={() => clock.setSpeed(k)}
+              className={cn(
+                "inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1 text-xs font-bold transition",
+                clock.speed === k ? "bg-white text-slate-900" : "bg-white/10 hover:bg-white/20",
+              )}
+            >
+              <Icon className="size-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <label htmlFor="office-time" className="text-[11px] text-slate-300">
+            Heure
+          </label>
+          <input
+            id="office-time"
+            type="range"
+            min={6 * 60}
+            max={21 * 60}
+            step={5}
+            value={Math.min(Math.max(clock.minute, 6 * 60), 21 * 60)}
+            onChange={(e) => {
+              clock.setSpeed("pause");
+              clock.setMinute(Number(e.target.value));
+            }}
+            aria-label="Heure simulée"
+            className="flex-1 accent-yellow-400"
+          />
+        </div>
+        <p className="mt-1 text-[11px] text-slate-300">
+          {open ? `${presence.filter((p) => p.location !== "away").length} présent(s) sur ${presence.length}` : "Bureaux fermés"} · rang {rank.rank}
+        </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Zones</CardTitle>
-              <CardDescription>Débloquées selon le rang de l&apos;entreprise (rang actuel : {rank.rank})</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-1">
-              {zones.map((z) => (
-                <li key={z.zone.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelection({ type: "zone", id: z.zone.id })}
-                    aria-pressed={selection?.type === "zone" && selection.id === z.zone.id}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-bg-elevated",
-                      selection?.type === "zone" && selection.id === z.zone.id && "bg-bg-elevated",
-                    )}
-                  >
-                    <span className="size-2.5 rounded-full" style={{ background: z.unlocked ? z.zone.color : "#64748b" }} />
-                    <span className="flex-1 text-fg">{z.zone.label}</span>
-                    {!z.unlocked ? <Lock className="size-3.5 text-subtle" aria-label={`Verrouillée jusqu'au rang ${z.zone.minRank}`} /> : null}
-                    {z.unlocked && z.occupants ? <span className="text-xs tabular text-muted">{z.occupants} 👤</span> : null}
-                    {z.unlocked && z.alerts.length ? <Badge tone="danger">{z.alerts.length}</Badge> : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Collaborateurs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-1">
-              {presence.map((p) => (
-                <li key={p.employee.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelection({ type: "employee", id: p.employee.id })}
-                    aria-pressed={selection?.type === "employee" && selection.id === p.employee.id}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-bg-elevated",
-                      selection?.type === "employee" && selection.id === p.employee.id && "bg-bg-elevated",
-                    )}
-                  >
-                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: p.overloaded && p.activity === "working" ? "#ef4444" : ACTIVITY_COLORS[p.activity] }} />
-                    <span className="w-20 shrink-0 text-fg">{p.employee.firstName}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-muted">
-                      {ACTIVITY_LABELS[p.activity]} · {p.detail}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Fil d&apos;activité</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {feed.length ? (
-              <ol className="space-y-1.5 text-xs">
-                {feed.map((f, i) => (
-                  <li key={`${f.minute}-${i}`} className="flex gap-2">
-                    <span className="w-10 shrink-0 tabular text-subtle">{formatMinute(f.minute)}</span>
-                    <span className="text-muted">{f.text}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-xs text-muted">La journée n&apos;a pas encore commencé.</p>
-            )}
-          </CardContent>
-        </Card>
+      {/* Boutons */}
+      <div className={cn("absolute bottom-3 right-3 z-10 flex gap-1.5 sm:bottom-auto sm:top-3", card && "max-sm:hidden")}>
+        <HudButton label="Recentrer la vue" onClick={() => setHomeTick((t) => t + 1)}>
+          <Crosshair className="size-4" />
+        </HudButton>
+        <HudButton label={quality === "high" ? "Qualité : haute (cliquer pour basse)" : "Qualité : basse (cliquer pour haute)"} onClick={() => setQuality(quality === "high" ? "low" : "high")}>
+          <Sparkles className={cn("size-4", quality === "high" && "text-yellow-300")} />
+        </HudButton>
+        <HudButton label="Liste des zones et collaborateurs" onClick={() => setListOpen(true)}>
+          <List className="size-4" />
+        </HudButton>
       </div>
-      <p className="text-[11px] text-subtle">
-        Simulation : la présence est déduite des données (tâches, activités commerciales, pauses types) et non d&apos;un suivi réel des personnes. Le direct multi-utilisateurs nécessitera le mode
-        Supabase.
-      </p>
+
+      {/* Infobulle au survol */}
+      <div ref={tip} className={cn("pointer-events-none absolute left-0 top-0 z-20 max-w-[260px] transition-opacity duration-100", tooltip ? "opacity-100" : "opacity-0")} aria-hidden>
+        {tooltip ? (
+          <div className={cn(glass, "px-3 py-2")}>
+            <p className="flex items-center gap-1.5 text-sm font-black">
+              <span className="size-2.5 rounded-full" style={{ background: tooltip.color }} />
+              {tooltip.title}
+            </p>
+            {tooltip.lines.map((l, i) => (
+              <p key={i} className="mt-0.5 text-[11px] leading-snug text-slate-300">
+                {l}
+              </p>
+            ))}
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-yellow-300">Cliquer pour le détail</p>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Fiche au clic */}
+      {card ? (
+        <div
+          className="absolute inset-x-2 bottom-2 z-30 max-h-[58%] overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-2xl sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-16 sm:max-h-[calc(100%-5rem)] sm:w-[350px]"
+          role="dialog"
+          aria-label="Détail"
+        >
+          <button type="button" onClick={() => setSelected(null)} aria-label="Fermer" className="absolute right-2 top-2 rounded-md p-1 text-muted hover:bg-bg-elevated hover:text-fg">
+            <X className="size-4" />
+          </button>
+          {card}
+        </div>
+      ) : null}
+
+      {/* Fil d'activité façon « chat » */}
+      <div className="pointer-events-none absolute bottom-3 left-3 hidden max-w-[360px] space-y-1 sm:block">
+        {[...feed].reverse().map((f, i) => (
+          <p key={`${f.minute}-${i}`} className="w-fit rounded-md bg-black/45 px-2 py-0.5 text-[11px] text-white" style={{ textShadow: "0 1px 1px #000" }}>
+            <span className="font-bold text-yellow-300">[{formatMinute(f.minute)}]</span> {f.text}
+          </p>
+        ))}
+      </div>
+
+      {/* Légende */}
+      <div className={cn(glass, "pointer-events-none absolute bottom-3 right-3 hidden gap-2 px-2.5 py-1.5 text-[10px] font-semibold md:flex", card && "md:hidden")}>
+        {(
+          [
+            ["working", "Travail"],
+            ["meeting", "Réunion / appel"],
+            ["coffee", "Pause"],
+            ["available", "Disponible"],
+          ] as const
+        ).map(([k, l]) => (
+          <span key={k} className="inline-flex items-center gap-1">
+            <span className="size-2 rounded-full" style={{ background: RING[k] }} /> {l}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1">
+          <span className="size-2 rounded-full bg-red-500" /> Surcharge
+        </span>
+      </div>
+
+      <Sheet open={listOpen} onOpenChange={setListOpen}>
+        <SheetContent title="Zones et collaborateurs" side="right" className="w-[320px] overflow-y-auto p-4">
+          <ListContent
+            zones={zones}
+            presence={presence}
+            onPick={(t) => {
+              select(t);
+              setListOpen(false);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+function HudButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={label} title={label} className={cn(glass, "grid size-9 place-items-center transition hover:bg-slate-800/90")}>
+      {children}
+    </button>
   );
 }
 
 function SceneMessage({ text }: { text: string }) {
-  return <div className="flex h-full items-center justify-center bg-[#0b1120] p-6 text-center text-sm text-slate-300">{text}</div>;
+  return <div className="flex h-full items-center justify-center bg-[#0b1533] p-6 text-center text-sm text-slate-300">{text}</div>;
 }
 
-function formatKpi(k: ZoneKpi) {
-  if (k.unit === "eur") return formatEUR(k.value, { round: true });
-  if (k.unit === "hours") return `${formatNumber(k.value, 1)} h`;
-  return formatNumber(k.value);
-}
-
-function Overview({ presence, zones, open }: { presence: EmployeePresence[]; zones: ZoneState[]; open: boolean }) {
-  const count = (f: (p: EmployeePresence) => boolean) => presence.filter(f).length;
-  const totalAlerts = zones.filter((z) => z.unlocked).reduce((s, z) => s + z.alerts.length, 0);
-  const rows: [string, number][] = [
-    ["Présents", count((p) => p.location !== "away")],
-    ["Au travail", count((p) => p.activity === "working")],
-    ["En réunion ou en appel", count((p) => p.activity === "meeting" || p.activity === "call")],
-    ["En pause", count((p) => p.activity === "lunch" || p.activity === "coffee")],
-    ["En surcharge", count((p) => p.overloaded)],
-    ["Alertes dans les zones", totalAlerts],
-  ];
+function ListContent({ zones, presence, onPick }: { zones: ZoneState[]; presence: EmployeePresence[]; onPick: (t: OfficeTarget) => void }) {
   return (
-    <div>
-      <p className="flex items-center gap-2 text-sm font-medium text-fg">
-        <Users className="size-4 text-accent" /> {open ? "Les bureaux sont ouverts" : "Les bureaux sont fermés"}
-      </p>
-      <dl className="mt-3 space-y-1.5 text-sm">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between">
-            <dt className="text-muted">{k}</dt>
-            <dd className="tabular text-fg">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-4 text-xs text-subtle">Cliquez sur une zone ou un collaborateur, dans la vue 3D ou dans les listes, pour afficher le détail.</p>
-    </div>
-  );
-}
-
-function ZonePanel({ state, rank, presence, onSelect }: { state: ZoneState; rank: number; presence: EmployeePresence[]; onSelect: (s: OfficeSelection) => void }) {
-  const data = useData();
-  const { zone, unlocked } = state;
-  const members = presence.filter((p) => p.zone === zone.id);
-  return (
-    <div className="space-y-4" data-testid="zone-panel">
-      <div>
-        <p className="flex items-center gap-2 text-base font-semibold text-fg">
-          <span className="size-3 rounded-full" style={{ background: zone.color }} /> {zone.label}
-        </p>
-        <p className="text-xs text-muted">{unlocked ? `${state.occupants} personne(s) dans la zone` : `Zone verrouillée — débloquée au rang ${zone.minRank} (rang actuel : ${rank}).`}</p>
-      </div>
-      {!unlocked ? (
-        <Button variant="secondary" asChild>
-          <Link href="/progression">
-            <Lock /> Voir la progression
-          </Link>
-        </Button>
-      ) : (
-        <>
-          {state.kpis.length ? (
-            <dl className="grid grid-cols-2 gap-2">
-              {state.kpis.map((k) => (
-                <div key={k.label} className="rounded-lg border border-border bg-bg-elevated p-2.5">
-                  <dt className="text-[11px] text-muted">{k.label}</dt>
-                  <dd className={cn("text-sm font-semibold tabular", k.tone === "danger" && k.value > 0 ? "text-danger" : "text-fg")}>{formatKpi(k)}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-          {state.alerts.length ? (
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-fg">Alertes ({state.alerts.length})</p>
-              <ul className="space-y-1.5">
-                {state.alerts.slice(0, 5).map((a) => {
-                  const href = entityHref(a.ref, data);
-                  return (
-                    <li key={a.key} className="flex items-start gap-2 text-xs">
-                      <AlertTriangle className={cn("mt-0.5 size-3.5 shrink-0", a.severity === "danger" ? "text-danger" : "text-warning")} />
-                      {href ? (
-                        <Link href={href} className="text-muted hover:text-fg hover:underline">
-                          {a.title}
-                        </Link>
-                      ) : (
-                        <span className="text-muted">{a.title}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
-          {members.length ? (
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-fg">Équipe</p>
-              <div className="flex flex-wrap gap-1.5">
-                {members.map((m) => (
-                  <button
-                    key={m.employee.id}
-                    type="button"
-                    onClick={() => onSelect({ type: "employee", id: m.employee.id })}
-                    className="rounded-full border border-border px-2 py-0.5 text-xs text-muted hover:text-fg"
-                  >
-                    {m.employee.firstName}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {zone.href ? (
-            <Button variant="primary" asChild className="w-full">
-              <Link href={zone.href}>
-                Ouvrir le module <ArrowRight />
-              </Link>
-            </Button>
-          ) : null}
-        </>
-      )}
-    </div>
-  );
-}
-
-function PersonPanel({ p, schedule, threshold }: { p: EmployeePresence; schedule: { start: number; end: number; label: string; activity: string }[]; threshold: number }) {
-  const e = p.employee;
-  return (
-    <div className="space-y-4" data-testid="person-panel">
-      <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent">{initials(`${e.firstName} ${e.lastName}`)}</span>
-        <div>
-          <p className="text-base font-semibold text-fg">
-            {e.firstName} {e.lastName}
-          </p>
-          <p className="text-xs text-muted">
-            {e.jobTitle} · {DEPARTMENT[e.department]}
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={p.activity === "working" ? "success" : p.activity === "meeting" || p.activity === "call" ? "info" : p.activity === "lunch" || p.activity === "coffee" ? "warning" : "neutral"}>
-          {ACTIVITY_LABELS[p.activity]}
-        </Badge>
-        {p.overloaded ? <Badge tone="danger">Surcharge</Badge> : null}
-      </div>
-      <p className="text-sm text-fg">{p.detail}</p>
-      {p.currentTask ? (
-        <Link href={`/taches?focus=${p.currentTask.id}`} className="block rounded-lg border border-border bg-bg-elevated p-2.5 text-xs hover:border-accent">
-          <span className="text-muted">Tâche prioritaire</span>
-          <span className="block text-fg">{p.currentTask.title}</span>
-        </Link>
-      ) : null}
-      <dl className="grid grid-cols-3 gap-2 text-center">
-        {(
-          [
-            ["Ouvertes", p.openTasks, false],
-            ["En retard", p.lateTasks, p.lateTasks > 0],
-            ["Charge 14 j", `${formatNumber(p.remainingHours, 0)} h`, p.overloaded],
-          ] as const
-        ).map(([k, v, bad]) => (
-          <div key={k} className="rounded-lg border border-border bg-bg-elevated p-2">
-            <dt className="text-[10px] text-muted">{k}</dt>
-            <dd className={cn("text-sm font-semibold tabular", bad ? "text-danger" : "text-fg")}>{v}</dd>
-          </div>
-        ))}
-      </dl>
-      {p.overloaded ? <p className="text-xs text-danger">Charge supérieure au seuil de {threshold} h sur 14 jours : envisagez de réaffecter des tâches.</p> : null}
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-fg">Agenda du jour</p>
-        <ul className="space-y-1 text-xs">
-          {schedule.map((s, i) => (
-            <li key={i} className="flex gap-2">
-              <span className="w-24 shrink-0 tabular text-subtle">
-                {formatMinute(s.start)}–{formatMinute(s.end)}
-              </span>
-              <span className="text-muted">{s.label}</span>
+    <div className="space-y-5" data-testid="office-list">
+      <section>
+        <h2 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-subtle">Zones</h2>
+        <ul className="space-y-0.5">
+          {zones.map((z) => (
+            <li key={z.zone.id}>
+              <button type="button" onClick={() => onPick({ type: "zone", id: z.zone.id })} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-bg-elevated">
+                <span className="size-2.5 rounded-full" style={{ background: z.unlocked ? z.zone.color : "#64748b" }} />
+                <span className="flex-1 text-fg">{z.zone.label}</span>
+                {!z.unlocked ? <span className="text-[11px] text-subtle">rang {z.zone.minRank}</span> : null}
+                {z.unlocked && z.alerts.length ? <span className="rounded-full bg-danger px-1.5 text-[10px] font-bold text-white">{z.alerts.length}</span> : null}
+              </button>
             </li>
           ))}
         </ul>
-      </div>
-      <Button variant="secondary" asChild className="w-full">
-        <Link href={`/equipe?focus=${e.id}`}>
-          Fiche collaborateur <ArrowRight />
-        </Link>
-      </Button>
+      </section>
+      <section>
+        <h2 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-subtle">Collaborateurs</h2>
+        <ul className="space-y-0.5">
+          {presence.map((p) => (
+            <li key={p.employee.id}>
+              <button
+                type="button"
+                onClick={() => onPick({ type: "employee", id: p.employee.id })}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-bg-elevated"
+              >
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: p.overloaded && p.activity === "working" ? "#ef4444" : RING[p.activity] }} />
+                <span className="w-20 shrink-0 text-fg">{p.employee.firstName}</span>
+                <span className="min-w-0 flex-1 truncate text-xs text-muted">{ACTIVITY_LABELS[p.activity]}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
+}
+
+/** Contenu de l'infobulle au survol. */
+function describe(t: NonNullable<OfficeTarget>, zones: ZoneState[], presence: EmployeePresence[]): { title: string; lines: string[]; color: string } | null {
+  if (t.type === "zone") {
+    const z = zones.find((x) => x.zone.id === t.id);
+    if (!z) return null;
+    if (!z.unlocked) return { title: z.zone.label, lines: [`🔒 Débloquée au rang ${z.zone.minRank} de l'entreprise`], color: "#64748b" };
+    const lines = z.kpis.slice(0, 3).map((k) => `${k.label} : ${formatKpi(k)}`);
+    if (z.alerts.length) lines.push(`⚠️ ${z.alerts.length} alerte(s)`);
+    if (z.occupants) lines.push(`👤 ${z.occupants} personne(s) ici`);
+    return { title: z.zone.label, lines, color: z.zone.color };
+  }
+  const p = presence.find((x) => x.employee.id === t.id);
+  if (!p) {
+    const [zoneId] = t.id.split(":");
+    return { title: "Poste libre", lines: [zoneId ? zoneById(zoneId as never).label : ""], color: "#94a3b8" };
+  }
+  if (p.employee.id === DIRECTOR_ID) return { title: "Vous", lines: [p.employee.jobTitle, "Pilotage de l'entreprise"], color: "#fbbf24" };
+  const color = p.overloaded && p.activity === "working" ? "#ef4444" : RING[p.activity];
+  if (t.type === "desk")
+    return {
+      title: `Poste de ${p.employee.firstName}`,
+      lines: [
+        p.currentTask ? `💻 ${p.currentTask.title}` : "Aucune tâche ouverte",
+        `${p.openTasks} tâche(s) ouverte(s) · ${p.lateTasks} en retard`,
+        `Actuellement : ${ACTIVITY_LABELS[p.activity].toLowerCase()}`,
+      ],
+      color,
+    };
+  return {
+    title: `${p.employee.firstName} ${p.employee.lastName}`,
+    lines: [p.employee.jobTitle, `${ACTIVITY_LABELS[p.activity]} · ${p.detail}`, ...(p.overloaded ? ["🔥 En surcharge"] : [])],
+    color,
+  };
+}
+
+function renderCard(
+  t: NonNullable<OfficeTarget>,
+  zones: ZoneState[],
+  presence: EmployeePresence[],
+  rank: number,
+  schedule: ReturnType<typeof daySchedule>,
+  threshold: number,
+  onSelect: (t: OfficeTarget) => void,
+) {
+  if (t.type === "zone") {
+    const z = zones.find((x) => x.zone.id === t.id);
+    return z ? <ZonePanel state={z} rank={rank} presence={presence.filter((p) => p.employee.id !== DIRECTOR_ID)} onSelect={onSelect} /> : null;
+  }
+  const p = presence.find((x) => x.employee.id === t.id);
+  if (!p) {
+    const [zoneId] = t.id.split(":");
+    return (
+      <div className="space-y-2 pr-6">
+        <p className="text-base font-semibold text-fg">Poste libre</p>
+        <p className="text-sm text-muted">Un bureau disponible dans la zone {zoneId ? zoneById(zoneId as never).label : ""}. Recrutez un collaborateur depuis la page Équipe pour l&apos;occuper.</p>
+      </div>
+    );
+  }
+  return <PersonPanel p={p} schedule={schedule.filter((e) => e.employeeId === p.employee.id)} threshold={threshold} />;
 }

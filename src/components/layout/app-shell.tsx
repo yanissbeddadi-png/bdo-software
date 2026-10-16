@@ -16,10 +16,13 @@ import { QuickCreateHost } from "@/components/forms/quick-create";
 import { DemoBanner } from "./demo-banner";
 import { usePathname } from "next/navigation";
 
-function PageTransition({ children }: { children: React.ReactNode }) {
+/** Pages plein écran (carte 3D) : pas de marges ni de largeur maximale. */
+const FULL_BLEED = new Set(["/bureaux"]);
+
+function PageTransition({ children, fill }: { children: React.ReactNode; fill?: boolean }) {
   const pathname = usePathname();
   return (
-    <div key={pathname} className="animate-fade-in">
+    <div key={pathname} className={fill ? "animate-fade-in h-full" : "animate-fade-in"}>
       {children}
     </div>
   );
@@ -80,6 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const init = useAppStore((s) => s.init);
   const resetDemo = useAppStore((s) => s.resetDemo);
   const g = useAppStore((s) => s.data?.settings.gamification);
+  const pathname = usePathname();
   const mounted = React.useSyncExternalStore(
     noopSubscribe,
     () => true,
@@ -98,16 +102,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     );
 
+  const fullBleed = FULL_BLEED.has(pathname);
   const style = { "--accent": themeColor(g?.equippedTheme ?? "theme-default") } as React.CSSProperties;
   return (
     <TooltipProvider>
       <div className="flex min-h-screen" style={style} data-motion={g?.animations === false ? "off" : "on"}>
         <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
+        <div className={fullBleed ? "flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" : "flex min-w-0 flex-1 flex-col overflow-x-clip"}>
           <Topbar />
           <DemoBanner />
-          <main id="contenu" className="mx-auto w-full max-w-[1500px] flex-1 px-4 py-6 md:px-6 lg:px-8">
-            <PageTransition>{children}</PageTransition>
+          <main id="contenu" className={fullBleed ? "relative min-h-0 w-full flex-1" : "mx-auto w-full max-w-[1500px] flex-1 px-4 py-6 md:px-6 lg:px-8"}>
+            <PageTransition fill={fullBleed}>{children}</PageTransition>
           </main>
         </div>
       </div>
