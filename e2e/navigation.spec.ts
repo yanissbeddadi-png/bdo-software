@@ -3,6 +3,7 @@ import { open } from "./helpers";
 
 const PAGES: [string, string][] = [
   ["Centre de missions", "Centre de missions"],
+  ["Bureaux 3D", "Bureaux"],
   ["Finances", "Finances"],
   ["Ventes et CRM", "Ventes et CRM"],
   ["Clients", "Clients"],
@@ -57,4 +58,27 @@ test("la recherche sans résultat propose de créer un élément", async ({ page
   await page.getByPlaceholder("Rechercher un client, une facture, un projet…").fill("zzzz-introuvable");
   await expect(page.getByText(/Aucun résultat pour/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Créer un client" })).toBeVisible();
+});
+
+test("bureaux 3D : scène, zones et collaborateurs interactifs", async ({ page }) => {
+  await open(page, "/bureaux");
+  await expect(page.getByTestId("office-canvas").locator("canvas")).toBeVisible();
+  const zones = page.locator("ul").filter({ hasText: "Salle de réunion" }).last();
+  await zones.getByRole("button", { name: /^Finance/ }).click();
+  const zonePanel = page.getByTestId("zone-panel");
+  await expect(zonePanel.getByText("Trésorerie")).toBeVisible();
+  await expect(zonePanel.getByRole("link", { name: /Ouvrir le module/ })).toHaveAttribute("href", "/finances");
+  await page
+    .getByRole("button", { name: /^Camille/ })
+    .last()
+    .click();
+  const person = page.getByTestId("person-panel");
+  await expect(person.getByText("Agenda du jour")).toBeVisible();
+  await expect(person.getByRole("link", { name: /Fiche collaborateur/ })).toHaveAttribute("href", "/equipe?focus=emp_camille");
+  // Zone verrouillée par le rang.
+  await zones.getByRole("button", { name: /Laboratoire R&D/ }).click();
+  await expect(page.getByText(/Zone verrouillée — débloquée au rang 4/)).toBeVisible();
+  // Heure simulée : à 8 h, les bureaux sont fermés.
+  await page.getByLabel("Heure simulée").fill("480");
+  await expect(page.getByText("Bureaux fermés")).toBeVisible();
 });

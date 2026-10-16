@@ -1328,7 +1328,15 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
 
   /* ---------- Activités commerciales ---------- */
   const salesActivities: SalesActivity[] = [];
-  const act = (type: SalesActivity["type"], date: ISODate, subject: string, link: { clientId?: string; leadId?: string; opportunityId?: string; invoiceId?: string }, done = true, hour = 10) => {
+  const act = (
+    type: SalesActivity["type"],
+    date: ISODate,
+    subject: string,
+    link: { clientId?: string; leadId?: string; opportunityId?: string; invoiceId?: string },
+    done = true,
+    hour = 10,
+    owner = "emp_camille",
+  ) => {
     if (done && date >= anchor) return;
     salesActivities.push({
       id: `sa_${String(salesActivities.length + 1).padStart(3, "0")}`,
@@ -1340,7 +1348,7 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
       leadId: link.leadId ?? null,
       opportunityId: link.opportunityId ?? null,
       invoiceId: link.invoiceId ?? null,
-      ownerId: "emp_camille",
+      ownerId: owner,
       done,
       createdAt: ts(done ? date : addDays(anchor, -1), hour),
     });
@@ -1369,6 +1377,12 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   act("call", D(1), "Négociation tarifaire NovaRetail", { clientId: "cli_novaretail", opportunityId: "opp_nova_multisite" }, false, 11);
   act("meeting", D(6), "Atelier de cadrage Helios Énergie", { leadId: "lead_helios" }, false, 9);
   act("demo", D(9), "Démonstration BDO Analytics — Maison Solenne", { leadId: "lead_solenne", opportunityId: "opp_solenne_eshop" }, false, 16);
+  // Agenda du jour d'ancrage (heures UTC) : anime la salle de réunion des bureaux virtuels.
+  act("demo", D(0), "Démonstration BDO Flow — Kerys Santé", { leadId: "lead_kerys" }, false, 8);
+  act("meeting", D(0), "Comité de pilotage PRJ-006 — Orbis", { clientId: "cli_orbis" }, false, 9, "emp_thomas");
+  act("call", D(0), "Point paiement Medialink", { clientId: "cli_medialink" }, false, 12, "emp_nora");
+  act("call", D(0), "Suivi ticket prioritaire NovaRetail", { clientId: "cli_novaretail" }, false, 13, "emp_lea");
+  act("meeting", D(0), "Revue technique connecteur ERP — Orbis", { clientId: "cli_orbis" }, false, 14, "emp_hugo");
 
   /* ---------- Notes ---------- */
   const notes: Note[] = [

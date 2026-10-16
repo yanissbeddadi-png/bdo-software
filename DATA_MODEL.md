@@ -147,6 +147,16 @@ KPI et graphiques.
   fonctionne pour les objectifs de réduction. Statut « en risque » si le temps écoulé
   dépasse la progression de plus de 25 points.
 
+### Bureaux virtuels (`src/lib/calculations/office.ts`)
+
+* Zones fixes (plan 32 × 22 m) rattachées aux services ; les alertes sont réparties par
+  type (finance, commercial, projets, développement, direction).
+* Présence **simulée et déterministe** : journée 9 h – 18 h (fuseau de l'entreprise),
+  réunions / démos du jour en salle de réunion (60 min), appels au poste (30 min),
+  déjeuner d'une heure et pause café de 15 min à heures stables par personne, sinon
+  travail sur la tâche ouverte la plus prioritaire. Aucune donnée de suivi réel des personnes.
+* Surcharge : heures restantes des tâches dues sous 14 jours > `workloadHoursThreshold`.
+
 ## 5. Hypothèses et limites de la simulation
 
 * Les déclarations de TVA sont un **outil de gestion** : aucune télédéclaration ni

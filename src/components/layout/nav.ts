@@ -1,4 +1,5 @@
 import {
+  Building,
   LayoutDashboard,
   Swords,
   Wallet,
@@ -27,6 +28,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: "/", label: "Vue d'ensemble", icon: LayoutDashboard },
   { href: "/missions", label: "Centre de missions", icon: Swords },
+  { href: "/bureaux", label: "Bureaux 3D", icon: Building },
   {
     href: "/finances",
     label: "Finances",
@@ -68,6 +70,7 @@ export const NAV: NavItem[] = [
 const LABELS: Record<string, string> = {
   "": "Vue d'ensemble",
   missions: "Centre de missions",
+  bureaux: "Bureaux",
   finances: "Finances",
   factures: "Factures",
   depenses: "Dépenses",

@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.8.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "class-variance-authority": "^0.7.1",
@@ -32,6 +34,7 @@
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
+    "three": "^0.186.1",
     "zod": "^3.25.76",
     "zustand": "^5.0.15"
   },
@@ -41,6 +44,7 @@
     "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.1",

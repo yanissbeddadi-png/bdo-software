@@ -102,6 +102,7 @@ e2e/                        Parcours Playwright
 | --- | --- |
 | `/` | Command Center : progression, 10 KPI avec comparaison et définition, alertes, missions du jour, 7 graphiques, activité, actions rapides |
 | `/missions` | Centre de missions (auto + personnalisées, filtres, historique) |
+| `/bureaux` | Bureaux 3D (three.js) : zones par service avec indicateurs et alertes, collaborateurs animés selon leurs tâches et rendez-vous, horloge en direct / ×60 / heure choisie, zones débloquées par le rang |
 | `/finances` | Synthèse financière, échéancier des créances |
 | `/finances/factures`, `/finances/factures/[id]` | Factures : CRUD, émission, duplication, paiements, avoirs, remboursements, relances, impression |
 | `/finances/avoirs`, `/finances/avoirs/[id]` | Avoirs émis, trop-perçus à rembourser, avoir imprimable |
@@ -165,16 +166,16 @@ Supabase même si les variables sont définies, et le signale dans Paramètres �
 
 ## Tests
 
-* **Vitest** (87 tests) : TVA et arrondis, statuts et soldes de factures, paiements
+* **Vitest** (94 tests) : TVA et arrondis, statuts et soldes de factures, paiements
   partiels/intégraux/trop-perçus, avoirs partiels/totaux et remboursements, déclarations de
   TVA (calcul, ordre, clôture, crédit, paiement, trésorerie, prévision, alerte, mission),
-  reprise d'XP, migration v1 → v2, MRR/ARR, pipeline pondéré, encaissements/décaissements,
+  reprise d'XP, migration v1 → v2, bureaux virtuels (postes, emploi du temps, fuseau, zones), MRR/ARR, pipeline pondéré, encaissements/décaissements,
   trésorerie et prévisions, niveaux (y compris multi-niveaux), XP idempotente, plafonds
   anti-abus, succès, missions automatiques, objectifs, réinitialisation, commandes métier
   (devis → facture, doublons, dépendances de tâches, récurrence, permissions, audit), seed.
-* **Playwright** (15 parcours) : navigation, Command Center, recherche globale (avec et
+* **Playwright** (16 parcours) : navigation, Command Center, recherche globale (avec et
   sans résultat), création de client + erreurs de validation, facture + paiements,
-  avoir total + remboursement, déclaration et paiement de TVA,
+  avoir total + remboursement, déclaration et paiement de TVA, bureaux 3D (zones, collaborateurs, zone verrouillée, heure simulée),
   opportunité + déplacement, devis → facture, tâche + XP, objectif, filtres, permissions,
   navigation mobile sans débordement horizontal.
 * **SQL** : migrations + seed + tests RLS/transactions (dont clôture de période de TVA,
@@ -199,5 +200,6 @@ trésorerie, aux prévisions, aux alertes et à la gamification.
 1. Adaptateur `SupabaseRepository` + authentification + Server Actions (le schéma et les RLS sont prêts).
 2. Envoi réel d'e-mails (relances, devis, avoirs) via un service configuré.
 3. Téléversement de documents (Supabase Storage).
-4. Rapprochement bancaire (import de relevés CSV) avec les paiements, remboursements et TVA.
-5. Internationalisation et thème clair (l'interface est en français, thème sombre).
+4. Bureaux : vrai direct multi-utilisateurs (Supabase Realtime, présence des personnes connectées).
+5. Rapprochement bancaire (import de relevés CSV) avec les paiements, remboursements et TVA.
+6. Internationalisation et thème clair (l'interface est en français, thème sombre).

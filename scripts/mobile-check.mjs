@@ -3,6 +3,7 @@ const base = process.argv[2] ?? "http://localhost:3200";
 const routes = [
   "/",
   "/missions",
+  "/bureaux",
   "/finances",
   "/finances/factures",
   "/finances/depenses",

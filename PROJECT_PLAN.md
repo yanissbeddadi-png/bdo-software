@@ -97,6 +97,11 @@ Repository (src/lib/database/*)  ──  DemoRepository (localStorage)  |  Supab
    déclarations de TVA mensuelles (encaissements) et paiement, clôture des périodes
    déclarées, TVA intégrée à la trésorerie et aux prévisions, mission et succès associés,
    reprise d'XP, migration des données locales v1 → v2, migration Supabase `…000003`.
+8. **Bureaux 3D** — locaux modélisés en three.js (`/bureaux`) : zones par service reliées
+   aux indicateurs et alertes, collaborateurs dont la position découle des tâches, des
+   activités commerciales et des pauses (simulation déterministe, `lib/calculations/office.ts`),
+   horloge en direct / accélérée, zones bonus débloquées par le rang, listes accessibles
+   au clavier et repli sans WebGL.
 
 ## 5. Suivi
 

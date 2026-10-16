@@ -4,6 +4,7 @@ const outDir = process.argv[3] ?? "/tmp/claude-0/shots";
 const routes = [
   "/",
   "/missions",
+  "/bureaux",
   "/finances",
   "/finances/factures",
   "/finances/depenses",
