@@ -17,6 +17,8 @@ const LINKS = [
   { href: "/finances/depenses", label: "Dépenses", desc: "Catégories, échéances, paiements" },
   { href: "/finances/tresorerie", label: "Trésorerie", desc: "Réalisé et scénarios prévisionnels" },
   { href: "/finances/abonnements", label: "Revenus récurrents", desc: "MRR, ARR, contrats" },
+  { href: "/finances/avoirs", label: "Avoirs", desc: "Annulations partielles ou totales, remboursements" },
+  { href: "/finances/tva", label: "TVA", desc: "Déclarations mensuelles et paiements" },
 ];
 
 export function FinanceOverview() {
@@ -43,25 +45,32 @@ export function FinanceOverview() {
           definition="Somme HT des factures émises dans la période (hors brouillons/annulées)."
           href="/finances/factures"
         />
-        <FinancialMetricCard label="Encaissements TTC" value={s.current.collected} previous={s.previous.collected} definition="Paiements clients reçus dans la période." href="/finances/factures" />
+        <FinancialMetricCard
+          label="Encaissements TTC"
+          value={s.current.collected}
+          previous={s.previous.collected}
+          definition="Paiements clients reçus dans la période, nets des remboursements."
+          href="/finances/factures"
+        />
         <FinancialMetricCard
           label="Décaissements TTC"
           value={s.current.disbursed}
           previous={s.previous.disbursed}
           good="down"
-          definition="Dépenses payées dans la période (date de paiement)."
+          definition="Dépenses payées (date de paiement) et TVA reversée dans la période."
           href="/finances/depenses"
         />
         <FinancialMetricCard
           label="Trésorerie"
           value={s.cash}
           previous={s.cashPrevious}
-          definition="Solde d'ouverture + encaissements − décaissements réalisés."
+          definition="Solde d'ouverture + encaissements − remboursements − dépenses payées − TVA reversée."
           href="/finances/tresorerie"
           comparisonLabel="vs fin de période précédente"
         />
         <FinancialMetricCard label="Créances clients" value={s.receivables} good="down" definition="Soldes restant dus sur les factures émises." href="/finances/factures?status=overdue" />
         <FinancialMetricCard label="Dettes fournisseurs" value={s.payables} good="down" definition="Dépenses non payées (TTC)." href="/finances/depenses" />
+        <FinancialMetricCard label="TVA déclarée à payer" value={s.vatOutstanding} good="down" definition="Déclarations de TVA enregistrées et non encore payées." href="/finances/tva" />
         <FinancialMetricCard
           label="Dépenses engagées HT"
           value={s.current.expenses}

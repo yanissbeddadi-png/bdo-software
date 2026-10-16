@@ -29,6 +29,7 @@ export const INVOICE_STATUS: Record<InvoiceStatus, Meta> = {
   partially_paid: { label: "Partiellement payée", tone: "violet" },
   paid: { label: "Payée", tone: "success" },
   overdue: { label: "En retard", tone: "danger" },
+  credited: { label: "Annulée par avoir", tone: "neutral" },
   cancelled: { label: "Annulée", tone: "neutral" },
 };
 

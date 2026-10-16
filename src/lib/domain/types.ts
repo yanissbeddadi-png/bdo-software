@@ -46,6 +46,14 @@ export interface CompanySettings {
   cashAlertThreshold: Cents;
   /** Date de démarrage de la simulation (début de l'historique). */
   simulationStartDate: ISODate;
+  /**
+   * Début du suivi de la TVA dans l'application : seules les périodes mensuelles
+   * commençant à cette date sont à déclarer. Régime simulé : TVA sur les
+   * encaissements (prestations de services), déclaration mensuelle.
+   */
+  vatTrackingStart: ISODate;
+  /** Jour du mois suivant auquel la déclaration et le paiement de TVA sont dus. */
+  vatDueDay: number;
 }
 
 export interface PreferenceSettings {
@@ -302,7 +310,7 @@ export interface Quote {
 
 /** Statut stocké. Les statuts « partiellement payée », « payée » et « en retard » sont calculés. */
 export type InvoiceBaseStatus = "draft" | "issued" | "cancelled";
-export type InvoiceStatus = "draft" | "issued" | "partially_paid" | "paid" | "overdue" | "cancelled";
+export type InvoiceStatus = "draft" | "issued" | "partially_paid" | "paid" | "overdue" | "credited" | "cancelled";
 
 export interface Invoice {
   id: ID;
@@ -322,6 +330,56 @@ export interface Invoice {
 }
 
 export type PaymentMethod = "transfer" | "card" | "direct_debit" | "check" | "cash";
+
+/**
+ * Avoir (note de crédit) rattaché à une facture émise. Il réduit le chiffre
+ * d'affaires (à sa date d'émission) et le montant dû sur la facture. Si la
+ * facture était déjà payée, l'excédent devient un avoir à rembourser.
+ */
+export interface CreditNote {
+  id: ID;
+  number: string;
+  invoiceId: ID;
+  clientId: ID;
+  issueDate: ISODate;
+  items: LineItem[];
+  reason: string;
+  createdAt: ISODateTime;
+}
+
+/** Remboursement d'un trop-perçu client (décaissement), consécutif à un avoir. */
+export interface Refund {
+  id: ID;
+  invoiceId: ID;
+  creditNoteId: ID | null;
+  date: ISODate;
+  amount: Cents;
+  method: PaymentMethod;
+  reference: string;
+  createdAt: ISODateTime;
+}
+
+export type VatReturnStatus = "declared" | "paid" | "credit";
+
+/**
+ * Déclaration mensuelle de TVA (instantané figé au moment de la déclaration).
+ * `net` = collectée − déductible − crédit reporté ; négatif = crédit reporté
+ * sur la période suivante (statut `credit`, aucun paiement).
+ */
+export interface VatReturn {
+  id: ID;
+  /** Mois déclaré (`yyyy-MM`). */
+  period: string;
+  collected: Cents;
+  deductible: Cents;
+  creditCarriedIn: Cents;
+  net: Cents;
+  status: VatReturnStatus;
+  dueDate: ISODate;
+  declaredAt: ISODateTime;
+  paidDate: ISODate | null;
+  reference: string;
+}
 
 export interface Payment {
   id: ID;
@@ -530,7 +588,8 @@ export type MissionCondition =
   | { kind: "projects_done"; projectIds: ID[] }
   | { kind: "mrr_reached"; target: Cents }
   | { kind: "cash_review"; since: ISODateTime }
-  | { kind: "no_late_tasks" };
+  | { kind: "no_late_tasks" }
+  | { kind: "vat_declared"; period: string };
 
 export interface EntityRef {
   type: EntityType;
@@ -615,7 +674,9 @@ export type EntityType =
   | "goal"
   | "mission"
   | "achievement"
-  | "note";
+  | "note"
+  | "credit_note"
+  | "vat_return";
 
 export interface AppNotification {
   id: ID;
@@ -660,7 +721,11 @@ export type ActivityEventType =
   | "employee_created"
   | "subscription_created"
   | "product_created"
-  | "data_reset";
+  | "data_reset"
+  | "credit_note_issued"
+  | "refund_recorded"
+  | "vat_declared"
+  | "vat_paid";
 
 export interface ActivityEvent {
   id: ID;
@@ -705,6 +770,9 @@ export interface AppData {
   quotes: Quote[];
   invoices: Invoice[];
   payments: Payment[];
+  creditNotes: CreditNote[];
+  refunds: Refund[];
+  vatReturns: VatReturn[];
   expenses: Expense[];
   subscriptions: Subscription[];
   projects: Project[];
@@ -722,5 +790,5 @@ export interface AppData {
   auditLogs: AuditLog[];
   notes: Note[];
   /** Compteurs pour la numérotation des pièces. */
-  sequences: { invoice: number; quote: number; project: number };
+  sequences: { invoice: number; quote: number; project: number; creditNote: number };
 }

@@ -190,6 +190,18 @@ function CompanyTab() {
             <Button variant="outline" size="sm" onClick={() => set("vatRates", [...c.vatRates, { id: `vat-${Date.now()}`, label: "Nouveau taux", rate: 0 }])}>
               <Plus /> Ajouter un taux
             </Button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Début du suivi des déclarations"
+                htmlFor="c-vatstart"
+                help={data.vatReturns.length ? "Verrouillé : des déclarations existent." : "Premier mois déclaré (régime des encaissements, mensuel)."}
+              >
+                <Input id="c-vatstart" type="date" value={c.vatTrackingStart} disabled={data.vatReturns.length > 0} onChange={(e) => set("vatTrackingStart", e.target.value)} />
+              </Field>
+              <Field label="Jour d'échéance (mois suivant)" htmlFor="c-vatday" help="Entre 1 et 28.">
+                <Input id="c-vatday" type="number" min={1} max={28} value={c.vatDueDay} onChange={(e) => set("vatDueDay", Number(e.target.value))} />
+              </Field>
+            </div>
             <Field label="Taux par défaut" htmlFor="c-defvat">
               <NativeSelect id="c-defvat" value={c.defaultVatRate} onChange={(e) => set("defaultVatRate", Number(e.target.value))}>
                 {c.vatRates.map((r) => (
@@ -502,6 +514,36 @@ function DataTab() {
         ),
     },
     {
+      label: "Avoirs",
+      run: () =>
+        downloadCSV(
+          "avoirs",
+          ["Numéro", "Facture", "Client", "Date", "Motif", "HT", "TTC"],
+          data.creditNotes.map((c) => {
+            const t = documentTotals(c.items);
+            return [c.number, data.invoices.find((i) => i.id === c.invoiceId)?.number ?? "", clients.get(c.clientId) ?? "", c.issueDate, c.reason, csvMoney(t.totalHT), csvMoney(t.totalTTC)];
+          }),
+        ),
+    },
+    {
+      label: "Remboursements",
+      run: () =>
+        downloadCSV(
+          "remboursements",
+          ["Facture", "Date", "Montant", "Moyen", "Référence"],
+          data.refunds.map((r) => [data.invoices.find((i) => i.id === r.invoiceId)?.number ?? "", r.date, csvMoney(r.amount), r.method, r.reference]),
+        ),
+    },
+    {
+      label: "Déclarations de TVA",
+      run: () =>
+        downloadCSV(
+          "declarations-tva",
+          ["Période", "Collectée", "Déductible", "Crédit reporté", "Net", "Statut", "Échéance", "Payée le", "Référence"],
+          data.vatReturns.map((v) => [v.period, csvMoney(v.collected), csvMoney(v.deductible), csvMoney(v.creditCarriedIn), csvMoney(v.net), v.status, v.dueDate, v.paidDate ?? "", v.reference]),
+        ),
+    },
+    {
       label: "Opportunités",
       run: () =>
         downloadCSV(
@@ -559,7 +601,8 @@ function DataTab() {
           </p>
           <p>
             <span className="text-muted">Volume : </span>
-            {data.clients.length} clients, {data.invoices.length} factures, {data.payments.length} paiements, {data.expenses.length} dépenses, {data.tasks.length} tâches
+            {data.clients.length} clients, {data.invoices.length} factures, {data.payments.length} paiements, {data.creditNotes.length} avoirs, {data.vatReturns.length} déclarations de TVA,{" "}
+            {data.expenses.length} dépenses, {data.tasks.length} tâches
           </p>
           <div className="mt-3 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
             <p className="mb-1 flex items-center gap-1.5 font-medium">

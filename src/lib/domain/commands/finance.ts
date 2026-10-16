@@ -1,6 +1,10 @@
-import type { Expense, Invoice, LineItem, Payment, Product, Quote, QuoteStatus, Subscription } from "@/lib/domain/types";
+import type { AppData, CreditNote, Expense, Invoice, LineItem, Payment, Product, Quote, QuoteStatus, Refund, Subscription, VatReturn } from "@/lib/domain/types";
 import { newId } from "@/lib/domain/ids";
 import {
+  creditNoteSchema,
+  refundSchema,
+  type CreditNoteInput,
+  type RefundInput,
   expenseSchema,
   invoiceSchema,
   paymentSchema,
@@ -15,12 +19,32 @@ import {
   type SubscriptionInput,
 } from "@/lib/validation/schemas";
 import { addDays } from "@/lib/calculations/dates";
-import { validatePayment } from "@/lib/calculations/invoices";
+import { creditableAmount, summarizeInvoice, validatePayment } from "@/lib/calculations/invoices";
+import { documentTotals } from "@/lib/calculations/money";
+import { nextPeriodToDeclare, vatPeriods } from "@/lib/calculations/vat";
 import { billingDates } from "@/lib/calculations/recurring";
 import { formatEUR } from "@/lib/formatters";
 import { activity, assertCan, audit, DomainError, findOrThrow, normalize, parse, replace, type Command } from "./core";
 
 const pad = (n: number) => String(n).padStart(4, "0");
+
+/**
+ * Une période de TVA déclarée est clôturée : les flux de trésorerie datés dans
+ * cette période (paiements, remboursements, dépenses payées) ne peuvent plus être
+ * créés, modifiés ni supprimés, afin que la déclaration reste cohérente.
+ */
+export function isVatPeriodClosed(data: Pick<AppData, "vatReturns">, date: string | null | undefined): boolean {
+  if (!date) return false;
+  return data.vatReturns.some((r) => r.period === date.slice(0, 7));
+}
+
+function assertVatPeriodOpen(data: Pick<AppData, "vatReturns">, date: string | null | undefined, field = "date") {
+  if (isVatPeriodClosed(data, date)) throw new DomainError(`La période de TVA ${date!.slice(0, 7)} est déclarée : elle est clôturée pour les flux de trésorerie.`, { [field]: "Période clôturée" });
+}
+
+function adjustments(data: AppData) {
+  return { creditNotes: data.creditNotes, refunds: data.refunds };
+}
 
 /* ----------------------------- Catalogue ----------------------------- */
 
@@ -214,7 +238,8 @@ export const cancelInvoice: Command<{ id: string; reason: string }, Invoice> = (
   assertCan(ctx, "invoices.write");
   const current = findOrThrow(data.invoices, id, "Facture");
   if (current.baseStatus === "cancelled") throw new DomainError("Cette facture est déjà annulée.");
-  if (data.payments.some((p) => p.invoiceId === id)) throw new DomainError("Des paiements sont enregistrés sur cette facture : supprimez-les ou établissez un avoir (non géré dans la simulation).");
+  if (data.payments.some((p) => p.invoiceId === id)) throw new DomainError("Des paiements sont enregistrés sur cette facture : établissez un avoir pour l'annuler.");
+  if (data.creditNotes.some((c) => c.invoiceId === id)) throw new DomainError("Des avoirs existent sur cette facture : complétez l'avoir plutôt que d'annuler la facture.");
   const invoice: Invoice = { ...current, baseStatus: "cancelled", cancelledAt: ctx.now, notes: reason ? `${current.notes}\nAnnulation : ${reason}`.trim() : current.notes, updatedAt: ctx.now };
   let next = { ...data, invoices: replace(data.invoices, invoice) };
   next = activity(next, ctx, "invoice_cancelled", `Facture ${invoice.number} annulée`, { type: "invoice", id });
@@ -261,10 +286,12 @@ export const recordPayment: Command<PaymentInput, Payment> = (data, input, ctx) 
   const invoice = findOrThrow(data.invoices, v.invoiceId, "Facture");
   if (v.date > ctx.today) throw new DomainError("La date de paiement ne peut pas être dans le futur.", { date: "Date future" });
   if (v.date < invoice.issueDate) throw new DomainError("Le paiement ne peut pas précéder l'émission de la facture.", { date: "Date invalide" });
+  assertVatPeriodOpen(data, v.date);
   const check = validatePayment(
     invoice,
     data.payments.filter((p) => p.invoiceId === invoice.id),
     v.amount,
+    adjustments(data),
   );
   if (!check.ok) throw new DomainError(check.reason, { amount: check.reason });
   const payment: Payment = { id: newId("pay"), ...v, createdAt: ctx.now };
@@ -277,6 +304,17 @@ export const recordPayment: Command<PaymentInput, Payment> = (data, input, ctx) 
 export const deletePayment: Command<{ id: string }> = (data, { id }, ctx) => {
   assertCan(ctx, "payments.write");
   const payment = findOrThrow(data.payments, id, "Paiement");
+  assertVatPeriodOpen(data, payment.date);
+  const invoice = findOrThrow(data.invoices, payment.invoiceId, "Facture");
+  const remaining = data.payments.filter((p) => p.invoiceId === invoice.id && p.id !== id);
+  const after = summarizeInvoice(
+    invoice,
+    remaining,
+    "9999-12-31",
+    [],
+    data.refunds.filter((r) => r.invoiceId === invoice.id),
+  );
+  if (after.paid < 0) throw new DomainError("Un remboursement a déjà été effectué sur ce paiement : il ne peut plus être supprimé.");
   let next = { ...data, payments: data.payments.filter((p) => p.id !== id) };
   next = audit(next, ctx, "payment.delete", { type: "invoice", id: payment.invoiceId }, `${payment.amount}`);
   return { data: next, result: undefined, message: "Paiement supprimé (correction de saisie journalisée)." };
@@ -288,6 +326,7 @@ export const createExpense: Command<ExpenseInput, Expense> = (data, input, ctx) 
   assertCan(ctx, "expenses.write");
   const v = parse(expenseSchema, input);
   if (v.paid && v.paidDate && v.paidDate > ctx.today) throw new DomainError("La date de paiement ne peut pas être dans le futur.", { paidDate: "Date future" });
+  if (v.paid) assertVatPeriodOpen(data, v.paidDate, "paidDate");
   const duplicate = data.expenses.some((e) => e.supplier === v.supplier && e.amountHT === v.amountHT && e.date === v.date && normalize(e.label) === normalize(v.label));
   if (duplicate) throw new DomainError("Une dépense identique (fournisseur, montant, date, libellé) existe déjà.");
   const expense: Expense = { id: newId("exp"), ...v, paidDate: v.paid ? v.paidDate : null, createdAt: ctx.now, updatedAt: ctx.now };
@@ -302,7 +341,14 @@ export const updateExpense: Command<{ id: string; values: ExpenseInput }, Expens
   const v = parse(expenseSchema, values);
   if (v.paid && v.paidDate && v.paidDate > ctx.today) throw new DomainError("La date de paiement ne peut pas être dans le futur.", { paidDate: "Date future" });
   const current = findOrThrow(data.expenses, id, "Dépense");
-  const expense: Expense = { ...current, ...v, paidDate: v.paid ? v.paidDate : null, updatedAt: ctx.now };
+  const nextPaidDate = v.paid ? v.paidDate : null;
+  if (current.paid && isVatPeriodClosed(data, current.paidDate)) {
+    const cashChanged = v.amountHT !== current.amountHT || v.vatRate !== current.vatRate || !v.paid || nextPaidDate !== current.paidDate;
+    if (cashChanged) throw new DomainError(`Dépense payée dans une période de TVA déclarée (${current.paidDate!.slice(0, 7)}) : montant, TVA et paiement ne sont plus modifiables.`);
+  } else if (v.paid) {
+    assertVatPeriodOpen(data, nextPaidDate, "paidDate");
+  }
+  const expense: Expense = { ...current, ...v, paidDate: nextPaidDate, updatedAt: ctx.now };
   let next = { ...data, expenses: replace(data.expenses, expense) };
   next = audit(next, ctx, "expense.update", { type: "expense", id }, "");
   return { data: next, result: expense, message: "Dépense mise à jour." };
@@ -313,6 +359,7 @@ export const markExpensePaid: Command<{ id: string; paidDate: string }, Expense>
   const current = findOrThrow(data.expenses, id, "Dépense");
   if (current.paid) throw new DomainError("Cette dépense est déjà payée.");
   if (paidDate > ctx.today) throw new DomainError("La date de paiement ne peut pas être dans le futur.");
+  assertVatPeriodOpen(data, paidDate, "paidDate");
   const expense: Expense = { ...current, paid: true, paidDate, updatedAt: ctx.now };
   return { data: audit({ ...data, expenses: replace(data.expenses, expense) }, ctx, "expense.pay", { type: "expense", id }, paidDate), result: expense, message: "Dépense marquée comme payée." };
 };
@@ -320,6 +367,8 @@ export const markExpensePaid: Command<{ id: string; paidDate: string }, Expense>
 export const deleteExpense: Command<{ id: string }> = (data, { id }, ctx) => {
   assertCan(ctx, "expenses.write");
   const current = findOrThrow(data.expenses, id, "Dépense");
+  if (current.paid && isVatPeriodClosed(data, current.paidDate))
+    throw new DomainError(`Dépense payée dans une période de TVA déclarée (${current.paidDate!.slice(0, 7)}) : elle ne peut plus être supprimée.`);
   let next = { ...data, expenses: data.expenses.filter((e) => e.id !== id) };
   next = audit(next, ctx, "expense.delete", { type: "expense", id }, `${current.label} · ${current.amountHT}`);
   return { data: next, result: undefined, message: "Dépense supprimée." };
@@ -386,4 +435,129 @@ export const invoiceSubscriptionPeriod: Command<{ id: string; billingDate: strin
   let next = { ...data, invoices: [...data.invoices, invoice], sequences: { ...data.sequences, invoice: seq } };
   next = activity(next, ctx, "invoice_issued", `Facture ${number} émise (abonnement ${sub.offer})`, { type: "invoice", id: invoice.id });
   return { data: next, result: invoice, message: `Facture ${number} émise.` };
+};
+
+/* ----------------------------- Avoirs et remboursements ----------------------------- */
+
+/**
+ * Émet un avoir sur une facture émise. Le total TTC des avoirs ne peut pas dépasser
+ * le TTC de la facture. Les lignes sont figées (prix et TVA) comme sur une facture.
+ */
+export const createCreditNote: Command<CreditNoteInput, CreditNote> = (data, input, ctx) => {
+  assertCan(ctx, "invoices.write");
+  const v = parse(creditNoteSchema, input);
+  const invoice = findOrThrow(data.invoices, v.invoiceId, "Facture");
+  if (invoice.baseStatus !== "issued") throw new DomainError("Un avoir ne peut être émis que sur une facture émise (non brouillon, non annulée).");
+  if (v.issueDate < invoice.issueDate) throw new DomainError("L'avoir ne peut pas précéder la facture.", { issueDate: "Date invalide" });
+  if (v.issueDate > ctx.today) throw new DomainError("L'avoir ne peut pas être daté dans le futur.", { issueDate: "Date future" });
+  const totals = documentTotals(v.items);
+  if (totals.totalTTC <= 0) throw new DomainError("Le montant de l'avoir doit être strictement positif.", { items: "Montant nul" });
+  const max = creditableAmount(invoice, data.creditNotes);
+  if (totals.totalTTC > max)
+    throw new DomainError(`L'avoir (${formatEUR(totals.totalTTC)} TTC) dépasse le montant restant créditable de la facture (${formatEUR(max)} TTC).`, { items: "Montant trop élevé" });
+  const seq = data.sequences.creditNote + 1;
+  const note: CreditNote = {
+    id: newId("cn"),
+    number: `AV-${v.issueDate.slice(0, 4)}-${pad(seq)}`,
+    invoiceId: invoice.id,
+    clientId: invoice.clientId,
+    issueDate: v.issueDate,
+    items: v.items,
+    reason: v.reason,
+    createdAt: ctx.now,
+  };
+  let next: AppData = { ...data, creditNotes: [...data.creditNotes, note], sequences: { ...data.sequences, creditNote: seq } };
+  next = activity(next, ctx, "credit_note_issued", `Avoir ${note.number} émis sur ${invoice.number} (${formatEUR(totals.totalTTC)} TTC)`, { type: "credit_note", id: note.id });
+  next = audit(next, ctx, "credit_note.issue", { type: "credit_note", id: note.id }, `${invoice.number} · ${totals.totalTTC} · ${v.reason}`);
+  const after = summarizeInvoice(
+    invoice,
+    next.payments.filter((p) => p.invoiceId === invoice.id),
+    ctx.today,
+    next.creditNotes.filter((c) => c.invoiceId === invoice.id),
+    next.refunds.filter((r) => r.invoiceId === invoice.id),
+  );
+  const hint = after.creditBalance > 0 ? ` Trop-perçu à rembourser : ${formatEUR(after.creditBalance)}.` : "";
+  return { data: next, result: note, message: `Avoir ${note.number} émis.${hint}` };
+};
+
+/** Rembourse un trop-perçu client (consécutif à un avoir). Ne peut dépasser le trop-perçu. */
+export const recordRefund: Command<RefundInput, Refund> = (data, input, ctx) => {
+  assertCan(ctx, "payments.write");
+  const v = parse(refundSchema, input);
+  const invoice = findOrThrow(data.invoices, v.invoiceId, "Facture");
+  if (v.date > ctx.today) throw new DomainError("La date de remboursement ne peut pas être dans le futur.", { date: "Date future" });
+  assertVatPeriodOpen(data, v.date);
+  if (v.creditNoteId && !data.creditNotes.some((c) => c.id === v.creditNoteId && c.invoiceId === invoice.id)) throw new DomainError("Avoir introuvable sur cette facture.");
+  const s = summarizeInvoice(
+    invoice,
+    data.payments.filter((p) => p.invoiceId === invoice.id),
+    "9999-12-31",
+    data.creditNotes.filter((c) => c.invoiceId === invoice.id),
+    data.refunds.filter((r) => r.invoiceId === invoice.id),
+  );
+  if (s.creditBalance <= 0) throw new DomainError("Aucun trop-perçu à rembourser sur cette facture.");
+  if (v.amount > s.creditBalance) throw new DomainError(`Le remboursement dépasse le trop-perçu (${formatEUR(s.creditBalance)}).`, { amount: "Montant trop élevé" });
+  const refund: Refund = { id: newId("ref"), ...v, createdAt: ctx.now };
+  let next: AppData = { ...data, refunds: [...data.refunds, refund] };
+  next = activity(next, ctx, "refund_recorded", `Remboursement de ${formatEUR(refund.amount)} sur ${invoice.number}`, { type: "invoice", id: invoice.id });
+  next = audit(next, ctx, "refund.record", { type: "invoice", id: invoice.id }, `${refund.amount}`);
+  return { data: next, result: refund, message: `Remboursement de ${formatEUR(refund.amount)} enregistré.` };
+};
+
+/* ----------------------------- TVA ----------------------------- */
+
+/**
+ * Déclare la TVA d'une période complète. Les déclarations sont séquentielles (la
+ * période doit être la plus ancienne non déclarée) ; les montants sont figés et la
+ * période est ensuite clôturée pour les flux de trésorerie.
+ */
+export const declareVatReturn: Command<{ period: string }, VatReturn> = (data, { period }, ctx) => {
+  assertCan(ctx, "vat.write");
+  const rows = vatPeriods(data, ctx.today);
+  const next = nextPeriodToDeclare(rows);
+  if (!rows.some((r) => r.period === period)) throw new DomainError("Cette période n'est pas déclarable (mois non terminé ou antérieur au suivi de TVA).");
+  if (data.vatReturns.some((r) => r.period === period)) throw new DomainError("Cette période est déjà déclarée.");
+  if (!next || next.period !== period) throw new DomainError(`Déclarez d'abord la période ${next?.period ?? ""}.`);
+  const vatReturn: VatReturn = {
+    id: newId("vat"),
+    period,
+    collected: next.collected,
+    deductible: next.deductible,
+    creditCarriedIn: next.creditCarriedIn,
+    net: next.net,
+    status: next.net > 0 ? "declared" : "credit",
+    dueDate: next.dueDate,
+    declaredAt: ctx.now,
+    paidDate: null,
+    reference: "",
+  };
+  let out: AppData = { ...data, vatReturns: [...data.vatReturns, vatReturn] };
+  out = activity(out, ctx, "vat_declared", `TVA de ${period} déclarée (${vatReturn.net > 0 ? `${formatEUR(vatReturn.net)} à payer` : `crédit ${formatEUR(-vatReturn.net)} reporté`})`, {
+    type: "vat_return",
+    id: vatReturn.id,
+  });
+  out = audit(out, ctx, "vat.declare", { type: "vat_return", id: vatReturn.id }, `${period} · net ${vatReturn.net}`);
+  return {
+    data: out,
+    result: vatReturn,
+    message:
+      vatReturn.net > 0
+        ? `TVA de ${period} déclarée : ${formatEUR(vatReturn.net)} à payer avant le ${vatReturn.dueDate.split("-").reverse().join("/")}.`
+        : `TVA de ${period} déclarée : crédit de ${formatEUR(-vatReturn.net)} reporté.`,
+  };
+};
+
+/** Enregistre le paiement d'une déclaration de TVA (décaissement réel). */
+export const payVatReturn: Command<{ id: string; paidDate: string; reference: string }, VatReturn> = (data, { id, paidDate, reference }, ctx) => {
+  assertCan(ctx, "vat.write");
+  const current = findOrThrow(data.vatReturns, id, "Déclaration de TVA");
+  if (current.status !== "declared") throw new DomainError(current.status === "paid" ? "Cette déclaration est déjà payée." : "Aucun montant à payer (crédit de TVA).");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) throw new DomainError("Date invalide.", { paidDate: "Date invalide" });
+  if (paidDate > ctx.today) throw new DomainError("La date de paiement ne peut pas être dans le futur.", { paidDate: "Date future" });
+  if (paidDate.slice(0, 7) <= current.period) throw new DomainError("Le paiement doit intervenir après la fin de la période déclarée.", { paidDate: "Date invalide" });
+  const paid: VatReturn = { ...current, status: "paid", paidDate, reference: reference.trim().slice(0, 100) };
+  let out: AppData = { ...data, vatReturns: replace(data.vatReturns, paid) };
+  out = activity(out, ctx, "vat_paid", `TVA de ${current.period} payée (${formatEUR(current.net)})`, { type: "vat_return", id });
+  out = audit(out, ctx, "vat.pay", { type: "vat_return", id }, `${current.period} · ${current.net} · ${paidDate}`);
+  return { data: out, result: paid, message: `Paiement de TVA de ${formatEUR(current.net)} enregistré.` };
 };

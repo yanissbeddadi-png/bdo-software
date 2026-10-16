@@ -90,6 +90,18 @@ export function SearchCommand() {
         })),
       },
       {
+        key: "credit-notes",
+        label: "Avoirs",
+        icon: <ReceiptText />,
+        items: data.creditNotes.map((c) => ({
+          id: c.id,
+          label: c.number,
+          hint: `${clients.get(c.clientId) ?? ""} · −${formatEUR(documentTotals(c.items).totalTTC)}`,
+          href: `/finances/avoirs/${c.id}`,
+          keywords: `${c.number} avoir ${clients.get(c.clientId) ?? ""} ${c.reason}`,
+        })),
+      },
+      {
         key: "quotes",
         label: "Devis",
         icon: <FileText />,

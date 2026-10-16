@@ -1,7 +1,7 @@
 import type { AppData, Cents, ISODate } from "@/lib/domain/types";
 import { daysBetween, endOfMonthISO, lastMonthKeys, monthPeriod } from "@/lib/calculations/dates";
 import { cashBalance, periodFinancials } from "@/lib/calculations/finance";
-import { summarizeInvoices, type InvoiceSummary } from "@/lib/calculations/invoices";
+import { summarizeData, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { conversionRate, pipelineValue } from "@/lib/calculations/pipeline";
 import { isTaskLate } from "@/lib/calculations/projects";
 import { computeMRR } from "@/lib/calculations/recurring";
@@ -51,10 +51,12 @@ export interface GameMetrics {
   overdueExpenses: number;
   /** Jours consécutifs sans tâche en retard (suivi persistant). */
   daysWithoutLateTasks: number;
+  /** Déclarations de TVA déposées (et payées le cas échéant) au plus tard à l'échéance. */
+  vatReturnsOnTime: number;
 }
 
 export function computeGameMetrics(data: AppData, today: ISODate, summaries?: InvoiceSummary[]): GameMetrics {
-  const sums = summaries ?? summarizeInvoices(data.invoices, data.payments, today);
+  const sums = summaries ?? summarizeData(data, today);
   const completeMonths = lastMonthKeys(today, 4).slice(0, 3);
   const monthEnds = completeMonths.map((m) => endOfMonthISO(monthPeriod(m).start));
 
@@ -112,6 +114,8 @@ export function computeGameMetrics(data: AppData, today: ISODate, summaries?: In
     overdue30: sums.filter((s) => s.status === "overdue" && s.daysOverdue > 30).length,
     overdueExpenses: data.expenses.filter((e) => !e.paid && e.dueDate < today).length,
     daysWithoutLateTasks: since ? Math.max(daysBetween(since, today), 0) : 0,
+    vatReturnsOnTime: data.vatReturns.filter((r) => r.declaredAt.slice(0, 10) <= r.dueDate && (r.status === "credit" || (r.status === "paid" && r.paidDate !== null && r.paidDate <= r.dueDate)))
+      .length,
   };
 }
 

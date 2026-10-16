@@ -31,6 +31,7 @@ const CONDITION_LABELS: Record<Mission["condition"]["kind"], string> = {
   mrr_reached: "MRR atteint",
   cash_review: "Revue de trésorerie validée cette semaine",
   no_late_tasks: "Aucune tâche en retard",
+  vat_declared: "Déclaration de TVA de la période enregistrée",
 };
 
 export function MissionsPage() {

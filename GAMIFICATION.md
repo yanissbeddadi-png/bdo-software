@@ -31,6 +31,7 @@ Exécuter le moteur deux fois de suite ne change rien (testé).
 | Projet terminé | `project:<id>` | date de clôture |
 | Opportunité gagnée | `opportunity:<id>` | date de clôture |
 | Facture intégralement payée | `invoice:<id>` | date du dernier paiement |
+| Reprise (facture annulée par avoir) | `invoice-reversal:<id>` | date de la réconciliation (montant négatif) |
 | Nouveau client validé | `client:<id>` | 1re facture soldée ou 1er contrat démarré |
 | Objectif à 50 % / 100 % | `goal:<id>:50`, `goal:<id>:100` | date du franchissement |
 | Mission terminée | `mission:<id>` | date de validation |
@@ -67,7 +68,9 @@ En base (Supabase), l'unicité est garantie par l'index `xp_transactions(organiz
   leur condition métier est remplie. Les missions mensuelles ne sont générées que si elles
   constituent un vrai défi (MRR > 0, tâches en retard existantes).
 * **Factures annulées** : impossible d'annuler une facture payée ; une facture annulée ne
-  peut pas être soldée, donc pas récompensée.
+  peut pas être soldée, donc pas récompensée. Une facture **intégralement annulée par
+  avoir** après avoir été récompensée reçoit une transaction **négative** du même montant
+  (`invoice-reversal:<id>`, une seule fois) : payer puis créditer ne rapporte rien.
 * **Début de progression** : seuls les événements datés après `progressionStart`
   rapportent de l'XP (le jeu de démo démarre 75 jours avant la date d'ancrage).
 
@@ -113,11 +116,12 @@ virtuel (SVG) gagne un bâtiment par rang.
 | Progression du MRR (+5 %) | `mrr:<mois>` | MRR atteint |
 | Zéro tâche en retard | `zero-retard:<mois>` | Aucune tâche en retard |
 | Projets prioritaires | `projets-prioritaires:<trimestre>` | Tous terminés |
+| Déclaration de TVA | `tva:<période>` | Période déclarée (priorité haute à J−7 de l'échéance) |
 
 Une mission dont l'entité disparaît est annulée ; une mission quotidienne automatique
 échue depuis plus de 7 jours expire.
 
-## 7. Succès (24)
+## 7. Succès (25)
 
 Premier client · Premier devis · Première vente · Premier paiement reçu · Facture soldée ·
 Dix clients actifs · Premier contrat récurrent · Premier projet livré · Atelier rodé (5 projets) ·
@@ -125,7 +129,8 @@ Usine à livraisons (10 projets) · Premier objectif atteint · Semaine sans ret
 Trésorerie solide (3 fins de mois positives) · Premier mois rentable · Pipeline ambitieux
 (seuil configurable) · Équipe complète · Croissance récurrente · Cap des 10 k€ de MRR ·
 Gestionnaire rigoureux · Expert de la relation client · Stratège commercial ·
-Maître des tâches · Quart de million · Bâtisseur d'entreprise (rang 4).
+Maître des tâches · Quart de million · Bâtisseur d'entreprise (rang 4) ·
+Déclarant exemplaire (3 déclarations de TVA déposées avant l'échéance).
 
 Chaque succès possède nom, description, icône, catégorie, rareté (commun, rare, épique,
 légendaire — distinction ludique, pas une mesure comptable), condition, XP et date d'obtention.

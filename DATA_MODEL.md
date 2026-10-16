@@ -46,11 +46,14 @@ Deux représentations partagent les mêmes règles :
 | --- | --- | --- |
 | `invoices` | → clients, projects, quotes, subscriptions | Statut **stocké** : `draft` / `issued` / `cancelled`. Numéro unique ; une échéance d'abonnement facturée une seule fois (index unique partiel) |
 | `invoice_items` | → invoices, products | Prix et TVA figés ; modifiables uniquement si la facture est brouillon (RLS) |
-| `payments` | → invoices (`restrict`) | Distincts des factures ; montant > 0 ; plusieurs paiements par facture |
+| `payments` | → invoices (`restrict`) | Distincts des factures ; montant > 0 ; plusieurs paiements par facture ; interdits dans une période de TVA déclarée (trigger) |
+| `credit_notes`, `credit_note_items` | → invoices (`restrict`), clients | Avoir sur facture émise : numéro `AV-AAAA-NNNN`, lignes positives figées, motif obligatoire ; documents immuables (RLS : lecture + création) ; Σ avoirs ≤ TTC de la facture |
+| `refunds` | → invoices, credit_notes | Remboursement d'un trop-perçu après avoir ; montant ≤ trop-perçu (`record_refund()`) ; décaissement |
+| `vat_returns` | → organizations | Une déclaration par période `AAAA-MM` ; montants figés (trigger) ; `declared` → `paid` uniquement ; `credit` ⇔ net ≤ 0 ; permission `vat.write` |
 | `expenses` | → expense_categories, projects | `paid` ⇔ `paid_date` |
 | `expense_categories` | — | Drapeau `recurring` utilisé par les prévisions |
 | `subscriptions` | → clients, products | Résiliation = statut `cancelled` + date de fin |
-| Vues `invoice_totals`, `invoice_balances` | — | Totaux HT/TVA/TTC et statut **calculé** (même règle que l'application) |
+| Vues `invoice_totals`, `credit_note_totals`, `invoice_balances` | — | Totaux HT/TVA/TTC, avoirs, net dû, encaissé net, trop-perçu et statut **calculé** (même règle que l'application) |
 
 ### Projets, tâches, équipe, objectifs
 | Table | Règles |
@@ -88,17 +91,18 @@ KPI et graphiques.
 
 | # | Indicateur | Définition |
 | --- | --- | --- |
-| 1 | **CA facturé (HT)** | Somme HT des factures `issued` dont la date d'émission est dans la période (hors brouillons et annulations) |
-| 2 | **CA encaissé (TTC)** | Somme des paiements datés dans la période |
+| 1 | **CA facturé (HT)** | Somme HT des factures `issued` dont la date d'émission est dans la période (hors brouillons et annulations), **moins** les avoirs HT émis dans la période (à leur propre date) |
+| 2 | **CA encaissé (TTC)** | Paiements datés dans la période − remboursements datés dans la période |
 | 3 | **MRR** | Σ des abonnements actifs ramenés au mois (trimestriel ÷ 3, annuel ÷ 12) ; exclut `paused`, contrats non démarrés ou terminés |
 | — | **ARR** | MRR × 12 — estimation annualisée, pas du CA réalisé |
 | 4 | **Pipeline** | Σ montants des opportunités ouvertes ; **pondéré** = Σ montant × probabilité |
 | 5 | **Prévisions** | `buildForecast` : scénarios prudent / central / optimiste avec hypothèses explicites (affichées dans l'UI) |
 | 6 | **Dépenses engagées (HT)** | Dépenses datées dans la période, payées ou non |
-| 7 | **Dépenses payées / décaissements (TTC)** | Dépenses payées dont la date de paiement est dans la période |
+| 7 | **Décaissements (TTC)** | Dépenses payées (date de paiement dans la période) + TVA reversée (déclarations payées dans la période) |
 | 8 | **Résultat opérationnel estimé** | CA facturé HT − dépenses engagées HT (estimation de gestion, pas un résultat comptable) |
 | — | **Marge opérationnelle** | Résultat ÷ CA facturé ; `null` (non calculable) si CA nul |
-| 9 | **Trésorerie disponible** | Solde d'ouverture + encaissements − décaissements réalisés jusqu'à la date. Jamais « factures − dépenses » |
+| 9 | **Trésorerie disponible** | Solde d'ouverture + paiements − remboursements − dépenses payées TTC − TVA reversée, jusqu'à la date. Jamais « factures − dépenses » |
+| — | **TVA déclarée à payer** | Σ net des déclarations au statut `declared` |
 | — | **Créances** | Soldes restants des factures émises ; **échues** si échéance dépassée |
 | — | **Dettes fournisseurs** | Dépenses non payées (TTC) |
 
@@ -106,11 +110,35 @@ KPI et graphiques.
 
 * **TVA** : HT de ligne arrondi au centime (`quantité × PU`), puis TVA calculée **par taux**
   sur la somme des bases HT de ce taux, arrondie au centime (demi-unité éloignée de zéro).
-* **Statut de facture** : `cancelled`/`draft` prioritaires ; `paid` si encaissé ≥ TTC ;
-  `overdue` si solde > 0 et échéance dépassée ; `partially_paid` si 0 < encaissé < TTC ;
+* **Statut de facture** : `cancelled`/`draft` prioritaires ; `credited` (« annulée par
+  avoir ») si les avoirs couvrent tout le TTC ; `paid` si encaissé net ≥ net dû (TTC − avoirs) ;
+  `overdue` si solde > 0 et échéance dépassée ; `partially_paid` si 0 < encaissé < net dû ;
   sinon `issued`. Un paiement partiel ne rend jamais une facture « payée ».
-* **Paiement** : refusé s'il dépasse le solde (pas de trop-perçu géré), s'il est daté dans
-  le futur ou avant l'émission, ou si la facture n'est pas émise.
+* **Paiement** : refusé s'il dépasse le solde net dû, s'il est daté dans le futur ou avant
+  l'émission, si la facture n'est pas émise, ou si sa date tombe dans une période de TVA déclarée.
+* **Avoir** : uniquement sur facture émise ; date entre l'émission de la facture et
+  aujourd'hui ; TTC > 0 et ≤ montant restant créditable. Si l'encaissé dépasse le net dû, la
+  différence est un **trop-perçu** à rembourser (alerte, prévision à 15 jours). L'annulation
+  « directe » est réservée aux factures émises par erreur, sans paiement ni avoir.
+* **Remboursement** : ≤ trop-perçu, non futur, hors période de TVA déclarée.
+
+### TVA (`src/lib/calculations/vat.ts`)
+
+* **Régime** : TVA sur les **encaissements** (prestations de services), déclaration **mensuelle**.
+* **Collectée** du mois = Σ paiements × (TVA ÷ TTC de la facture) − Σ remboursements × même part.
+* **Déductible** du mois = TVA des dépenses **payées** dans le mois.
+* **Net** = collectée − déductible − crédit reporté ; un net ≤ 0 devient un **crédit**
+  reporté sur la période suivante (statut `credit`, aucun remboursement de crédit demandé).
+* **Échéance** : jour `vatDueDay` (24 par défaut, 1–28) du mois suivant.
+* **Déclarations séquentielles** : seule la plus ancienne période complète non déclarée peut
+  l'être ; les montants sont figés et la période est **clôturée** (aucun paiement,
+  remboursement ou dépense payée ne peut plus y être daté, créé, modifié ou supprimé).
+* **Paiement** : uniquement d'une déclaration `declared`, daté après la fin de la période
+  et au plus tard aujourd'hui ; c'est un décaissement de trésorerie.
+* **Prévisions** : déclarations à payer à leur échéance, périodes complètes non déclarées,
+  puis TVA nette estimée du mois en cours (réalisé + flux prévus) et des mois suivants
+  (TVA contenue dans chaque flux prévu), avec report de crédit.
+* `vatTrackingStart` : premier mois suivi ; verrouillé dès qu'une déclaration existe.
 * **Progression de projet** : 70 % part d'effort (heures estimées) des tâches terminées +
   30 % jalons atteints ; plafonnée à 99 % tant que le projet n'est pas clôturé.
 * **Coût réel de projet** : dépenses rattachées (HT) + heures saisies × coût horaire du
@@ -121,9 +149,9 @@ KPI et graphiques.
 
 ## 5. Hypothèses et limites de la simulation
 
-* La TVA collectée/déductible n'est **pas reversée** : la trésorerie simulée est donc
-  surévaluée de la TVA nette. Aucune déclaration fiscale n'est produite.
-* Les avoirs ne sont pas gérés : une facture payée ne peut pas être annulée.
+* Les déclarations de TVA sont un **outil de gestion** : aucune télédéclaration ni
+  télépaiement n'est effectué ; seul le régime mensuel sur les encaissements est simulé
+  (pas d'autoliquidation, d'acomptes, de TVA sur les débits ni de demande de remboursement de crédit).
 * Le solde d'ouverture est une donnée fictive ; aucune connexion bancaire.
 * Le module est un outil de gestion interne, **pas un logiciel comptable certifié**.
 
@@ -133,4 +161,9 @@ KPI et graphiques.
   d'ancrage ; 15 clients, 22 contacts, 12 prospects, 14 opportunités, 10 produits,
   12 projets, 47 tâches, ~120 factures, ~100 paiements, ~80 dépenses, 10 devis,
   6 collaborateurs, 9 objectifs, missions, succès, notifications, activité.
+* Version 2 : 2 avoirs (partiel ; total sur une échéance d'abonnement suivi d'un
+  remboursement), déclarations de TVA mensuelles déclarées le 12 et payées le 18 jusqu'à
+  M−2, la dernière période complète restant à déclarer.
+* Les données locales v1 sont **migrées** sans perte (`src/lib/database/migrations.ts`) :
+  ajout des collections vides, suivi de TVA démarrant au mois précédent.
 * `npm run seed:sql [-- AAAA-MM-JJ]` produit `supabase/seed.sql` à partir du même générateur.

@@ -1,6 +1,6 @@
 import type { ActivityEvent, AppData, AppNotification, EntityRef, ISODate, ISODateTime, Mission, ProgressionEntry, ProgressionKind, TaskComplexity, XpSource, XpTransaction } from "@/lib/domain/types";
 import { newId } from "@/lib/domain/ids";
-import { summarizeInvoices, type InvoiceSummary } from "@/lib/calculations/invoices";
+import { summarizeData, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { evaluateGoal } from "@/lib/calculations/goals";
 import { ACHIEVEMENTS, RARITY_XP_RULE, RARITY_LABELS } from "./achievements";
 import { computeGameMetrics, trackNoLateTasks } from "./metrics";
@@ -64,7 +64,7 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
   let data: AppData = { ...input, settings: { ...input.settings, gamification: { ...input.settings.gamification } } };
   const g = data.settings.gamification;
   const rewards = g.xpRewards;
-  const summaries: InvoiceSummary[] = summarizeInvoices(data.invoices, data.payments, today);
+  const summaries: InvoiceSummary[] = summarizeData(data, today);
 
   const progression: ProgressionEntry[] = [...data.progression];
   const progressionKeys = new Set(progression.map((p) => p.key));
@@ -268,6 +268,23 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
     }
     existingKeys.add(c.key);
     awarded.push({ id: newId("xp"), at: c.at, amount: c.amount, reason: c.reason, source: c.source, ref: c.ref, idempotencyKey: c.key });
+  }
+  // Anti-abus : une facture intégralement annulée par avoir perd la récompense « facture payée ».
+  for (const s of summaries) {
+    if (s.status !== "credited") continue;
+    const original = data.xpTransactions.find((x) => x.idempotencyKey === `invoice:${s.invoice.id}`) ?? awarded.find((x) => x.idempotencyKey === `invoice:${s.invoice.id}`);
+    const key = `invoice-reversal:${s.invoice.id}`;
+    if (!original || existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    awarded.push({
+      id: newId("xp"),
+      at: now,
+      amount: -original.amount,
+      reason: `Facture ${s.invoice.number} annulée par avoir : récompense retirée`,
+      source: "invoice",
+      ref: { type: "invoice", id: s.invoice.id },
+      idempotencyKey: key,
+    });
   }
   const xpTransactions = [...data.xpTransactions, ...awarded];
 

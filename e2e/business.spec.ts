@@ -127,3 +127,58 @@ test("permissions : un collaborateur ne peut pas émettre de facture", async ({ 
   await dialog.getByRole("button", { name: "Créer la facture" }).click();
   await expect(page.getByText(/Action non autorisée/).first()).toBeVisible();
 });
+
+test("avoir total sur une facture payée puis remboursement du trop-perçu", async ({ page }) => {
+  await open(page, "/finances/factures");
+  await quickCreate(page, "Facture");
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Client", { exact: true }).selectOption({ label: "PixelForge" });
+  await dialog.getByLabel("Désignation ligne 1").fill("Atelier annulé");
+  await dialog.getByLabel("Prix unitaire HT ligne 1").fill("1000");
+  await dialog.getByRole("button", { name: "Créer la facture" }).click();
+  await expect(page).toHaveURL(/\/finances\/factures\/inv_/);
+  await page.getByRole("button", { name: "Enregistrer un paiement" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Enregistrer le paiement" }).click();
+  await expect(page.getByText("Payée", { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Émettre un avoir" }).click();
+  const credit = page.getByRole("dialog");
+  await credit.getByRole("button", { name: "Émettre l'avoir" }).click();
+  await expect(credit.getByText("Le motif est obligatoire")).toBeVisible();
+  await credit.getByLabel("Motif").fill("Atelier annulé par le client");
+  await credit.getByRole("button", { name: "Émettre l'avoir" }).click();
+  await expect(page.getByText("Annulée par avoir").first()).toBeVisible();
+  await expect(page.getByText("Trop-perçu à rembourser", { exact: true })).toBeVisible();
+  const avoir = page.getByRole("link", { name: /^AV-\d{4}-\d{4}$/ });
+  const number = (await avoir.textContent())!;
+
+  await page.getByRole("button", { name: /^Rembourser/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Enregistrer le remboursement" }).click();
+  await expect(page.getByText("Trop-perçu à rembourser", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Encaissé net (après remboursements)")).toBeVisible();
+
+  await avoir.click();
+  await expect(page.locator("main h1")).toHaveText(`Avoir ${number}`);
+  await expect(page.getByText("Atelier annulé par le client")).toBeVisible();
+  await open(page, "/finances/avoirs");
+  await expect(page.getByRole("cell", { name: number })).toBeVisible();
+});
+
+test("TVA : déclaration de la période puis paiement", async ({ page }) => {
+  await open(page, "/finances/tva");
+  await expect(page.getByText("À déclarer").or(page.getByText("Déclaration en retard")).first()).toBeVisible();
+  await page.getByRole("button", { name: "Déclarer", exact: true }).first().click();
+  await expect(page.getByText(/\+\d+ XP/).first()).toBeVisible();
+  await expect(page.getByText("À jour", { exact: true })).toBeVisible();
+  const row = page.locator("tbody tr").first();
+  const declared = row.getByText("Déclarée — à payer");
+  if (await declared.count()) {
+    await row.getByRole("button", { name: "Payer" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Référence").fill("TP-E2E");
+    await dialog.getByRole("button", { name: "Enregistrer le paiement" }).click();
+    await expect(row.getByText("Payée", { exact: true })).toBeVisible();
+  } else {
+    await expect(row.getByText("Crédit reporté")).toBeVisible();
+  }
+});

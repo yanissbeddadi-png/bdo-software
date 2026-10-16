@@ -12,6 +12,10 @@ export const updateCompanySettings: Command<Partial<CompanySettings>> = (data, i
   if (company.vatRates.some((r) => !Number.isInteger(r.rate) || r.rate < 0 || r.rate > 10_000)) throw new DomainError("Taux de TVA invalide.");
   if (!company.vatRates.some((r) => r.rate === company.defaultVatRate)) throw new DomainError("Le taux par défaut doit faire partie des taux configurés.");
   if (!Number.isInteger(company.cashAlertThreshold) || company.cashAlertThreshold < 0) throw new DomainError("Seuil de trésorerie invalide.");
+  if (!Number.isInteger(company.vatDueDay) || company.vatDueDay < 1 || company.vatDueDay > 28) throw new DomainError("Le jour d'échéance de TVA doit être compris entre 1 et 28.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(company.vatTrackingStart)) throw new DomainError("Date de début du suivi de TVA invalide.");
+  if (company.vatTrackingStart.slice(0, 7) !== data.settings.company.vatTrackingStart.slice(0, 7) && data.vatReturns.length)
+    throw new DomainError("Le début du suivi de TVA ne peut plus être modifié : des déclarations existent déjà.");
   const next = audit({ ...data, settings: { ...data.settings, company } }, ctx, "settings.company", null, Object.keys(input).join(", "));
   return { data: next, result: undefined, message: "Paramètres de l'entreprise enregistrés." };
 };

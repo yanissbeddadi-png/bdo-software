@@ -6,7 +6,8 @@ import type { InvoiceSummary } from "./invoices";
 import { isStale } from "./pipeline";
 import { isProjectLate, isTaskLate, isTaskOpen, projectFinancials } from "./projects";
 import { buildForecast } from "./cashflow";
-import { formatEUR } from "@/lib/formatters";
+import { formatEUR, formatMonth } from "@/lib/formatters";
+import { nextPeriodToDeclare, vatPeriods } from "./vat";
 
 export type AlertSeverity = "info" | "warning" | "danger";
 
@@ -22,7 +23,10 @@ export type AlertKind =
   | "goal_risk"
   | "expense_overdue"
   | "workload"
-  | "dependency";
+  | "dependency"
+  | "vat_declaration"
+  | "vat_payment"
+  | "refund_due";
 
 export interface Alert {
   /** Clé de déduplication stable. */
@@ -53,6 +57,9 @@ export const ALERT_KIND_LABELS: Record<AlertKind, string> = {
   expense_overdue: "Dépense échue",
   workload: "Charge excessive",
   dependency: "Dépendance critique",
+  vat_declaration: "Déclaration de TVA",
+  vat_payment: "Paiement de TVA",
+  refund_due: "Remboursement client",
 };
 
 const SEVERITY_WEIGHT: Record<AlertSeverity, number> = { danger: 300, warning: 200, info: 100 };
@@ -111,6 +118,54 @@ export function computeAlerts(data: AppData, today: ISODate, summaries: InvoiceS
         ref: null,
       });
     }
+  }
+
+  // TVA : prochaine période à déclarer (à 10 jours de l'échéance ou en retard) et déclarations à payer.
+  const vatRows = vatPeriods(data, today);
+  const toDeclare = nextPeriodToDeclare(vatRows);
+  if (toDeclare && toDeclare.dueDate <= addDays(today, 10)) {
+    const late = toDeclare.dueDate < today;
+    push(
+      {
+        key: `vat-declare:${toDeclare.period}`,
+        kind: "vat_declaration",
+        category: "finance",
+        severity: late ? "danger" : "warning",
+        title: `TVA de ${formatMonth(toDeclare.period, false)} à déclarer`,
+        body: `${late ? "Échéance dépassée" : `Échéance le ${toDeclare.dueDate.split("-").reverse().join("/")}`} · net estimé ${formatEUR(toDeclare.net)}`,
+        ref: { type: "vat_return", id: toDeclare.period },
+      },
+      late ? 80 : 20,
+    );
+  }
+  for (const row of vatRows) {
+    if (row.state !== "declared" || !row.vatReturn) continue;
+    const late = row.dueDate < today;
+    if (!late && row.dueDate > addDays(today, 10)) continue;
+    push(
+      {
+        key: `vat-pay:${row.period}`,
+        kind: "vat_payment",
+        category: "finance",
+        severity: late ? "danger" : "warning",
+        title: `TVA de ${formatMonth(row.period, false)} à payer`,
+        body: `${formatEUR(row.net)} · échéance ${row.dueDate.split("-").reverse().join("/")}`,
+        ref: { type: "vat_return", id: row.vatReturn.id },
+      },
+      late ? 80 : 20,
+    );
+  }
+  for (const s of summaries) {
+    if (s.creditBalance <= 0) continue;
+    push({
+      key: `refund-due:${s.invoice.id}:${s.creditBalance}`,
+      kind: "refund_due",
+      category: "finance",
+      severity: "warning",
+      title: `Trop-perçu à rembourser · ${s.invoice.number}`,
+      body: `${clients.get(s.invoice.clientId) ?? ""} · ${formatEUR(s.creditBalance)} après avoir`,
+      ref: { type: "invoice", id: s.invoice.id },
+    });
   }
 
   for (const e of data.expenses) {

@@ -20,6 +20,9 @@ export function emptyData(): AppData {
     quotes: [],
     invoices: [],
     payments: [],
+    creditNotes: [],
+    refunds: [],
+    vatReturns: [],
     expenses: [],
     subscriptions: [],
     projects: [],
@@ -35,7 +38,7 @@ export function emptyData(): AppData {
     activity: [],
     auditLogs: [],
     notes: [],
-    sequences: { invoice: 0, quote: 0, project: 0 },
+    sequences: { invoice: 0, quote: 0, project: 0, creditNote: 0 },
   };
 }
 

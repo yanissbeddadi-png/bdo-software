@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, Copy, FilePlus2, Pencil, Printer, Send, Trash2, Banknote, ArrowLeft, CheckCircle2, Undo2 } from "lucide-react";
+import { Ban, Copy, FilePlus2, Pencil, Printer, Send, Trash2, Banknote, ArrowLeft, CheckCircle2, Undo2, FileMinus2, RotateCcw } from "lucide-react";
 import type { InvoiceStatus } from "@/lib/domain/types";
 import { useCommand, useData, useLookups, useSummaries, useToday } from "@/lib/store/hooks";
 import { useParam } from "@/lib/store/params";
@@ -18,7 +18,7 @@ import { useConfirm } from "@/components/shared/confirm-dialog";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { FollowUpDialog } from "@/components/shared/follow-up-dialog";
 import { FormDialog } from "@/components/forms/quick-create";
-import { InvoiceForm, PaymentForm } from "@/components/forms/entity-forms";
+import { CreditNoteForm, InvoiceForm, PaymentForm, RefundForm } from "@/components/forms/entity-forms";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,8 @@ import { INVOICE_STATUS, PAYMENT_METHOD, ACTIVITY_TYPE } from "@/lib/formatters/
 import { formatDate, formatDateTime, formatEUR, formatQuantity, formatVat } from "@/lib/formatters";
 import { lineHT } from "@/lib/calculations/money";
 import { csvMoney } from "@/lib/export/csv";
-import type { InvoiceSummary } from "@/lib/calculations/invoices";
+import { creditableAmount, type InvoiceSummary } from "@/lib/calculations/invoices";
+import { documentTotals } from "@/lib/calculations/money";
 import { cn } from "@/lib/utils";
 
 type Row = InvoiceSummary & { id: string };
@@ -117,7 +118,7 @@ export function InvoicesPage() {
       />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="Total facturé (TTC)" value={formatEUR(totals.billed)} hint="Factures émises, hors brouillons et annulations." />
-        <MetricCard label="Encaissé" value={formatEUR(totals.paid)} hint="Somme des paiements enregistrés." />
+        <MetricCard label="Encaissé" value={formatEUR(totals.paid)} hint="Paiements enregistrés, nets des remboursements." />
         <MetricCard label="Reste à encaisser" value={formatEUR(totals.open)} hint="Créances clients : soldes des factures émises." />
         <MetricCard label="Dont échu" value={formatEUR(totals.overdue)} tone={totals.overdue ? "danger" : "default"} hint="Soldes des factures dont l'échéance est dépassée." />
       </div>
@@ -178,6 +179,8 @@ export function InvoiceDetail({ id }: { id: string }) {
   const [pay, setPay] = React.useState(false);
   const [followUp, setFollowUp] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
+  const [creditOpen, setCreditOpen] = React.useState(false);
+  const [refundOpen, setRefundOpen] = React.useState(false);
   const [reason, setReason] = React.useState("");
   const s = summaries.find((x) => x.invoice.id === id);
   if (!s)
@@ -197,6 +200,9 @@ export function InvoiceDetail({ id }: { id: string }) {
   const project = data.projects.find((p) => p.id === inv.projectId);
   const quote = data.quotes.find((q) => q.id === inv.quoteId);
   const payments = data.payments.filter((p) => p.invoiceId === id).sort((a, b) => a.date.localeCompare(b.date));
+  const creditNotes = data.creditNotes.filter((c) => c.invoiceId === id).sort((a, b) => a.issueDate.localeCompare(b.issueDate));
+  const refunds = data.refunds.filter((r) => r.invoiceId === id).sort((a, b) => a.date.localeCompare(b.date));
+  const creditable = creditableAmount(inv, data.creditNotes);
   const followUps = data.salesActivities.filter((a) => a.invoiceId === id).sort((a, b) => b.date.localeCompare(a.date));
   const audit = data.auditLogs.filter((a) => a.ref?.id === id).sort((a, b) => b.at.localeCompare(a.at));
 
@@ -233,6 +239,16 @@ export function InvoiceDetail({ id }: { id: string }) {
                 <Banknote /> Enregistrer un paiement
               </Button>
             ) : null}
+            {s.creditBalance > 0 ? (
+              <Button variant="primary" onClick={() => setRefundOpen(true)}>
+                <RotateCcw /> Rembourser {formatEUR(s.creditBalance)}
+              </Button>
+            ) : null}
+            {inv.baseStatus === "issued" && creditable > 0 ? (
+              <Button variant="secondary" onClick={() => setCreditOpen(true)}>
+                <FileMinus2 /> Émettre un avoir
+              </Button>
+            ) : null}
             {s.status === "overdue" ? (
               <Button variant="secondary" onClick={() => setFollowUp(true)}>
                 <Send /> Relancer
@@ -255,7 +271,14 @@ export function InvoiceDetail({ id }: { id: string }) {
                   },
                 },
                 { label: "Imprimer / PDF", icon: <Printer />, onSelect: () => window.print() },
-                inv.baseStatus === "issued" && { label: "Annuler la facture", icon: <Ban />, danger: true, separatorBefore: true, onSelect: () => setCancelOpen(true), disabled: payments.length > 0 },
+                inv.baseStatus === "issued" && {
+                  label: "Annuler la facture",
+                  icon: <Ban />,
+                  danger: true,
+                  separatorBefore: true,
+                  onSelect: () => setCancelOpen(true),
+                  disabled: payments.length > 0 || creditNotes.length > 0,
+                },
                 inv.baseStatus === "draft" && {
                   label: "Supprimer le brouillon",
                   icon: <Trash2 />,
@@ -347,10 +370,28 @@ export function InvoiceDetail({ id }: { id: string }) {
                 <dt>Total TTC</dt>
                 <dd>{formatEUR(s.totalTTC)}</dd>
               </div>
+              {s.creditNotes.length ? (
+                <>
+                  <div className="flex justify-between text-warning">
+                    <dt>Avoirs ({s.creditNotes.length})</dt>
+                    <dd>−{formatEUR(s.creditedTTC)}</dd>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <dt>Net dû</dt>
+                    <dd>{formatEUR(s.netTTC)}</dd>
+                  </div>
+                </>
+              ) : null}
               <div className="flex justify-between text-success">
-                <dt>Déjà payé</dt>
+                <dt>{s.refunded ? "Encaissé net (après remboursements)" : "Déjà payé"}</dt>
                 <dd>{formatEUR(s.paid)}</dd>
               </div>
+              {s.creditBalance > 0 ? (
+                <div className="flex justify-between font-semibold text-warning">
+                  <dt>Trop-perçu à rembourser</dt>
+                  <dd>{formatEUR(s.creditBalance)}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between font-semibold">
                 <dt>Solde restant</dt>
                 <dd className={cn(s.status === "overdue" && "text-danger")}>{formatEUR(s.balance)}</dd>
@@ -403,6 +444,43 @@ export function InvoiceDetail({ id }: { id: string }) {
               )}
             </CardContent>
           </Card>
+          {creditNotes.length || refunds.length ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Avoirs et remboursements</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {creditNotes.map((c) => (
+                    <li key={c.id} className="flex items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm">
+                      <FileMinus2 className="size-4 text-warning" />
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/finances/avoirs/${c.id}`} className="font-medium text-fg hover:text-accent hover:underline">
+                          {c.number}
+                        </Link>
+                        <p className="truncate text-[11px] text-muted">
+                          {formatDate(c.issueDate)} · {c.reason}
+                        </p>
+                      </div>
+                      <span className="tabular text-warning">−{formatEUR(documentTotals(c.items).totalTTC)}</span>
+                    </li>
+                  ))}
+                  {refunds.map((r) => (
+                    <li key={r.id} className="flex items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm">
+                      <RotateCcw className="size-4 text-danger" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-fg">Remboursement</p>
+                        <p className="truncate text-[11px] text-muted">
+                          {formatDate(r.date)} · {PAYMENT_METHOD[r.method]} {r.reference ? `· ${r.reference}` : ""}
+                        </p>
+                      </div>
+                      <span className="tabular text-danger">−{formatEUR(r.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ) : null}
           <Card>
             <CardHeader>
               <CardTitle>Relances et historique</CardTitle>
@@ -435,7 +513,24 @@ export function InvoiceDetail({ id }: { id: string }) {
       <FormDialog open={pay} onOpenChange={setPay} title="Enregistrer un paiement">
         <PaymentForm defaults={{ invoiceId: id }} onDone={() => setPay(false)} onCancel={() => setPay(false)} />
       </FormDialog>
-      <FormDialog open={cancelOpen} onOpenChange={setCancelOpen} title="Annuler la facture" description="Une facture annulée sort du chiffre d'affaires et des créances. Action journalisée.">
+      <FormDialog
+        open={creditOpen}
+        onOpenChange={setCreditOpen}
+        title={`Émettre un avoir sur ${inv.number}`}
+        description="L'avoir réduit le chiffre d'affaires à sa date d'émission et le montant dû. Si la facture est déjà payée, le trop-perçu devra être remboursé."
+        wide
+      >
+        <CreditNoteForm defaults={{ invoiceId: id }} onDone={() => setCreditOpen(false)} onCancel={() => setCreditOpen(false)} />
+      </FormDialog>
+      <FormDialog open={refundOpen} onOpenChange={setRefundOpen} title="Rembourser le client" description="Décaissement réel : réduit la trésorerie et la TVA collectée du mois du remboursement.">
+        <RefundForm defaults={{ invoiceId: id }} onDone={() => setRefundOpen(false)} onCancel={() => setRefundOpen(false)} />
+      </FormDialog>
+      <FormDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Annuler la facture"
+        description="Réservé aux factures émises par erreur, sans paiement ni avoir. Pour annuler une facture comptablement, émettez plutôt un avoir. Action journalisée."
+      >
         <Label htmlFor="cancel-reason">Motif d&apos;annulation</Label>
         <Input id="cancel-reason" className="mt-1.5" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Erreur de saisie, projet annulé…" />
         <div className="mt-4 flex justify-end gap-2">

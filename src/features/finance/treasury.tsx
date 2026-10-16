@@ -23,6 +23,8 @@ const KIND_LABELS: Record<ForecastItemKind, string> = {
   expense: "Dépense saisie à payer",
   recurring_cost: "Charge récurrente estimée",
   variable_cost: "Charges variables estimées",
+  refund: "Remboursement client",
+  vat: "TVA à reverser",
 };
 
 export function TreasuryPage() {
@@ -55,7 +57,9 @@ export function TreasuryPage() {
     })),
   ];
   const opening = data.settings.company;
-  const totalIn = data.payments.filter((p) => p.date >= opening.openingBalanceDate && p.date <= today).reduce((s, p) => s + p.amount, 0);
+  const totalIn =
+    data.payments.filter((p) => p.date >= opening.openingBalanceDate && p.date <= today).reduce((s, p) => s + p.amount, 0) -
+    data.refunds.filter((r) => r.date >= opening.openingBalanceDate && r.date <= today).reduce((s, r) => s + r.amount, 0);
   const upcoming = f.items.filter((i) => i.date <= f.months[1]!.month + "-31").slice(0, 40);
   const lastReview = data.settings.gamification.lastCashReviewAt;
 
@@ -71,9 +75,9 @@ export function TreasuryPage() {
           icon={<Landmark />}
           value={formatEUR(current)}
           tone={current < threshold ? "danger" : "default"}
-          hint={`Solde d'ouverture ${formatEUR(opening.openingBalance)} au ${formatDate(opening.openingBalanceDate)} + encaissements − décaissements réalisés. Aucune connexion bancaire.`}
+          hint={`Solde d'ouverture ${formatEUR(opening.openingBalance)} au ${formatDate(opening.openingBalanceDate)} + encaissements − remboursements − dépenses payées − TVA reversée. Aucune connexion bancaire.`}
         />
-        <MetricCard label="Encaissements réalisés (cumul)" value={formatEUR(totalIn)} hint="Paiements clients enregistrés depuis le début de la simulation." />
+        <MetricCard label="Encaissements réalisés (cumul)" value={formatEUR(totalIn)} hint="Paiements clients enregistrés depuis le début de la simulation, nets des remboursements." />
         <MetricCard label="Créances à encaisser" value={formatEUR(receivables(summaries))} hint="Soldes des factures émises." />
         <MetricCard label="Dettes à payer" value={formatEUR(payables(data.expenses))} hint="Dépenses saisies non payées (TTC)." />
       </div>
@@ -160,7 +164,10 @@ export function TreasuryPage() {
                 </div>
               ))}
             </dl>
-            <p className="mt-3 text-[11px] text-subtle">Simplification : la TVA collectée et déductible n&apos;est pas reversée dans la simulation.</p>
+            <p className="mt-3 text-[11px] text-subtle">
+              TVA : les déclarations payées sont des décaissements réels ; les déclarations à payer et la TVA nette des flux prévus (collectée − déductible) sont projetées au{" "}
+              {data.settings.company.vatDueDay} du mois suivant, avec report de crédit.
+            </p>
           </CardContent>
         </Card>
       </div>

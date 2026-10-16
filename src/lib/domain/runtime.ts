@@ -1,7 +1,7 @@
 import type { AppData, AppNotification, ISODate, ISODateTime } from "@/lib/domain/types";
 import { newId } from "@/lib/domain/ids";
 import { computeAlerts, type Alert } from "@/lib/calculations/alerts";
-import { summarizeInvoices } from "@/lib/calculations/invoices";
+import { summarizeData } from "@/lib/calculations/invoices";
 import { reconcileGamification, type ReconcileResult } from "@/lib/gamification/engine";
 import { DomainError, type Command, type CommandContext } from "./commands/core";
 
@@ -25,7 +25,7 @@ export function syncNotifications(data: AppData, alerts: Alert[], now: ISODateTi
 
 /** Post-traitement commun à toutes les commandes : notifications puis gamification. */
 export function finalize(data: AppData, ctx: { now: ISODateTime; today: ISODate }, silent = false): ReconcileResult {
-  const summaries = summarizeInvoices(data.invoices, data.payments, ctx.today);
+  const summaries = summarizeData(data, ctx.today);
   const withNotifications = syncNotifications(data, computeAlerts(data, ctx.today, summaries), ctx.now);
   return reconcileGamification(withNotifications, { now: ctx.now, today: ctx.today, silent });
 }

@@ -8,6 +8,7 @@ import { useCommand, useData, useSummaries, useToday } from "@/lib/store/hooks";
 import { addDays } from "@/lib/calculations/dates";
 import { STAGES } from "@/lib/calculations/pipeline";
 import { EXPENSE_CATEGORY_LABELS, PRODUCT_TYPE_LABELS } from "@/lib/calculations/finance";
+import { creditableAmount } from "@/lib/calculations/invoices";
 import { GOAL_METRICS } from "@/lib/calculations/goals";
 import { MISSION_CATEGORY_LABELS, MISSION_DIFFICULTY_LABELS, MISSION_TYPE_LABELS } from "@/lib/gamification/missions";
 import {
@@ -1085,6 +1086,91 @@ export function NoteForm({ entity, defaults, onDone, onCancel }: FormProps<Note>
       onCancel={onCancel}
       onSubmit={(values) => {
         const res = entity ? run(C.updateNote, { id: entity.id, values }) : run(C.createNote, values);
+        if (res.ok) onDone(res.result);
+        return res;
+      }}
+    />
+  );
+}
+
+/* ----------------------------- Avoir ----------------------------- */
+
+/**
+ * Avoir sur une facture émise. Par défaut, les lignes de la facture sont reprises
+ * (avoir total) ; ajuster les quantités ou supprimer des lignes pour un avoir partiel.
+ */
+export function CreditNoteForm({ defaults, onDone, onCancel }: FormProps<unknown>) {
+  const run = useCommand();
+  const today = useToday();
+  const data = useData();
+  const invoiceId = pick<string>(defaults, "invoiceId", "");
+  const invoice = data.invoices.find((i) => i.id === invoiceId);
+  if (!invoice) return <p className="text-sm text-muted">Facture introuvable.</p>;
+  const max = creditableAmount(invoice, data.creditNotes);
+  const alreadyCredited = data.creditNotes.some((c) => c.invoiceId === invoice.id);
+  const fields: FieldConfig<S.CreditNoteInput>[] = [
+    { name: "issueDate", label: "Date de l'avoir", type: "date" },
+    { name: "reason", label: "Motif", type: "text", placeholder: "Geste commercial, erreur de facturation, résiliation…" },
+    {
+      name: "items",
+      label: "Lignes créditées (montants positifs)",
+      type: "lines",
+      help: `Montant maximal créditable : ${formatEUR(max)} TTC.${alreadyCredited ? " Un ou plusieurs avoirs existent déjà sur cette facture." : ""}`,
+    },
+  ];
+  return (
+    <EntityForm<S.CreditNoteInput>
+      schema={S.creditNoteSchema}
+      defaultValues={{
+        invoiceId,
+        issueDate: today < invoice.issueDate ? invoice.issueDate : today,
+        reason: "",
+        items: alreadyCredited ? [] : invoice.items.map((l) => ({ ...l, id: newId("li") })),
+      }}
+      fields={fields}
+      onCancel={onCancel}
+      submitLabel="Émettre l'avoir"
+      onSubmit={(values) => {
+        const res = run(C.createCreditNote, values);
+        if (res.ok) onDone(res.result);
+        return res;
+      }}
+    />
+  );
+}
+
+/* ----------------------------- Remboursement ----------------------------- */
+
+export function RefundForm({ defaults, onDone, onCancel }: FormProps<unknown>) {
+  const run = useCommand();
+  const today = useToday();
+  const summaries = useSummaries();
+  const invoiceId = pick<string>(defaults, "invoiceId", "");
+  const s = summaries.find((x) => x.invoice.id === invoiceId);
+  if (!s || s.creditBalance <= 0) return <p className="text-sm text-muted">Aucun trop-perçu à rembourser sur cette facture.</p>;
+  const lastNote = s.creditNotes.at(-1);
+  const fields: FieldConfig<S.RefundInput>[] = [
+    { name: "date", label: "Date du remboursement", type: "date" },
+    { name: "amount", label: "Montant remboursé", type: "money", help: `Trop-perçu actuel : ${formatEUR(s.creditBalance)}.` },
+    { name: "method", label: "Moyen", type: "select", options: options(PAYMENT_METHOD) },
+    { name: "reference", label: "Référence", type: "text" },
+    {
+      name: "creditNoteId",
+      label: "Avoir lié",
+      type: "select",
+      nullable: true,
+      options: s.creditNotes.map((c) => ({ value: c.id, label: c.number })),
+    },
+  ];
+  return (
+    <EntityForm<S.RefundInput>
+      schema={S.refundSchema}
+      defaultValues={{ invoiceId, creditNoteId: lastNote?.id ?? null, date: today, amount: s.creditBalance, method: "transfer", reference: "" }}
+      fields={fields}
+      onCancel={onCancel}
+      submitLabel="Enregistrer le remboursement"
+      onSubmit={(values) => {
+        const res = run(C.recordRefund, values);
         if (res.ok) onDone(res.result);
         return res;
       }}

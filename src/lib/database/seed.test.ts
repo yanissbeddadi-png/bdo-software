@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createSeedData } from "./seed";
-import { summarizeInvoices } from "@/lib/calculations/invoices";
+import { summarizeData } from "@/lib/calculations/invoices";
+import { vatAmounts, vatPeriods } from "@/lib/calculations/vat";
+import { monthPeriod } from "@/lib/calculations/dates";
+import { SEED_VERSION } from "./seed";
 import { documentTotals } from "@/lib/calculations/money";
 import { isAppData } from "./repository";
 import { finalize } from "@/lib/domain/runtime";
@@ -52,8 +55,8 @@ describe("jeu de données de démonstration", () => {
 
   it("répartit les factures sur plusieurs mois et illustre tous les statuts", () => {
     expect(new Set(d.invoices.map((i) => i.issueDate.slice(0, 7))).size).toBeGreaterThanOrEqual(10);
-    const statuses = new Set(summarizeInvoices(d.invoices, d.payments, ANCHOR).map((s) => s.status));
-    for (const s of ["draft", "issued", "partially_paid", "paid", "overdue", "cancelled"]) expect(statuses.has(s as never)).toBe(true);
+    const statuses = new Set(summarizeData(d, ANCHOR).map((s) => s.status));
+    for (const s of ["draft", "issued", "partially_paid", "paid", "overdue", "cancelled", "credited"]) expect(statuses.has(s as never)).toBe(true);
   });
 
   it("les numéros de facture émises sont uniques et continus", () => {
@@ -67,5 +70,30 @@ describe("jeu de données de démonstration", () => {
   it("le rattrapage de gamification est stable (aucune récompense supplémentaire au rechargement)", () => {
     const res = finalize(d, { now: `${ANCHOR}T12:00:00.000Z`, today: ANCHOR });
     expect(res.awarded).toHaveLength(0);
+  });
+
+  it("avoirs, remboursements et déclarations de TVA cohérents (version " + SEED_VERSION + ")", () => {
+    expect(d.settings.demo.version).toBe(SEED_VERSION);
+    const sums = summarizeData(d, ANCHOR);
+    // Aucun trop-perçu non remboursé, aucun encaissement net négatif.
+    expect(sums.every((s) => s.creditBalance === 0 && s.paid >= 0)).toBe(true);
+    for (const c of d.creditNotes) {
+      const inv = d.invoices.find((i) => i.id === c.invoiceId)!;
+      expect(inv.baseStatus).toBe("issued");
+      expect(c.issueDate >= inv.issueDate && c.issueDate <= ANCHOR).toBe(true);
+    }
+    // Chaque déclaration correspond exactement aux flux de sa période et le report de crédit est séquentiel.
+    let carry = 0;
+    for (const r of [...d.vatReturns].sort((a, b) => a.period.localeCompare(b.period))) {
+      const amounts = vatAmounts(d, monthPeriod(r.period));
+      expect(r.collected).toBe(amounts.collected);
+      expect(r.deductible).toBe(amounts.deductible);
+      expect(r.creditCarriedIn).toBe(carry);
+      expect(r.net).toBe(r.collected - r.deductible - r.creditCarriedIn);
+      expect(r.status === "credit").toBe(r.net <= 0);
+      carry = r.net < 0 ? -r.net : 0;
+    }
+    // Seule la dernière période complète reste à déclarer.
+    expect(vatPeriods(d, ANCHOR).filter((r) => !r.vatReturn)).toHaveLength(1);
   });
 });

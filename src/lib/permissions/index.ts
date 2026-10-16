@@ -6,6 +6,7 @@ export type Permission =
   | "quotes.write"
   | "invoices.write"
   | "payments.write"
+  | "vat.write"
   | "expenses.write"
   | "subscriptions.write"
   | "products.write"
@@ -33,6 +34,7 @@ const ALL: Permission[] = [
   "quotes.write",
   "invoices.write",
   "payments.write",
+  "vat.write",
   "expenses.write",
   "subscriptions.write",
   "products.write",
@@ -58,6 +60,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "clients.write",
     "invoices.write",
     "payments.write",
+    "vat.write",
     "expenses.write",
     "subscriptions.write",
     "products.write",
@@ -81,7 +84,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "crm.write": "Prospects, opportunités, activités",
   "quotes.write": "Devis",
   "invoices.write": "Factures",
-  "payments.write": "Paiements",
+  "payments.write": "Paiements et remboursements",
+  "vat.write": "TVA (déclarations)",
   "expenses.write": "Dépenses",
   "subscriptions.write": "Abonnements",
   "products.write": "Catalogue",

@@ -44,5 +44,9 @@ export function entityHref(ref: EntityRef | null | undefined, data?: Pick<AppDat
       return "/progression?tab=succes";
     case "note":
       return "/operations?tab=notes";
+    case "credit_note":
+      return `/finances/avoirs/${ref.id}`;
+    case "vat_return":
+      return "/finances/tva";
   }
 }

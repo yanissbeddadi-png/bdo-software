@@ -12,6 +12,9 @@ import type {
   AppData,
   Client,
   Contact,
+  CreditNote,
+  Refund,
+  VatReturn,
   Employee,
   Expense,
   ExpenseCategory,
@@ -37,9 +40,11 @@ import type {
 import { addDays, addMonths, endOfMonthISO, startOfMonthISO } from "@/lib/calculations/dates";
 import { billingDates } from "@/lib/calculations/recurring";
 import { documentTotals } from "@/lib/calculations/money";
+import { vatAmounts, vatDueDate } from "@/lib/calculations/vat";
+import { monthPeriod, monthsBetween } from "@/lib/calculations/dates";
 import { finalize } from "@/lib/domain/runtime";
 
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 /* ----------------------------- Utilitaires ----------------------------- */
 
@@ -97,6 +102,8 @@ export function defaultSettings(anchor: ISODate, now: ISODateTime): Settings {
       openingBalanceDate: simulationStart,
       cashAlertThreshold: eur(40_000),
       simulationStartDate: simulationStart,
+      vatTrackingStart: simulationStart,
+      vatDueDay: 24,
     },
     rules: {
       bigInvoiceThreshold: eur(10_000),
@@ -1394,6 +1401,84 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     },
   ];
 
+  /* ---------- Avoirs et remboursements ---------- */
+  const creditNotes: CreditNote[] = [];
+  const refunds: Refund[] = [];
+  const medialink = invoices.find((i) => i.clientId === "cli_medialink" && i.issueDate === M(-5, 18));
+  if (medialink) {
+    const date = M(-1, 10);
+    creditNotes.push({
+      id: "cn_001",
+      number: "",
+      invoiceId: medialink.id,
+      clientId: medialink.clientId,
+      issueDate: date,
+      items: [line("prd_consult", "Geste commercial — 1 jour d'étude non réalisé", 1, 1100)],
+      reason: "Geste commercial accordé après réclamation (journée annulée).",
+      createdAt: ts(date, 9),
+    });
+  }
+  const urbanLast = invoices
+    .filter((i) => i.subscriptionId === "sub_urban_crm")
+    .sort((a, b) => a.issueDate.localeCompare(b.issueDate))
+    .at(-1);
+  if (urbanLast) {
+    const date = M(-5, 12);
+    const cn: CreditNote = {
+      id: "cn_002",
+      number: "",
+      invoiceId: urbanLast.id,
+      clientId: urbanLast.clientId,
+      issueDate: date,
+      items: urbanLast.items.map((l) => ({ ...l, id: `${l.id}_cn` })),
+      reason: "Résiliation anticipée : dernière échéance non due.",
+      createdAt: ts(date, 9),
+    };
+    creditNotes.push(cn);
+    const paid = payments.filter((p) => p.invoiceId === urbanLast.id && p.date <= M(-5, 20)).reduce((t, p) => t + p.amount, 0);
+    if (paid > 0)
+      refunds.push({
+        id: "ref_001",
+        invoiceId: urbanLast.id,
+        creditNoteId: cn.id,
+        date: M(-5, 20),
+        amount: Math.min(paid, documentTotals(cn.items).totalTTC),
+        method: "transfer",
+        reference: `REMB-${M(-5, 20).replace(/-/g, "")}`,
+        createdAt: ts(M(-5, 20), 11),
+      });
+  }
+
+  // Numérotation chronologique des avoirs (séquence unique, préfixe de l'année d'émission).
+  creditNotes.sort((x, y) => x.issueDate.localeCompare(y.issueDate)).forEach((c, i) => (c.number = `AV-${c.issueDate.slice(0, 4)}-${String(i + 1).padStart(4, "0")}`));
+
+  /* ---------- Déclarations de TVA (historique) ---------- */
+  // Toutes les périodes complètes sont déclarées le 12 et payées le 18 du mois suivant,
+  // sauf la dernière (mois précédent l'ancrage), encore à déclarer avant l'échéance.
+  const vatReturns: VatReturn[] = [];
+  const vatData = { invoices, payments, refunds, expenses, vatReturns, settings };
+  const lastDeclared = addMonths(startOfMonthISO(anchor), -2).slice(0, 7);
+  let carry = 0;
+  for (const period of monthsBetween(settings.company.simulationStartDate, `${lastDeclared}-01`)) {
+    const { collected, deductible } = vatAmounts(vatData, monthPeriod(period));
+    const net = collected - deductible - carry;
+    const next = addMonths(`${period}-01`, 1).slice(0, 7);
+    vatReturns.push({
+      id: `vat_${period}`,
+      period,
+      collected,
+      deductible,
+      creditCarriedIn: carry,
+      net,
+      status: net > 0 ? "paid" : "credit",
+      dueDate: vatDueDate(period, settings.company.vatDueDay),
+      declaredAt: ts(`${next}-12`, 10),
+      paidDate: net > 0 ? `${next}-18` : null,
+      reference: net > 0 ? `TVA-${period.replace("-", "")}` : "",
+    });
+    carry = net < 0 ? -net : 0;
+  }
+
   /* ---------- Assemblage ---------- */
   const activity: AppData["activity"] = [];
   const ev = (at: ISODateTime, type: AppData["activity"][number]["type"], description: string, ref: AppData["activity"][number]["ref"]) =>
@@ -1405,6 +1490,8 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     const i = invoices.find((x) => x.id === p.invoiceId)!;
     ev(p.createdAt, "payment_recorded", `Paiement reçu sur ${i.number} · ${clientName.get(i.clientId)}`, { type: "invoice", id: i.id });
   }
+  for (const c of creditNotes) ev(c.createdAt, "credit_note_issued", `Avoir ${c.number} émis · ${clientName.get(c.clientId)}`, { type: "credit_note", id: c.id });
+  for (const v of vatReturns) ev(v.declaredAt, "vat_declared", `TVA de ${v.period} déclarée`, { type: "vat_return", id: v.id });
   for (const o of opportunities) if (o.stage === "won") ev(o.closedAt!, "opportunity_won", `Opportunité ${o.name} gagnée`, { type: "opportunity", id: o.id });
   for (const p of projects) if (p.completedAt) ev(p.completedAt, "project_completed", `Projet ${p.code} terminé`, { type: "project", id: p.id });
   for (const t of tasks) if (t.completedAt && t.completedAt >= ts(addDays(anchor, -21))) ev(t.completedAt, "task_completed", `Tâche « ${t.title} » terminée`, { type: "task", id: t.id });
@@ -1422,6 +1509,9 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     quotes,
     invoices,
     payments,
+    creditNotes,
+    refunds,
+    vatReturns,
     expenses,
     subscriptions,
     projects,
@@ -1449,7 +1539,7 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     activity: activity.slice(-80),
     auditLogs: [{ id: "aud_seed", at: now, actor: "Système", role: "admin", action: "demo.seed", ref: null, details: `Jeu de démonstration v${SEED_VERSION}, ancrage ${anchor}` }],
     notes,
-    sequences: { invoice: invoiceSeq, quote: quotes.length, project: projects.length },
+    sequences: { invoice: invoiceSeq, quote: quotes.length, project: projects.length, creditNote: creditNotes.length },
   };
 
   // Rattrapage de la gamification sur l'historique (XP datée des événements d'origine).

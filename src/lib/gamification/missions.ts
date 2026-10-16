@@ -1,10 +1,11 @@
 import type { AppData, ISODate, ISODateTime, Mission, MissionCategory, MissionCondition, MissionDifficulty, MissionStatus, MissionType, Priority } from "@/lib/domain/types";
 import { addDays, endOfMonthISO, isoWeekKey, monthKey, weekPeriod } from "@/lib/calculations/dates";
-import { summarizeInvoices, type InvoiceSummary } from "@/lib/calculations/invoices";
+import { summarizeData, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { isStale } from "@/lib/calculations/pipeline";
 import { isTaskLate, isTaskOpen, projectFinancials } from "@/lib/calculations/projects";
 import { computeMRR } from "@/lib/calculations/recurring";
-import { formatEUR } from "@/lib/formatters";
+import { formatEUR, formatMonth } from "@/lib/formatters";
+import { nextPeriodToDeclare, vatPeriods } from "@/lib/calculations/vat";
 
 export const MISSION_CATEGORY_LABELS: Record<MissionCategory, string> = {
   finance: "Finance",
@@ -117,6 +118,8 @@ export function evaluateCondition(condition: MissionCondition, data: AppData, to
       const at = data.settings.gamification.lastCashReviewAt;
       return at && at >= condition.since ? yes() : no();
     }
+    case "vat_declared":
+      return data.vatReturns.some((r) => r.period === condition.period) ? yes() : no();
     case "no_late_tasks": {
       const late = data.tasks.filter((t) => isTaskLate(t, today)).length;
       return late === 0 ? yes() : no(0, 1);
@@ -223,6 +226,24 @@ export function autoMissionDrafts(data: AppData, today: ISODate, summaries: Invo
       xpReward: daily,
       condition: { kind: "manual" },
       entity: { type: "project", id: p.id },
+    });
+  }
+
+  // Déclaration de TVA : la plus ancienne période complète non déclarée.
+  const vatNext = nextPeriodToDeclare(vatPeriods(data, today));
+  if (vatNext) {
+    drafts.push({
+      autoKey: `tva:${vatNext.period}`,
+      title: `Déclarer la TVA de ${formatMonth(vatNext.period, false)}`,
+      description: `Vérifiez la TVA collectée (${formatEUR(vatNext.collected)}) et déductible (${formatEUR(vatNext.deductible)}) puis déclarez la période avant le ${vatNext.dueDate.split("-").reverse().join("/")}.`,
+      category: "finance",
+      type: "monthly",
+      difficulty: "medium",
+      priority: vatNext.dueDate <= addDays(today, 7) ? "high" : "normal",
+      dueDate: vatNext.dueDate < today ? addDays(today, 1) : vatNext.dueDate,
+      xpReward: daily * 2,
+      condition: { kind: "vat_declared", period: vatNext.period },
+      entity: null,
     });
   }
 
@@ -363,7 +384,7 @@ export function draftToMission(d: AutoMissionDraft, id: string, today: ISODate, 
 }
 
 export function missionsSummaries(data: AppData, today: ISODate): InvoiceSummary[] {
-  return summarizeInvoices(data.invoices, data.payments, today);
+  return summarizeData(data, today);
 }
 
 export const PRIORITY_ORDER: Record<Priority, number> = {

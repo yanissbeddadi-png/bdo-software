@@ -1,6 +1,6 @@
 import type { AppData, Goal, GoalMetric, ISODate } from "@/lib/domain/types";
 import { daysBetween, inPeriod } from "./dates";
-import { summarizeInvoices, type InvoiceSummary } from "./invoices";
+import { summarizeData, type InvoiceSummary } from "./invoices";
 import { billedRevenue, overdueReceivables } from "./finance";
 import { computeMRR } from "./recurring";
 import { averageEstimatedMargin, isTaskLate } from "./projects";
@@ -22,7 +22,7 @@ export const GOAL_METRICS: Record<GoalMetric, { label: string; unit: string; dir
 /** Valeur actuelle d'un objectif, calculée depuis les données métier (montants exprimés en euros). */
 export function goalCurrentValue(goal: Goal, data: AppData, today: ISODate, summaries?: InvoiceSummary[]): number {
   const period = { start: goal.periodStart, end: goal.periodEnd };
-  const sums = () => summaries ?? summarizeInvoices(data.invoices, data.payments, today);
+  const sums = () => summaries ?? summarizeData(data, today);
   switch (goal.metric) {
     case "manual":
       return goal.manualValue;

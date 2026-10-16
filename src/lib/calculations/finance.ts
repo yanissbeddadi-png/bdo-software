@@ -1,21 +1,23 @@
 import type { AppData, Cents, Expense, ExpenseCategory, ISODate, ProductType } from "@/lib/domain/types";
 import { inPeriod, lastMonthKeys, monthPeriod, type Period, endOfMonthISO } from "./dates";
-import { summarizeInvoices, type InvoiceSummary } from "./invoices";
-import { expenseTTC, lineHT, ratio } from "./money";
+import { summarizeData, type InvoiceSummary } from "./invoices";
+import { documentTotals, expenseTTC, lineHT, ratio } from "./money";
 import { computeARR, computeMRR } from "./recurring";
+import { vatOutstanding, vatPaid } from "./vat";
 
 /**
  * Définitions des indicateurs financiers (voir aussi DATA_MODEL.md § Indicateurs).
  *
- * 1. CA facturé (HT)          : somme HT des factures émises (non brouillon, non annulées) dont la date d'émission est dans la période.
- * 2. Encaissements (TTC)      : somme des paiements clients datés dans la période.
+ * 1. CA facturé (HT)          : somme HT des factures émises (non brouillon, non annulées) dont la date d'émission est dans la période,
+ *                               moins les avoirs (HT) émis dans la période.
+ * 2. Encaissements (TTC)      : paiements clients − remboursements datés dans la période.
  * 3. Revenus récurrents (MRR) : abonnements actifs normalisés au mois (cf. recurring.ts).
  * 4. Pipeline                 : opportunités ouvertes — jamais comptées comme CA.
  * 5. Prévisions               : cf. cashflow.ts — estimations explicites.
  * 6. Dépenses engagées (HT)   : dépenses dont la date est dans la période, payées ou non.
- * 7. Décaissements (TTC)      : dépenses payées dont la date de paiement est dans la période.
+ * 7. Décaissements (TTC)      : dépenses payées (date de paiement) + TVA reversée dans la période.
  * 8. Résultat opérationnel estimé : CA facturé HT − dépenses engagées HT de la période.
- * 9. Trésorerie disponible    : solde d'ouverture + encaissements − décaissements jusqu'à la date.
+ * 9. Trésorerie disponible    : solde d'ouverture + encaissements nets − décaissements (dépenses + TVA) jusqu'à la date.
  */
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -47,12 +49,47 @@ export function isBillable(summary: InvoiceSummary): boolean {
   return summary.invoice.baseStatus === "issued";
 }
 
-export function billedRevenue(summaries: InvoiceSummary[], period: Period): Cents {
-  return summaries.filter((s) => isBillable(s) && inPeriod(s.invoice.issueDate, period)).reduce((sum, s) => sum + s.totalHT, 0);
+export interface RevenueLine {
+  clientId: string;
+  productId: string | null;
+  projectId: string | null;
+  invoiceId: string;
+  date: string;
+  /** HT signé : positif pour une ligne de facture, négatif pour une ligne d'avoir. */
+  ht: Cents;
 }
 
-export function collectedCash(data: Pick<AppData, "payments">, period: Period): Cents {
-  return data.payments.filter((p) => inPeriod(p.date, period)).reduce((sum, p) => sum + p.amount, 0);
+/** Lignes de chiffre d'affaires de la période : lignes de factures émises et lignes d'avoirs (en négatif). */
+export function revenueLines(summaries: InvoiceSummary[], period: Period): RevenueLine[] {
+  const out: RevenueLine[] = [];
+  for (const s of summaries) {
+    if (!isBillable(s)) continue;
+    const base = { clientId: s.invoice.clientId, projectId: s.invoice.projectId, invoiceId: s.invoice.id };
+    if (inPeriod(s.invoice.issueDate, period)) for (const item of s.invoice.items) out.push({ ...base, productId: item.productId, date: s.invoice.issueDate, ht: lineHT(item) });
+    for (const cn of s.creditNotes) {
+      if (!inPeriod(cn.issueDate, period)) continue;
+      for (const item of cn.items) out.push({ ...base, productId: item.productId, date: cn.issueDate, ht: -lineHT(item) });
+    }
+  }
+  return out;
+}
+
+/** CA facturé HT de la période, net des avoirs émis dans la période. */
+export function billedRevenue(summaries: InvoiceSummary[], period: Period): Cents {
+  let total = 0;
+  for (const s of summaries) {
+    if (!isBillable(s)) continue;
+    if (inPeriod(s.invoice.issueDate, period)) total += s.totalHT;
+    for (const cn of s.creditNotes) if (inPeriod(cn.issueDate, period)) total -= documentTotals(cn.items).totalHT;
+  }
+  return total;
+}
+
+/** Encaissements nets : paiements clients − remboursements de la période. */
+export function collectedCash(data: Pick<AppData, "payments" | "refunds">, period: Period): Cents {
+  const payments = data.payments.filter((p) => inPeriod(p.date, period)).reduce((sum, p) => sum + p.amount, 0);
+  const refunds = data.refunds.filter((r) => inPeriod(r.date, period)).reduce((sum, r) => sum + r.amount, 0);
+  return payments - refunds;
 }
 
 export function committedExpensesHT(expenses: Expense[], period: Period): Cents {
@@ -63,11 +100,16 @@ export function disbursedCash(expenses: Expense[], period: Period): Cents {
   return expenses.filter((e) => e.paid && inPeriod(e.paidDate, period)).reduce((sum, e) => sum + expenseTTC(e), 0);
 }
 
-/** Trésorerie à une date : solde d'ouverture + encaissements − décaissements réalisés (dates ≤ `asOf`). */
-export function cashBalance(data: Pick<AppData, "payments" | "expenses" | "settings">, asOf: ISODate): Cents {
+/** Décaissements réalisés : dépenses payées (TTC) + TVA reversée. */
+export function cashOutflows(data: Pick<AppData, "expenses" | "vatReturns">, period: Period): Cents {
+  return disbursedCash(data.expenses, period) + vatPaid(data.vatReturns, period);
+}
+
+/** Trésorerie à une date : solde d'ouverture + encaissements nets − décaissements réalisés (dates ≤ `asOf`). */
+export function cashBalance(data: Pick<AppData, "payments" | "refunds" | "expenses" | "vatReturns" | "settings">, asOf: ISODate): Cents {
   const { openingBalance, openingBalanceDate } = data.settings.company;
   const period = { start: openingBalanceDate, end: asOf };
-  return openingBalance + collectedCash(data, period) - disbursedCash(data.expenses, period);
+  return openingBalance + collectedCash(data, period) - cashOutflows(data, period);
 }
 
 /** Créances clients : soldes restants des factures émises. */
@@ -101,7 +143,7 @@ export function periodFinancials(data: AppData, summaries: InvoiceSummary[], per
   return {
     billed,
     collected: collectedCash(data, period),
-    disbursed: disbursedCash(data.expenses, period),
+    disbursed: cashOutflows(data, period),
     expenses,
     operatingResult,
     operatingMargin: ratio(operatingResult, billed),
@@ -122,7 +164,7 @@ export interface MonthlyPoint {
 
 /** Série mensuelle construite exclusivement à partir des données des modules. */
 export function monthlySeries(data: AppData, today: ISODate, months: number, summaries?: InvoiceSummary[]): MonthlyPoint[] {
-  const sums = summaries ?? summarizeInvoices(data.invoices, data.payments, today);
+  const sums = summaries ?? summarizeData(data, today);
   return lastMonthKeys(today, months).map((month) => {
     const period = monthPeriod(month);
     const end = endOfMonthISO(period.start);
@@ -146,12 +188,9 @@ export function monthlySeries(data: AppData, today: ISODate, months: number, sum
 export function revenueByProductType(data: AppData, summaries: InvoiceSummary[], period: Period): { key: ProductType | "other"; label: string; value: Cents }[] {
   const products = new Map(data.products.map((p) => [p.id, p]));
   const totals = new Map<ProductType | "other", Cents>();
-  for (const s of summaries) {
-    if (!isBillable(s) || !inPeriod(s.invoice.issueDate, period)) continue;
-    for (const item of s.invoice.items) {
-      const type = (item.productId && products.get(item.productId)?.type) || "other";
-      totals.set(type, (totals.get(type) ?? 0) + lineHT(item));
-    }
+  for (const l of revenueLines(summaries, period)) {
+    const type = (l.productId && products.get(l.productId)?.type) || "other";
+    totals.set(type, (totals.get(type) ?? 0) + l.ht);
   }
   return [...totals.entries()]
     .map(([key, value]) => ({ key, label: PRODUCT_TYPE_LABELS[key], value }))
@@ -162,12 +201,9 @@ export function revenueByProductType(data: AppData, summaries: InvoiceSummary[],
 export function revenueByProduct(data: AppData, summaries: InvoiceSummary[], period: Period): { id: string; label: string; value: Cents }[] {
   const products = new Map(data.products.map((p) => [p.id, p]));
   const totals = new Map<string, Cents>();
-  for (const s of summaries) {
-    if (!isBillable(s) || !inPeriod(s.invoice.issueDate, period)) continue;
-    for (const item of s.invoice.items) {
-      const key = item.productId ?? "other";
-      totals.set(key, (totals.get(key) ?? 0) + lineHT(item));
-    }
+  for (const l of revenueLines(summaries, period)) {
+    const key = l.productId ?? "other";
+    totals.set(key, (totals.get(key) ?? 0) + l.ht);
   }
   return [...totals.entries()].map(([id, value]) => ({ id, label: products.get(id)?.name ?? "Lignes libres", value })).sort((a, b) => b.value - a.value);
 }
@@ -175,13 +211,17 @@ export function revenueByProduct(data: AppData, summaries: InvoiceSummary[], per
 export function revenueByClient(data: AppData, summaries: InvoiceSummary[], period: Period): { id: string; label: string; billed: Cents; collected: Cents; balance: Cents }[] {
   const clients = new Map(data.clients.map((c) => [c.id, c]));
   const totals = new Map<string, { billed: Cents; collected: Cents; balance: Cents }>();
+  const get = (id: string) => {
+    const t = totals.get(id) ?? { billed: 0, collected: 0, balance: 0 };
+    totals.set(id, t);
+    return t;
+  };
+  for (const l of revenueLines(summaries, period)) get(l.clientId).billed += l.ht;
   for (const s of summaries) {
     if (!isBillable(s) || !inPeriod(s.invoice.issueDate, period)) continue;
-    const t = totals.get(s.invoice.clientId) ?? { billed: 0, collected: 0, balance: 0 };
-    t.billed += s.totalHT;
+    const t = get(s.invoice.clientId);
     t.collected += s.paid;
     t.balance += s.balance;
-    totals.set(s.invoice.clientId, t);
   }
   return [...totals.entries()].map(([id, t]) => ({ id, label: clients.get(id)?.name ?? "Client supprimé", ...t })).sort((a, b) => b.billed - a.billed);
 }
@@ -221,6 +261,8 @@ export interface FinancialSnapshot {
   overdueReceivables: Cents;
   overdueCount: number;
   payables: Cents;
+  /** TVA déclarée restant à payer. */
+  vatOutstanding: Cents;
   mrr: Cents;
   mrrPrevious: Cents;
   arr: Cents;
@@ -239,6 +281,7 @@ export function financialSnapshot(data: AppData, summaries: InvoiceSummary[], pe
     overdueReceivables: overdueReceivables(summaries),
     overdueCount: summaries.filter((s) => s.status === "overdue").length,
     payables: payables(data.expenses),
+    vatOutstanding: vatOutstanding(data.vatReturns),
     mrr,
     mrrPrevious: computeMRR(data.subscriptions, previous.end),
     arr: computeARR(mrr),

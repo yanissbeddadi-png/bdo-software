@@ -260,6 +260,17 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     test: (m) => m.closedOpportunities >= 6 && (m.conversionRate ?? 0) >= 50,
   },
   {
+    id: "vat-on-time",
+    name: "Déclarant exemplaire",
+    description: "Trois déclarations de TVA déposées et réglées dans les délais.",
+    icon: "Landmark",
+    category: "rigueur",
+    rarity: "rare",
+    condition: "3 déclarations de TVA déclarées et payées au plus tard à l'échéance.",
+    test: (m) => m.vatReturnsOnTime >= 3,
+    progress: (m) => ({ current: Math.min(m.vatReturnsOnTime, 3), target: 3 }),
+  },
+  {
     id: "task-master",
     name: "Maître des tâches",
     description: "Cinquante tâches menées à bien.",

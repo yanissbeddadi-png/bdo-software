@@ -1,6 +1,6 @@
 import type { AppData, Cents, Employee, ISODate, Project, ProjectStatus, Task } from "@/lib/domain/types";
 import { ratio, roundCents } from "./money";
-import { summarizeInvoices, type InvoiceSummary } from "./invoices";
+import { summarizeData, type InvoiceSummary } from "./invoices";
 
 /** Heures mensuelles de référence (35 h × 52 / 12) pour convertir un coût mensuel en coût horaire. */
 export const MONTHLY_HOURS = 151.67;
@@ -95,7 +95,7 @@ export function projectFinancials(project: Project, data: AppData, summaries?: I
   const tasks = data.tasks.filter((t) => t.projectId === project.id);
   const laborCost = tasks.reduce((s, t) => s + roundCents(t.actualHours * hourlyCost(t.assigneeId ? employees.get(t.assigneeId) : undefined, fallback)), 0);
   const expenseCost = data.expenses.filter((e) => e.projectId === project.id).reduce((s, e) => s + e.amountHT, 0);
-  const sums = (summaries ?? summarizeInvoices(data.invoices, data.payments, today ?? "9999-12-31")).filter((s) => s.invoice.projectId === project.id && s.invoice.baseStatus === "issued");
+  const sums = (summaries ?? summarizeData(data, today ?? "9999-12-31")).filter((s) => s.invoice.projectId === project.id && s.invoice.baseStatus === "issued");
   const invoiced = sums.reduce((s, x) => s + x.totalHT, 0);
   const collected = sums.reduce((s, x) => s + x.paid, 0);
   const actualCost = expenseCost + laborCost;

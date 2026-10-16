@@ -45,7 +45,14 @@ function Breadcrumb() {
   let acc = "";
   for (const p of parts) {
     acc += `/${p}`;
-    const label = segmentLabel(p) ?? clients.get(p)?.name ?? projects.get(p)?.code ?? invoices.get(p)?.number ?? data.quotes.find((q) => q.id === p)?.number ?? "Détail";
+    const label =
+      segmentLabel(p) ??
+      clients.get(p)?.name ??
+      projects.get(p)?.code ??
+      invoices.get(p)?.number ??
+      data.quotes.find((q) => q.id === p)?.number ??
+      data.creditNotes.find((c) => c.id === p)?.number ??
+      "Détail";
     crumbs.push({ href: acc, label });
   }
   if (!parts.length) crumbs.push({ href: "/", label: "Vue d'ensemble" });

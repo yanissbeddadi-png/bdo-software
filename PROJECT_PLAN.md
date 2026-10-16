@@ -93,6 +93,10 @@ Repository (src/lib/database/*)  ──  DemoRepository (localStorage)  |  Supab
 5. **Analyses & opérations** — rapports filtrables, trésorerie prévisionnelle,
    calendrier, risques, recherche globale, exports, notifications.
 6. **Finitions** — responsive, accessibilité, états vides / erreurs, tests, docs.
+7. **Finance avancée** — avoirs (partiels / totaux), remboursements de trop-perçus,
+   déclarations de TVA mensuelles (encaissements) et paiement, clôture des périodes
+   déclarées, TVA intégrée à la trésorerie et aux prévisions, mission et succès associés,
+   reprise d'XP, migration des données locales v1 → v2, migration Supabase `…000003`.
 
 ## 5. Suivi
 

@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import type { AppData } from "@/lib/domain/types";
 import type { Command } from "@/lib/domain/commands/core";
-import { summarizeInvoices, type InvoiceSummary } from "@/lib/calculations/invoices";
+import { summarizeData, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { clock, useAppStore } from "./app-store";
 import { useUiStore } from "./ui-store";
 import { presetPeriod, previousPeriod, PERIOD_PRESET_LABELS } from "@/lib/calculations/dates";
@@ -38,7 +38,7 @@ export function getSummaries(data: AppData, today: string): InvoiceSummary[] {
   }
   let res = byDay.get(today);
   if (!res) {
-    res = summarizeInvoices(data.invoices, data.payments, today);
+    res = summarizeData(data, today);
     byDay.set(today, res);
   }
   return res;

@@ -154,6 +154,24 @@ export const paymentSchema = z.object({
 });
 export type PaymentInput = z.infer<typeof paymentSchema>;
 
+export const creditNoteSchema = z.object({
+  invoiceId: z.string().min(1),
+  issueDate: isoDate,
+  items: z.array(lineItemSchema).min(1, "Ajoutez au moins une ligne"),
+  reason: required("Le motif", 500),
+});
+export type CreditNoteInput = z.infer<typeof creditNoteSchema>;
+
+export const refundSchema = z.object({
+  invoiceId: z.string().min(1),
+  creditNoteId: optionalId,
+  date: isoDate,
+  amount: cents.refine((v) => v > 0, "Le montant doit être strictement positif"),
+  method: z.enum(["transfer", "card", "direct_debit", "check", "cash"]),
+  reference: text(100),
+});
+export type RefundInput = z.infer<typeof refundSchema>;
+
 export const expenseSchema = z
   .object({
     label: required("Le libellé"),

@@ -4,6 +4,7 @@ import type { AppData, ISODate, ISODateTime } from "@/lib/domain/types";
 import { realTodayISO } from "@/lib/calculations/dates";
 import { createSeedData, SEED_VERSION } from "@/lib/database/seed";
 import { LocalDemoRepository, type DataRepository } from "@/lib/database/repository";
+import { canMigrate, migrateData } from "@/lib/database/migrations";
 import { execute, finalize, type ExecuteResult } from "@/lib/domain/runtime";
 import type { Command, CommandContext } from "@/lib/domain/commands/core";
 
@@ -38,6 +39,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (get().status === "ready") return;
     try {
       let data = repository.load();
+      if (data && canMigrate(data)) data = migrateData(data, clock(data).today);
       if (!data || data.settings.demo.version !== SEED_VERSION) {
         const { today, now } = clock(null);
         data = createSeedData(today, now);
@@ -67,7 +69,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   replaceAll: (incoming) => {
-    const reconciled = finalize(incoming, clock(incoming)).data;
+    const migrated = migrateData(incoming, clock(incoming).today);
+    const reconciled = finalize(migrated, clock(migrated)).data;
     repository.save(reconciled);
     set({ data: reconciled, status: "ready", updatedAt: clock(reconciled).now });
   },

@@ -103,9 +103,11 @@ e2e/                        Parcours Playwright
 | `/` | Command Center : progression, 10 KPI avec comparaison et définition, alertes, missions du jour, 7 graphiques, activité, actions rapides |
 | `/missions` | Centre de missions (auto + personnalisées, filtres, historique) |
 | `/finances` | Synthèse financière, échéancier des créances |
-| `/finances/factures`, `/finances/factures/[id]` | Factures : CRUD, émission, duplication, annulation, paiements, relances, impression |
+| `/finances/factures`, `/finances/factures/[id]` | Factures : CRUD, émission, duplication, paiements, avoirs, remboursements, relances, impression |
+| `/finances/avoirs`, `/finances/avoirs/[id]` | Avoirs émis, trop-perçus à rembourser, avoir imprimable |
+| `/finances/tva` | Périodes de TVA (collectée, déductible, crédit), déclaration, paiement, estimation du mois, export |
 | `/finances/depenses` | Dépenses : CRUD, catégories, paiement, export |
-| `/finances/tresorerie` | Réalisé + scénarios prudent / central / optimiste, hypothèses, revue hebdo |
+| `/finances/tresorerie` | Réalisé + scénarios prudent / central / optimiste (TVA à reverser incluse), hypothèses, revue hebdo |
 | `/finances/abonnements` | MRR / ARR, contrats, facturation idempotente des échéances |
 | `/crm` | Pipeline Kanban (glisser-déposer + sélecteur accessible), fiche opportunité |
 | `/crm/prospects`, `/crm/devis`, `/crm/devis/[id]`, `/crm/activites` | Prospection & conversion, devis imprimables → facture, activités |
@@ -132,7 +134,8 @@ Recherche globale : **Ctrl/Cmd + K**. Création rapide : bouton **+ Créer**.
 * **Aucun paiement réel, aucune connexion bancaire, aucun envoi d'e-mail** : une
   « relance » est consignée dans le CRM, un paiement est une saisie de gestion.
 * Les documents clients sont des **références** (nom, type), aucun fichier n'est stocké.
-* La TVA n'est pas reversée dans la trésorerie simulée ; les avoirs ne sont pas gérés.
+* Les déclarations de TVA sont des **saisies de gestion** : aucune télédéclaration ni
+  télépaiement n'est effectué (régime mensuel sur les encaissements uniquement).
 
 ## Supabase
 
@@ -141,10 +144,14 @@ Le dossier `supabase/` contient la cible de production, **validée sur PostgreSQ
 
 * schéma relationnel complet (organisations, membres, rôles/permissions, toutes les
   entités métier, gamification), contraintes, index, triggers `updated_at` ;
-* vues `invoice_totals` / `invoice_balances` (mêmes règles de TVA et de statut que l'app) ;
+* vues `invoice_totals` / `credit_note_totals` / `invoice_balances` (mêmes règles de TVA,
+  d'avoir et de statut que l'app) ;
+* avoirs immuables, remboursements, déclarations de TVA figées et **clôture des périodes
+  déclarées** par triggers (paiements, remboursements, dépenses payées) ;
 * **RLS** : lecture réservée aux membres de l'organisation, écriture selon la matrice
   `role_permissions` ; tables de gamification et d'audit en lecture seule pour les clients ;
-* `record_payment()` : paiement **transactionnel** (verrou, contrôle du solde, permission, audit) ;
+* `record_payment()` / `record_refund()` : paiement et remboursement **transactionnels**
+  (verrou, contrôle du solde ou du trop-perçu, permission) ;
   `app.award_xp()` : attribution d'XP idempotente côté serveur.
 
 Mise en place : créer un projet Supabase, appliquer les migrations (`supabase db push` ou
@@ -158,16 +165,20 @@ Supabase même si les variables sont définies, et le signale dans Paramètres �
 
 ## Tests
 
-* **Vitest** (75 tests) : TVA et arrondis, statuts et soldes de factures, paiements
-  partiels/intégraux/trop-perçus, MRR/ARR, pipeline pondéré, encaissements/décaissements,
+* **Vitest** (87 tests) : TVA et arrondis, statuts et soldes de factures, paiements
+  partiels/intégraux/trop-perçus, avoirs partiels/totaux et remboursements, déclarations de
+  TVA (calcul, ordre, clôture, crédit, paiement, trésorerie, prévision, alerte, mission),
+  reprise d'XP, migration v1 → v2, MRR/ARR, pipeline pondéré, encaissements/décaissements,
   trésorerie et prévisions, niveaux (y compris multi-niveaux), XP idempotente, plafonds
   anti-abus, succès, missions automatiques, objectifs, réinitialisation, commandes métier
   (devis → facture, doublons, dépendances de tâches, récurrence, permissions, audit), seed.
-* **Playwright** (13 parcours) : navigation, Command Center, recherche globale (avec et
+* **Playwright** (15 parcours) : navigation, Command Center, recherche globale (avec et
   sans résultat), création de client + erreurs de validation, facture + paiements,
+  avoir total + remboursement, déclaration et paiement de TVA,
   opportunité + déplacement, devis → facture, tâche + XP, objectif, filtres, permissions,
   navigation mobile sans débordement horizontal.
-* **SQL** : migrations + seed + tests RLS/transactions sur PostgreSQL local.
+* **SQL** : migrations + seed + tests RLS/transactions (dont clôture de période de TVA,
+  déclaration figée, droits sur avoirs et TVA) sur PostgreSQL local.
 
 ## Documentation
 
@@ -181,10 +192,12 @@ Supabase même si les variables sont définies, et le signale dans Paramètres �
 calculs centralisés, gamification complète, analyses filtrables, exports CSV / JSON,
 impression PDF, recherche globale, notifications dédupliquées, responsive et accessibilité
 clavier (lien d'évitement, focus visibles, alternative clavier au glisser-déposer).
+Phase 7 : avoirs, remboursements, déclarations et paiements de TVA intégrés à la
+trésorerie, aux prévisions, aux alertes et à la gamification.
 
 **Reste à développer** :
 1. Adaptateur `SupabaseRepository` + authentification + Server Actions (le schéma et les RLS sont prêts).
-2. Avoirs, déclarations de TVA et reversement dans la trésorerie.
-3. Envoi réel d'e-mails (relances, devis) via un service configuré.
-4. Téléversement de documents (Supabase Storage).
+2. Envoi réel d'e-mails (relances, devis, avoirs) via un service configuré.
+3. Téléversement de documents (Supabase Storage).
+4. Rapprochement bancaire (import de relevés CSV) avec les paiements, remboursements et TVA.
 5. Internationalisation et thème clair (l'interface est en français, thème sombre).
