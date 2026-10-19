@@ -5,9 +5,8 @@ import type { AppData } from "@/lib/domain/types";
  * applicatif est chargé puis sauvegardé après chaque commande métier.
  *
  * - `LocalDemoRepository` : mode démonstration (navigateur, localStorage).
- * - Mode Supabase : schéma relationnel et politiques RLS fournis dans
- *   `supabase/migrations`. L'adaptateur applicatif n'est pas encore branché
- *   (voir README § Supabase) ; l'application ne prétend pas synchroniser.
+ * - Mode multi-utilisateur (Supabase configuré) : l'état partagé est chargé et
+ *   enregistré par les Server Actions de `lib/cloud` (voir `lib/store/app-store.ts`).
  */
 export interface DataRepository {
   readonly kind: "local-demo" | "supabase";

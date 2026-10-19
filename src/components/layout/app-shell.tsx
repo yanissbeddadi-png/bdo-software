@@ -15,6 +15,8 @@ import { SearchCommand } from "./search-command";
 import { QuickCreateHost } from "@/components/forms/quick-create";
 import { DemoBanner } from "./demo-banner";
 import { usePathname } from "next/navigation";
+import { PUBLIC_PATHS } from "@/lib/cloud/config";
+import { signOut } from "@/lib/cloud/session";
 
 /** Pages plein écran (carte 3D) : pas de marges ni de largeur maximale. */
 const FULL_BLEED = new Set(["/bureaux"]);
@@ -82,8 +84,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const error = useAppStore((s) => s.error);
   const init = useAppStore((s) => s.init);
   const resetDemo = useAppStore((s) => s.resetDemo);
+  const mode = useAppStore((s) => s.mode);
   const g = useAppStore((s) => s.data?.settings.gamification);
   const pathname = usePathname();
+  const bare = PUBLIC_PATHS.includes(pathname);
   const mounted = React.useSyncExternalStore(
     noopSubscribe,
     () => true,
@@ -91,14 +95,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   React.useEffect(() => {
-    init();
-  }, [init]);
+    if (!bare) init();
+  }, [init, bare]);
 
+  // Connexion et installation : pages autonomes, sans données ni navigation.
+  if (bare)
+    return (
+      <TooltipProvider>
+        {children}
+        <Toaster theme="light" position="bottom-right" richColors closeButton />
+      </TooltipProvider>
+    );
   if (!mounted || status === "loading") return <ShellSkeleton />;
   if (status === "error")
     return (
       <div className="grid min-h-screen place-items-center p-6">
-        <ErrorState description={error ?? undefined} action={<Button onClick={resetDemo}>Réinitialiser les données de démonstration</Button>} />
+        <ErrorState
+          description={error ?? undefined}
+          action={
+            mode === "cloud" ? (
+              <div className="flex gap-2">
+                <Button onClick={() => window.location.reload()}>Réessayer</Button>
+                <Button variant="ghost" onClick={() => void signOut()}>
+                  Se déconnecter
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={resetDemo}>Réinitialiser les données de démonstration</Button>
+            )
+          }
+        />
       </div>
     );
 
@@ -119,7 +145,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <MobileNav />
       <SearchCommand />
       <QuickCreateHost />
-      <Toaster theme="dark" position="bottom-right" richColors closeButton toastOptions={{ className: "!bg-card !border-border !text-fg" }} />
+      <Toaster theme="light" position="bottom-right" richColors closeButton />
     </TooltipProvider>
   );
 }

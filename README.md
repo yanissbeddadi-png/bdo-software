@@ -182,10 +182,57 @@ Mise en place : créer un projet Supabase, appliquer les migrations (`supabase d
 l'éditeur SQL), puis `supabase/seed.sql`, et rattacher les utilisateurs à `org_demo` via
 `organization_members`.
 
-**Non réalisé dans cette version** : l'adaptateur applicatif `SupabaseRepository`
-(chargement/écriture via `@supabase/supabase-js`, écran de connexion, exécution des
-commandes en Server Actions). Tant qu'il n'est pas branché, l'application **n'utilise pas**
-Supabase même si les variables sont définies, et le signale dans Paramètres › Données.
+## Mode multi-utilisateur (comptes et mots de passe)
+
+Dès que Supabase est configuré, l'application passe en **mode multi-utilisateur** :
+
+- chaque collaborateur se connecte avec **son e-mail et son mot de passe** (`/connexion`) ;
+  sans session, toutes les pages redirigent vers la connexion ;
+- toute l'équipe travaille sur **les mêmes données**, rafraîchies automatiquement
+  (toutes les 20 s et au retour sur l'onglet) ; l'indicateur « Enregistré » de la barre
+  supérieure confirme chaque enregistrement ;
+- le **rôle** de chacun est attribué par l'administrateur et **vérifié par le serveur** à
+  chaque action (un collaborateur ne peut pas créer d'entreprise, etc.) ;
+- « Mes actions » sur la vue d'ensemble, « Mes prospects » dans le pipeline : filtrés sur la
+  fiche collaborateur associée au compte ;
+- Paramètres › Utilisateurs et rôles : créer un compte (mot de passe temporaire affiché une
+  seule fois), changer le rôle, réinitialiser un mot de passe, désactiver un compte, créer
+  d'un clic les **comptes de test** de tous les collaborateurs ; menu du profil : changer
+  son mot de passe, se déconnecter.
+
+**Fonctionnement** (`src/lib/cloud/`) : l'état de l'organisation est un document versionné
+(`app_state`). Une action s'exécute immédiatement dans le navigateur, puis la même
+commande métier est **rejouée par une Server Action** qui authentifie l'utilisateur (cookies
+Supabase), lit son rôle en base, réutilise la même graine d'identifiants et enregistre avec
+un contrôle de concurrence optimiste (rejeu automatique en cas d'écriture simultanée). En
+cas de refus, l'écran revient à l'état du serveur avec un message. Les navigateurs n'ont
+qu'un accès en lecture à la base (RLS) ; la clé de service ne quitte jamais le serveur.
+
+### Mise en place (une fois, ~15 minutes)
+
+1. **Supabase** — créer un projet sur [supabase.com](https://supabase.com) (région UE).
+   Puis _SQL Editor › New query_ : coller le contenu de `supabase/install.sql` et cliquer
+   _Run_. Recommandé : _Authentication › Sign In / Providers_ → désactiver « Allow new users
+   to sign up » (les comptes sont créés par l'administrateur).
+2. **Clés** — _Project Settings › API_ : noter l'URL du projet, la clé publique (_anon_ ou
+   _publishable_) et la clé secrète (_service_role_ ou _secret_).
+3. **Vercel** — _Project › Settings › Environment Variables_, ajouter :
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+   (secrète) et `BDO_SETUP_CODE` (un code que vous inventez). Puis _Deployments › Redeploy_.
+   Ne collez jamais ces clés dans une conversation ni dans le dépôt.
+4. **Installation** — ouvrir `https://<votre-app>/installation`, saisir le code, votre nom,
+   votre e-mail et un mot de passe : l'espace est créé avec les données de démonstration et
+   vous êtes connecté en administrateur.
+5. **Comptes de test** — _Paramètres › Utilisateurs et rôles › Créer les comptes de test_ :
+   un compte par collaborateur de démonstration (commercial, finance, collaborateurs…) avec
+   son mot de passe temporaire, à copier immédiatement.
+
+Sans ces variables, l'application reste en **mode démonstration** (données dans le
+navigateur, sans connexion).
+
+**Limites de la version de test** : pas d'e-mail de réinitialisation (l'administrateur
+génère un nouveau mot de passe), progression XP commune à l'équipe, données de
+démonstration fictives — ne pas y saisir de vraies données clients.
 
 ## Tests
 
@@ -227,7 +274,7 @@ sur jours ouvrés, défis), migration locale v2 → v3 et migration Supabase `00
 
 **Reste à développer** :
 
-1. Adaptateur `SupabaseRepository` + authentification + Server Actions (le schéma et les RLS sont prêts).
+1. Écriture relationnelle table par table (le mode multi-utilisateur stocke aujourd'hui un document versionné par organisation) et progression XP individuelle.
 2. Intégrations réelles (messagerie, agenda, téléphonie) : les points d'extension sont
    documentés dans `src/lib/crm/automations.ts` ; rien n'est simulé tant qu'elles ne sont pas configurées.
 3. Téléversement de documents (Supabase Storage) — aujourd'hui des liens.

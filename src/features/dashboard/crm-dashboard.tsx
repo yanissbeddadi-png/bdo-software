@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/misc";
+import { Segmented } from "@/components/ui/tabs";
 import { formatDateLong, formatDueIn, formatEUR, formatInt, formatXp } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,9 @@ export function CrmDashboard() {
   const p = useProgression();
   const openCreate = useUiStore((s) => s.openCreate);
   const [kind, setKind] = React.useState<ActionKind | "all">("all");
+  const me = data.settings.user.employeeId ?? null;
+  // Chaque collaborateur voit d'abord ses propres actions (missions attribuées, contacts suivis).
+  const [scope, setScope] = React.useState<"mine" | "team">(me && data.settings.user.role !== "dirigeant" && data.settings.user.role !== "admin" ? "mine" : "team");
   const [expanded, setExpanded] = React.useState(false);
 
   const actions = React.useMemo(() => buildActionCenter(data, crm, today), [data, crm, today]);
@@ -61,9 +65,11 @@ export function CrmDashboard() {
     .filter((e) => e.status !== "achieved")
     .sort((a, b) => b.progress - a.progress)[0];
 
-  const shown = actions.filter((a) => kind === "all" || a.kind === kind);
+  const mine = (a: ActionItem) => (a.task ? a.task.assigneeId === me : a.contact?.contact.ownerId === me);
+  const scoped = scope === "mine" && me ? actions.filter(mine) : actions;
+  const shown = scoped.filter((a) => kind === "all" || a.kind === kind);
   const visible = expanded ? shown : shown.slice(0, 8);
-  const kinds = (Object.keys(ACTION_KIND) as ActionKind[]).filter((k) => actions.some((a) => a.kind === k));
+  const kinds = (Object.keys(ACTION_KIND) as ActionKind[]).filter((k) => scoped.some((a) => a.kind === k));
   const recent = data.salesActivities
     .filter((a) => a.done)
     .sort((a, b) => b.date.localeCompare(a.date))
@@ -160,6 +166,18 @@ export function CrmDashboard() {
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <section aria-label="Centre d'action du jour">
           <SectionTitle title="Centre d'action du jour" description="Trié par urgence, échéance puis priorité. Chaque élément indique pourquoi il apparaît." />
+          {me ? (
+            <Segmented
+              className="mb-3"
+              label="Périmètre des actions"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: "mine", label: "Mes actions" },
+                { value: "team", label: "Toute l'équipe" },
+              ]}
+            />
+          ) : null}
           <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrer les actions">
             {(["all", ...kinds] as const).map((k) => (
               <button
@@ -170,7 +188,7 @@ export function CrmDashboard() {
                 onClick={() => setKind(k)}
                 className={cn("cursor-pointer rounded-full border px-2.5 py-0.5 text-xs", kind === k ? "border-accent bg-accent/15 text-fg" : "border-border text-muted hover:text-fg")}
               >
-                {k === "all" ? "Tout" : ACTION_KIND[k].label} <span className="tabular text-subtle">{k === "all" ? actions.length : actions.filter((a) => a.kind === k).length}</span>
+                {k === "all" ? "Tout" : ACTION_KIND[k].label} <span className="tabular text-subtle">{k === "all" ? scoped.length : scoped.filter((a) => a.kind === k).length}</span>
               </button>
             ))}
           </div>

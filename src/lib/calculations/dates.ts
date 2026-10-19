@@ -43,8 +43,8 @@ export function toDate(value: ISODate | ISODateTime): Date {
 }
 
 /** Date du jour dans le fuseau Europe/Paris, au format ISO. */
-export function realTodayISO(timeZone = "Europe/Paris"): ISODate {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+export function realTodayISO(timeZone = "Europe/Paris", at: Date = new Date()): ISODate {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
 }
 
 export function addDays(date: ISODate, days: number): ISODate {

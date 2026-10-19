@@ -13,7 +13,9 @@
     "test:e2e": "next build && playwright test",
     "seed:sql": "tsx scripts/generate-seed-sql.ts",
     "format": "prettier --write src e2e",
-    "test:sql": "bash scripts/test-sql.sh"
+    "test:sql": "bash scripts/test-sql.sh",
+    "test:e2e:cloud": "next build && playwright test -c playwright.cloud.config.ts",
+    "supabase:install-sql": "node scripts/bundle-install-sql.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

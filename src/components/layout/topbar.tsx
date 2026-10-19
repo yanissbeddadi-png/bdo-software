@@ -20,7 +20,14 @@ import {
   UserCog,
   BellRing,
   MessageSquarePlus,
+  Cloud,
+  KeyRound,
+  Loader2,
+  LogOut,
 } from "lucide-react";
+import { useAppStore } from "@/lib/store/app-store";
+import { signOut } from "@/lib/cloud/session";
+import { PasswordDialog } from "./password-dialog";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/misc";
@@ -190,9 +197,12 @@ export function Topbar() {
   const pathname = usePathname();
   const today = useToday();
   const data = useData();
+  const mode = useAppStore((s) => s.mode);
+  const pending = useAppStore((s) => s.pending);
+  const [passwordOpen, setPasswordOpen] = React.useState(false);
   const showPeriod = PERIOD_ROUTES.includes(pathname);
   return (
-    <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-bg/85 px-3 backdrop-blur md:px-5">
+    <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-bg-elevated/95 px-3 backdrop-blur md:px-5">
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobile(true)} aria-label="Ouvrir le menu">
         <Menu />
       </Button>
@@ -214,6 +224,12 @@ export function Topbar() {
           {formatDateLong(today)}
           {data.settings.preferences.referenceDate ? <span className="text-gold">(simulée)</span> : null}
         </span>
+        {mode === "cloud" ? (
+          <span className={cn("hidden items-center gap-1 text-[11px] sm:flex", pending ? "text-warning" : "text-success")} role="status" aria-live="polite">
+            {pending ? <Loader2 className="size-3 animate-spin" /> : <Cloud className="size-3.5" />}
+            {pending ? "Enregistrement…" : "Enregistré"}
+          </span>
+        ) : null}
         <QuickCreateMenu />
         <NotificationBell />
         <DropdownMenu>
@@ -227,7 +243,10 @@ export function Topbar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuLabel>{data.settings.user.name}</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              {data.settings.user.name}
+              {mode === "cloud" ? <span className="block text-[11px] font-normal text-muted">{data.settings.user.email}</span> : null}
+            </DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link href="/progression">
                 <Trophy /> Progression
@@ -235,17 +254,31 @@ export function Topbar() {
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/parametres?tab=roles">
-                <UserCog /> Rôle de démonstration
+                <UserCog /> {mode === "cloud" ? "Mon compte et utilisateurs" : "Rôle de démonstration"}
               </Link>
             </DropdownMenuItem>
+            {mode === "cloud" ? (
+              <DropdownMenuItem onSelect={() => setPasswordOpen(true)}>
+                <KeyRound /> Changer mon mot de passe
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/parametres">
                 <Settings /> Paramètres
               </Link>
             </DropdownMenuItem>
+            {mode === "cloud" ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => void signOut()}>
+                  <LogOut /> Se déconnecter
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
+        {mode === "cloud" ? <PasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} /> : null}
       </div>
     </header>
   );

@@ -5,6 +5,7 @@ import type { CompanySettings, CrmSettings, Role, RuleSettings, XpRuleKey } from
 import Link from "next/link";
 import { useCommand, useData } from "@/lib/store/hooks";
 import { useAppStore, repositoryKind } from "@/lib/store/app-store";
+import { UsersAdmin } from "./users-admin";
 import { useParam, useSyncedState } from "@/lib/store/params";
 import { useUiStore } from "@/lib/store/ui-store";
 import * as C from "@/lib/domain/commands";
@@ -742,7 +743,7 @@ function DataTab() {
         <CardContent className="space-y-2 text-sm">
           <p>
             <span className="text-muted">Persistance : </span>
-            {repositoryKind === "local-demo" ? "navigateur (localStorage), uniquement sur cet appareil" : "Supabase"}
+            {repositoryKind === "local-demo" ? "navigateur (localStorage), uniquement sur cet appareil" : "Supabase — données partagées par toute l'équipe, accès par compte"}
           </p>
           <p>
             <span className="text-muted">Jeu de données : </span>version {data.settings.demo.version}, généré le {formatDateTime(data.settings.demo.seededAt)} (date d&apos;ancrage{" "}
@@ -757,12 +758,20 @@ function DataTab() {
             <p className="mb-1 flex items-center gap-1.5 font-medium">
               <ShieldAlert className="size-4" /> Limites de sécurité
             </p>
-            <ul className="list-disc space-y-0.5 pl-4">
-              <li>Aucune authentification : toute personne utilisant ce navigateur accède aux données.</li>
-              <li>Les données sont stockées en clair dans le stockage local et peuvent être effacées par le navigateur.</li>
-              <li>Les permissions par rôle sont simulées dans la couche de commandes, pas imposées par un serveur.</li>
-              <li>Aucun paiement réel, aucune connexion bancaire et aucun envoi d&apos;e-mail ne sont effectués.</li>
-            </ul>
+            {repositoryKind === "local-demo" ? (
+              <ul className="list-disc space-y-0.5 pl-4">
+                <li>Aucune authentification : toute personne utilisant ce navigateur accède aux données.</li>
+                <li>Les données sont stockées en clair dans le stockage local et peuvent être effacées par le navigateur.</li>
+                <li>Les permissions par rôle sont simulées dans la couche de commandes, pas imposées par un serveur.</li>
+                <li>Aucun paiement réel, aucune connexion bancaire et aucun envoi d&apos;e-mail ne sont effectués.</li>
+              </ul>
+            ) : (
+              <ul className="list-disc space-y-0.5 pl-4">
+                <li>Version de test : utilisez des données fictives, pas de vraies données clients.</li>
+                <li>Chaque action est authentifiée et son rôle vérifié par le serveur ; les navigateurs n&apos;ont qu&apos;un accès en lecture à la base.</li>
+                <li>Aucun paiement réel, aucune connexion bancaire et aucun envoi d&apos;e-mail ne sont effectués.</li>
+              </ul>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -839,11 +848,11 @@ function DataTab() {
                 }
                 confirm({
                   title: "Importer cette sauvegarde ?",
-                  description: "Les données actuelles de ce navigateur seront remplacées.",
+                  description: repositoryKind === "local-demo" ? "Les données actuelles de ce navigateur seront remplacées." : "Les données de toute l'équipe seront remplacées.",
                   confirmLabel: "Importer",
                   action: () => {
                     replaceAll(parsed);
-                    toast.success("Sauvegarde importée.");
+                    if (repositoryKind === "local-demo") toast.success("Sauvegarde importée.");
                   },
                 });
               } catch {
@@ -859,11 +868,14 @@ function DataTab() {
             onClick={() =>
               confirm({
                 title: "Réinitialiser le jeu de données ?",
-                description: "Toutes les données de ce navigateur seront remplacées par un nouveau jeu de démonstration (dates recalculées à partir d'aujourd'hui). Action irréversible.",
+                description:
+                  repositoryKind === "local-demo"
+                    ? "Toutes les données de ce navigateur seront remplacées par un nouveau jeu de démonstration (dates recalculées à partir d'aujourd'hui). Action irréversible."
+                    : "Les données de TOUTE L'ÉQUIPE seront remplacées par un nouveau jeu de démonstration. Les comptes utilisateurs sont conservés. Action irréversible.",
                 confirmLabel: "Réinitialiser",
                 action: () => {
                   resetDemo();
-                  toast.success("Jeu de démonstration régénéré.");
+                  if (repositoryKind === "local-demo") toast.success("Jeu de démonstration régénéré.");
                 },
               })
             }
@@ -882,31 +894,36 @@ function RolesTab() {
   const run = useCommand();
   const perms = Object.keys(PERMISSION_LABELS) as Permission[];
   const roles = Object.keys(ROLE_PERMISSIONS) as Role[];
+  const mode = useAppStore((s) => s.mode);
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Rôle de l&apos;utilisateur courant (démonstration)</CardTitle>
-            <CardDescription>
-              Changez de rôle pour vérifier les permissions : les commandes refusent les actions non autorisées. En production, le rôle proviendrait de l&apos;authentification Supabase et serait
-              vérifié par les politiques RLS côté serveur.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <NativeSelect aria-label="Rôle simulé" value={data.settings.user.role} onChange={(e) => run(C.switchDemoRole, { role: e.target.value as Role })} className="w-60">
-            {roles.map((r) => (
-              <option key={r} value={r}>
-                {ROLE[r]}
-              </option>
-            ))}
-          </NativeSelect>
-          <span className="text-sm text-muted">
-            Utilisateur : {data.settings.user.name} ({data.settings.user.email})
-          </span>
-        </CardContent>
-      </Card>
+      {mode === "cloud" ? (
+        <UsersAdmin />
+      ) : (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Rôle de l&apos;utilisateur courant (démonstration)</CardTitle>
+              <CardDescription>
+                Changez de rôle pour vérifier les permissions : les commandes refusent les actions non autorisées. En production, le rôle proviendrait de l&apos;authentification Supabase et serait
+                vérifié par les politiques RLS côté serveur.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <NativeSelect aria-label="Rôle simulé" value={data.settings.user.role} onChange={(e) => run(C.switchDemoRole, { role: e.target.value as Role })} className="w-60">
+              {roles.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE[r]}
+                </option>
+              ))}
+            </NativeSelect>
+            <span className="text-sm text-muted">
+              Utilisateur : {data.settings.user.name} ({data.settings.user.email})
+            </span>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <div>
