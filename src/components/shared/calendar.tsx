@@ -72,7 +72,7 @@ export function MonthCalendar({ events, today, legend }: { events: CalendarEvent
                 <p
                   className={cn(
                     "mb-1 text-[11px] tabular",
-                    d === today ? "inline-grid size-5 place-items-center rounded-full bg-accent font-semibold text-bg" : inMonth ? "text-muted" : "text-subtle/60",
+                    d === today ? "inline-grid size-5 place-items-center rounded-full bg-accent font-semibold text-on-accent" : inMonth ? "text-muted" : "text-subtle/60",
                   )}
                 >
                   {Number(d.slice(8))}

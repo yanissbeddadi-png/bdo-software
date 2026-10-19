@@ -133,7 +133,7 @@ export function StatisticsPage() {
             data={stats.weekly.map((w) => ({ month: w.week, onTime: w.onTime, late: w.late }))}
             series={[
               { key: "onTime", label: "À l'heure", color: SERIES[2] },
-              { key: "late", label: "En retard", color: SERIES[7] },
+              { key: "late", label: "En retard", color: SERIES[1] },
             ]}
           />
         </ChartCard>

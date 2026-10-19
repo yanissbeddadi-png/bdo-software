@@ -21,16 +21,16 @@ export interface RewardDefinition {
 }
 
 export const THEMES: RewardDefinition[] = [
-  { id: "theme-default", kind: "theme", name: "Bleu commande", description: "Thème d'origine du centre de commandement.", unlock: { type: "level", level: 1 }, color: "#60A5FA" },
-  { id: "theme-emerald", kind: "theme", name: "Émeraude", description: "Accent vert profond.", unlock: { type: "level", level: 5 }, color: "#34D399" },
-  { id: "theme-violet", kind: "theme", name: "Améthyste", description: "Accent violet des stratèges.", unlock: { type: "level", level: 10 }, color: "#A78BFA" },
-  { id: "theme-gold", kind: "theme", name: "Or impérial", description: "Accent doré réservé aux dirigeants aguerris.", unlock: { type: "level", level: 20 }, color: "#FBBF24" },
-  { id: "theme-cyan", kind: "theme", name: "Cyan orbital", description: "Débloqué par le succès « Cinq conversions ».", unlock: { type: "achievement", id: "five-conversions" }, color: "#22D3EE" },
+  { id: "theme-default", kind: "theme", name: "Rouge BDO", description: "Couleur d'action de la charte BDO.", unlock: { type: "level", level: 1 }, color: "#E81A3B" },
+  { id: "theme-emerald", kind: "theme", name: "Émeraude", description: "Accent vert profond.", unlock: { type: "level", level: 5 }, color: "#1A7F4E" },
+  { id: "theme-violet", kind: "theme", name: "Améthyste", description: "Accent violet des stratèges.", unlock: { type: "level", level: 10 }, color: "#6B4FBB" },
+  { id: "theme-gold", kind: "theme", name: "Or impérial", description: "Accent doré réservé aux dirigeants aguerris.", unlock: { type: "level", level: 20 }, color: "#8F5E00" },
+  { id: "theme-cyan", kind: "theme", name: "Cyan orbital", description: "Débloqué par le succès « Cinq conversions ».", unlock: { type: "achievement", id: "five-conversions" }, color: "#00788F" },
 ];
 
 export const FRAMES: RewardDefinition[] = [
   { id: "frame-bronze", kind: "frame", name: "Cadre bronze", description: "Premier client gagné.", unlock: { type: "achievement", id: "first-sale" }, color: "#D97706" },
-  { id: "frame-silver", kind: "frame", name: "Cadre argent", description: "Dix missions accomplies.", unlock: { type: "achievement", id: "ten-missions" }, color: "#CBD5E1" },
+  { id: "frame-silver", kind: "frame", name: "Cadre argent", description: "Dix missions accomplies.", unlock: { type: "achievement", id: "ten-missions" }, color: "#8B98A9" },
   { id: "frame-gold", kind: "frame", name: "Cadre or", description: "Semaine de suivi rigoureux.", unlock: { type: "achievement", id: "rigorous-week" }, color: "#FBBF24" },
   { id: "frame-violet", kind: "frame", name: "Cadre épique", description: "Série de 14 jours.", unlock: { type: "achievement", id: "streak-14" }, color: "#A78BFA" },
 ];
@@ -77,5 +77,5 @@ export function unlockLabel(unlock: RewardUnlock, achievementName?: (id: string)
 }
 
 export function themeColor(themeId: string): string {
-  return THEMES.find((t) => t.id === themeId)?.color ?? "#60A5FA";
+  return THEMES.find((t) => t.id === themeId)?.color ?? "#E81A3B";
 }

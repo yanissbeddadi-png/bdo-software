@@ -233,4 +233,6 @@ sur jours ouvrés, défis), migration locale v2 → v3 et migration Supabase `00
 3. Téléversement de documents (Supabase Storage) — aujourd'hui des liens.
 4. Fusion assistée de doublons (aujourd'hui : avertissement et confirmation explicite).
 5. Multi-utilisateurs réel (attribution, vues « Mes prospects » par utilisateur connecté).
-6. Internationalisation et thème clair (interface en français, thème sombre).
+6. Internationalisation (interface en français) et, si besoin, variante sombre de la charte.
+7. Remplacer le logotype typographique par le fichier officiel du logo BDO fourni par la
+   communication du groupe, dans le respect de ses règles d'usage.

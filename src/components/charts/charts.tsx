@@ -7,11 +7,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 
 /**
- * Palette catégorielle validée (fond sombre #151D28) : ordre fixe, jamais cyclé.
- * Validation : adjacent CVD ΔE ≥ 8,4, vision normale ≥ 19,3, contraste ≥ 3:1.
+ * Palette catégorielle aux couleurs BDO, validée sur fond clair (bande de luminance, chroma,
+ * séparation daltonisme ≥ 8, contraste ≥ 3:1) : ordre fixe, jamais cyclé.
+ * Validation (scripts dataviz) : adjacent CVD ΔE ≥ 8,8, vision normale ≥ 25, contraste ≥ 3:1.
  */
-export const SERIES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"] as const;
-export const OTHER_COLOR = "#64748b";
+export const SERIES = ["#2F5BC4", "#E81A3B", "#1A8754", "#7A55D0", "#C27C0E", "#008DB3", "#C2306E", "#6E8B00"] as const;
+export const OTHER_COLOR = "#8a8a8a";
 
 const AXIS = { stroke: "var(--subtle)", fontSize: 11, tickLine: false, axisLine: false } as const;
 const GRID = { stroke: "var(--border)", strokeDasharray: "0", vertical: false } as const;

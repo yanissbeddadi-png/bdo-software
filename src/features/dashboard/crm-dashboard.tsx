@@ -71,9 +71,12 @@ export function CrmDashboard() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-fg md:text-[28px]">Bonjour, voici votre centre de commande commercial.</h1>
+      <header className="relative -mx-4 -mt-6 flex flex-col gap-4 overflow-hidden bg-[#efefef] px-4 py-8 md:-mx-6 md:px-6 lg:-mx-8 lg:flex-row lg:items-end lg:justify-between lg:px-8 lg:py-10">
+        {/* Bandeau à pans coupés, inspiré des en-têtes du site BDO. */}
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 bg-[#f7f7f7] [clip-path:polygon(28%_0,100%_0,100%_100%,0_100%)] lg:block" />
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-bdo-red" />
+        <div className="relative min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-fg md:text-[32px]">Bonjour, voici votre centre de commande commercial.</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
             <span className="capitalize">{formatDateLong(today)}</span>
             {data.settings.gamification.enabled ? (
@@ -94,7 +97,7 @@ export function CrmDashboard() {
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="relative flex flex-wrap gap-2">
           <Button variant="primary" onClick={() => openCreate("prospect")}>
             <UserPlus /> Nouveau prospect
           </Button>

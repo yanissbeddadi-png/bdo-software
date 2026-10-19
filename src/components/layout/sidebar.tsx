@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsLeft, ChevronsRight, Hexagon } from "lucide-react";
+import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { NAV, isActive, type NavCounter } from "./nav";
 import { useNavCounters } from "@/lib/store/crm";
 import { cn } from "@/lib/utils";
@@ -13,16 +13,27 @@ import { LevelBadge, XPProgressBar } from "@/components/gamification/progress";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ROLE } from "@/lib/formatters/labels";
 
-export function Logo({ collapsed }: { collapsed?: boolean }) {
-  const data = useData();
+/** Logotype « BDO » : lettres bleu BDO encadrées d'un filet rouge (gauche et dessous). */
+export function BdoMark({ size = "md" }: { size?: "sm" | "md" }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 rounded-lg px-1 py-1" aria-label="BDO Software — accueil">
-      <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-accent/30 to-violet/30 ring-1 ring-accent/40">
-        <Hexagon className="size-5 text-accent" strokeWidth={2.2} />
-      </div>
+    <span
+      aria-hidden
+      className={cn("relative inline-flex shrink-0 items-end font-extrabold leading-none tracking-[-0.04em] text-bdo-blue", size === "sm" ? "pb-[3px] pl-[5px] text-lg" : "pb-1 pl-[7px] text-[28px]")}
+    >
+      BDO
+      <span className={cn("absolute inset-y-0 left-0 bg-bdo-red", size === "sm" ? "w-[2px]" : "w-[3px]")} />
+      <span className={cn("absolute inset-x-0 bottom-0 bg-bdo-red", size === "sm" ? "h-[2px]" : "h-[3px]")} />
+    </span>
+  );
+}
+
+export function Logo({ collapsed }: { collapsed?: boolean }) {
+  return (
+    <Link href="/" className="flex items-center gap-3 rounded-lg px-1 py-1" aria-label="BDO Software CRM — accueil">
+      <BdoMark size={collapsed ? "sm" : "md"} />
       {!collapsed ? (
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-semibold text-fg">{data.settings.company.name}</p>
+          <p className="truncate text-[11px] font-bold uppercase tracking-wide text-bdo-red">Software &amp; Services</p>
           <p className="truncate text-[11px] text-muted">CRM · Command Center</p>
         </div>
       ) : null}
@@ -65,7 +76,11 @@ export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNav
                 <span
                   title={`${b.value} ${b.label}`}
                   aria-label={`${b.value} ${b.label}`}
-                  className={cn("rounded-full px-1.5 text-[10px] font-semibold tabular", b.danger ? "bg-danger text-bg" : "bg-accent/20 text-accent", collapsed ? "absolute right-1 top-1" : "ml-auto")}
+                  className={cn(
+                    "rounded-full px-1.5 text-[10px] font-semibold tabular",
+                    b.danger ? "bg-danger text-on-accent" : "bg-accent/20 text-accent",
+                    collapsed ? "absolute right-1 top-1" : "ml-auto",
+                  )}
                 >
                   {b.value > 99 ? "99+" : b.value}
                 </span>

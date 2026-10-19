@@ -5,26 +5,31 @@
  * Modifier ces variables suffit à ajuster l'ensemble de l'interface.
  */
 :root {
-  --bg: #0b0f14;
-  --bg-elevated: #111821;
-  --card: #151d28;
-  --interactive: #1b2635;
-  --interactive-hover: #223044;
-  --border: #273446;
-  --border-strong: #34445a;
-  --fg: #f1f5f9;
-  --muted: #94a3b8;
-  --subtle: #64748b;
-  --success: #34d399;
-  --action: #60a5fa;
-  --gold: #fbbf24;
-  --violet: #a78bfa;
-  --danger: #f87171;
-  --warning: #fb923c;
+  /* Charte BDO : fond clair, encre gris anthracite, rouge BDO pour l'action, bleu BDO pour l'information. */
+  --bdo-red: #e81a3b;
+  --bdo-blue: #224395;
+  --bg: #f5f5f5;
+  --bg-elevated: #ffffff;
+  --card: #ffffff;
+  --interactive: #f0f0f0;
+  --interactive-hover: #e6e6e6;
+  --border: #e0e0e0;
+  --border-strong: #c4c4c4;
+  --fg: #333333;
+  --muted: #5c5c5c;
+  --subtle: #6e6e6e;
+  --success: #1a7f4e;
+  --action: var(--bdo-blue);
+  --gold: #8f5e00;
+  --violet: #6b4fbb;
+  --danger: #c4122f;
+  --warning: #a85200;
+  /* Texte posé sur une couleur d'accent ou de statut pleine. */
+  --on-accent: #ffffff;
   /* Couleur d'accent (modifiable par les thèmes cosmétiques débloqués). */
-  --accent: var(--action);
-  --radius: 0.75rem;
-  color-scheme: dark;
+  --accent: var(--bdo-red);
+  --radius: 0.25rem;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -45,9 +50,17 @@
   --color-danger: var(--danger);
   --color-warning: var(--warning);
   --color-accent: var(--accent);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-on-accent: var(--on-accent);
+  --color-bdo-red: var(--bdo-red);
+  --color-bdo-blue: var(--bdo-blue);
+  --font-sans: var(--font-brand), "Trebuchet MS", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Angles nets, comme les blocs et boutons du site BDO. */
+  --radius-sm: 2px;
+  --radius-md: 3px;
   --radius-lg: var(--radius);
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
   --animate-fade-in: fade-in 0.35s ease-out both;
   --animate-rise: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-pop: pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;

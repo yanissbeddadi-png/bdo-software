@@ -25,7 +25,7 @@ export function Checkbox({ className, ...props }: React.ComponentProps<typeof C.
       {...props}
     >
       <C.Indicator>
-        <Check className="size-3 text-bg" strokeWidth={3} />
+        <Check className="size-3 text-on-accent" strokeWidth={3} />
       </C.Indicator>
     </C.Root>
   );
