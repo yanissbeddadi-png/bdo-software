@@ -309,7 +309,9 @@ export function TasksPage() {
   const [quick, setQuick] = React.useState("");
   const f = useFilters(["status", "priority", "assignee", "project"] as const);
 
-  const scoped = data.tasks.filter((t) => {
+  // Les missions CRM (appels, relances…) sont gérées dans /missions ; ce module liste les tâches internes.
+  const internal = data.tasks.filter((t) => t.type === "internal");
+  const scoped = internal.filter((t) => {
     if (scope === "today") return isTaskOpen(t) && t.dueDate === today;
     if (scope === "late") return isTaskLate(t, today);
     if (scope === "mine") return t.assigneeId === me;
@@ -347,8 +349,8 @@ export function TasksPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Tâches"
-        description="Toutes les tâches de l'entreprise. La clôture d'une tâche rapporte de l'XP une seule fois (selon sa complexité)."
+        title="Tâches internes"
+        description="Tâches internes hors CRM (projets, administratif). Les actions commerciales (appels, relances, rendez-vous) sont gérées dans Missions."
         actions={
           <Button variant="primary" onClick={() => openCreate("task")}>
             <Plus /> Nouvelle tâche
@@ -356,13 +358,13 @@ export function TasksPage() {
         }
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <MetricCard label="Ouvertes" value={data.tasks.filter(isTaskOpen).length} />
-        <MetricCard label="Aujourd'hui" value={data.tasks.filter((t) => isTaskOpen(t) && t.dueDate === today).length} />
-        <MetricCard label="En retard" value={data.tasks.filter((t) => isTaskLate(t, today)).length} tone={data.tasks.some((t) => isTaskLate(t, today)) ? "danger" : "default"} />
-        <MetricCard label="Critiques ouvertes" value={data.tasks.filter((t) => isTaskOpen(t) && t.priority === "critical").length} />
+        <MetricCard label="Ouvertes" value={internal.filter(isTaskOpen).length} />
+        <MetricCard label="Aujourd'hui" value={internal.filter((t) => isTaskOpen(t) && t.dueDate === today).length} />
+        <MetricCard label="En retard" value={internal.filter((t) => isTaskLate(t, today)).length} tone={internal.some((t) => isTaskLate(t, today)) ? "danger" : "default"} />
+        <MetricCard label="Critiques ouvertes" value={internal.filter((t) => isTaskOpen(t) && t.priority === "critical").length} />
         <MetricCard
           label="Terminées (30 j)"
-          value={data.tasks.filter((t) => t.completedAt && t.completedAt.slice(0, 10) >= new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)).length}
+          value={internal.filter((t) => t.completedAt && t.completedAt.slice(0, 10) >= new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)).length}
           tone="success"
         />
       </div>
@@ -374,6 +376,10 @@ export function TasksPage() {
           const r = run(C.createTask, {
             title: quick,
             description: "",
+            type: "internal",
+            contactId: null,
+            opportunityId: null,
+            dueTime: null,
             assigneeId: scope === "mine" ? me : null,
             priority: "normal",
             status: "todo",

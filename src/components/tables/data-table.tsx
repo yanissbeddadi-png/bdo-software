@@ -39,6 +39,9 @@ export function DataTable<T extends { id: string }>({
   highlightId,
   rowClassName,
   caption,
+  selected,
+  onSelectedChange,
+  bulkActions,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -56,6 +59,11 @@ export function DataTable<T extends { id: string }>({
   highlightId?: string | null;
   rowClassName?: (row: T) => string | undefined;
   caption: string;
+  /** Sélection multiple (cases à cocher) : identifiants sélectionnés. */
+  selected?: Set<string>;
+  onSelectedChange?: (ids: Set<string>) => void;
+  /** Actions groupées affichées lorsque la sélection n'est pas vide. */
+  bulkActions?: (ids: string[]) => React.ReactNode;
 }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
@@ -109,6 +117,23 @@ export function DataTable<T extends { id: string }>({
   };
 
   const hide = { sm: "hidden sm:table-cell", md: "hidden md:table-cell", lg: "hidden lg:table-cell" };
+  const selectable = !!selected && !!onSelectedChange;
+  const visibleIds = visible.map((r) => r.id);
+  const allVisible = selectable && visibleIds.length > 0 && visibleIds.every((id) => selected!.has(id));
+  const toggleRow = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectedChange!(next);
+  };
+  const togglePage = () => {
+    const next = new Set(selected);
+    for (const id of visibleIds) {
+      if (allVisible) next.delete(id);
+      else next.add(id);
+    }
+    onSelectedChange!(next);
+  };
 
   return (
     <div className="space-y-3">
@@ -135,6 +160,20 @@ export function DataTable<T extends { id: string }>({
           </Button>
         ) : null}
       </div>
+      {selectable && selected!.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2 text-xs" role="region" aria-label="Actions groupées">
+          <span className="font-medium text-fg">{selected!.size} sélectionné(s)</span>
+          {bulkActions?.([...selected!])}
+          <Button variant="ghost" size="sm" onClick={() => onSelectedChange!(new Set())}>
+            Désélectionner
+          </Button>
+          {sorted.length > selected!.size ? (
+            <Button variant="ghost" size="sm" onClick={() => onSelectedChange!(new Set(sorted.map((r) => r.id)))}>
+              Tout sélectionner ({sorted.length})
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {sorted.length === 0 ? (
         <EmptyState
           title={rows.length ? "Aucun résultat pour ces critères" : emptyTitle}
@@ -147,6 +186,11 @@ export function DataTable<T extends { id: string }>({
             <caption className="sr-only">{caption}</caption>
             <thead>
               <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-subtle">
+                {selectable ? (
+                  <th scope="col" className="w-8 px-3 py-2.5">
+                    <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={allVisible} onChange={togglePage} aria-label="Sélectionner la page" />
+                  </th>
+                ) : null}
                 {columns.map((c) => (
                   <th
                     key={c.id}
@@ -202,6 +246,11 @@ export function DataTable<T extends { id: string }>({
                       rowClassName?.(row),
                     )}
                   >
+                    {selectable ? (
+                      <td className="w-8 px-3 py-2.5 align-middle">
+                        <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={selected!.has(row.id)} onChange={() => toggleRow(row.id)} aria-label="Sélectionner la ligne" />
+                      </td>
+                    ) : null}
                     {columns.map((c) => (
                       <td
                         key={c.id}

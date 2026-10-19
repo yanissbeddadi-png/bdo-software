@@ -2,6 +2,8 @@ import type { AppData, AppNotification, ISODate, ISODateTime } from "@/lib/domai
 import { newId } from "@/lib/domain/ids";
 import { computeAlerts, type Alert } from "@/lib/calculations/alerts";
 import { summarizeData } from "@/lib/calculations/invoices";
+import { buildCrmIndex } from "@/lib/crm/views";
+import { crmAlerts } from "@/lib/crm/automations";
 import { reconcileGamification, type ReconcileResult } from "@/lib/gamification/engine";
 import { DomainError, type Command, type CommandContext } from "./commands/core";
 
@@ -23,10 +25,14 @@ export function syncNotifications(data: AppData, alerts: Alert[], now: ISODateTi
   return { ...data, notifications };
 }
 
-/** Post-traitement commun à toutes les commandes : notifications puis gamification. */
+/**
+ * Post-traitement commun à toutes les commandes : notifications (automatisations CRM et
+ * alertes des modules historiques, ces dernières hors catégorie commerciale) puis gamification.
+ */
 export function finalize(data: AppData, ctx: { now: ISODateTime; today: ISODate }, silent = false): ReconcileResult {
   const summaries = summarizeData(data, ctx.today);
-  const withNotifications = syncNotifications(data, computeAlerts(data, ctx.today, summaries), ctx.now);
+  const alerts = [...crmAlerts(data, buildCrmIndex(data, ctx.today), ctx.today), ...computeAlerts(data, ctx.today, summaries).filter((a) => a.category !== "commercial")];
+  const withNotifications = syncNotifications(data, alerts, ctx.now);
   return reconcileGamification(withNotifications, { now: ctx.now, today: ctx.today, silent });
 }
 

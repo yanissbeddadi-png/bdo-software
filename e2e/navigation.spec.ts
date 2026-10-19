@@ -2,62 +2,75 @@ import { expect, test } from "@playwright/test";
 import { open } from "./helpers";
 
 const PAGES: [string, string][] = [
-  ["Centre de missions", "Centre de missions"],
-  ["Bureaux 3D", "Bureaux"],
-  ["Finances", "Finances"],
-  ["Ventes et CRM", "Ventes et CRM"],
-  ["Clients", "Clients"],
-  ["Projets", "Projets"],
-  ["Tâches", "Tâches"],
-  ["Équipe", "Équipe"],
-  ["Produits et services", "Produits et services"],
-  ["Opérations", "Opérations"],
-  ["Analyses", "Analyses et rapports"],
-  ["Objectifs", "Objectifs et OKR"],
+  ["Pipeline CRM", "Pipeline CRM"],
+  ["Contacts", "Contacts"],
+  ["Entreprises clientes", "Entreprises clientes"],
+  ["Missions", "Missions"],
+  ["Calendrier", "Calendrier"],
+  ["Activités", "Activités"],
+  ["Statistiques", "Statistiques"],
   ["Progression", "Progression"],
-  ["Notifications", "Centre de notifications"],
   ["Paramètres", "Paramètres"],
-  ["Vue d'ensemble", "Bonjour, dirigeant."],
+  ["Vue d'ensemble", "Bonjour, voici votre centre de commande commercial."],
 ];
 
-test("navigation latérale vers tous les modules", async ({ page }) => {
+test("navigation latérale vers tous les modules CRM", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await open(page, "/");
-  await expect(page.getByRole("heading", { name: "Indicateurs financiers" }).first()).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Navigation principale" });
+  // Les modules historiques ne sont plus dans la navigation principale.
+  await expect(nav.getByRole("link", { name: "Finances" })).toHaveCount(0);
   for (const [link, title] of PAGES) {
-    await nav.getByRole("link", { name: link, exact: link !== "Notifications" }).click();
+    await nav.getByRole("link", { name: link }).click();
     await expect(page.locator("main h1").first()).toHaveText(title);
   }
   expect(errors).toEqual([]);
 });
 
-test("le Command Center affiche KPI, alertes, missions et données de démonstration", async ({ page }) => {
+test("les anciennes routes redirigent vers les modules CRM et les modules historiques restent accessibles", async ({ page }) => {
+  await page.goto("/crm");
+  await expect(page).toHaveURL(/\/pipeline$/);
+  await page.goto("/clients/cli_novaretail");
+  await expect(page).toHaveURL(/\/entreprises\/cli_novaretail$/);
+  await expect(page.locator("main h1")).toHaveText("NovaRetail");
+  await open(page, "/parametres");
+  await page.getByRole("link", { name: /^Finances/ }).click();
+  await expect(page.locator("main h1")).toHaveText("Finances");
+});
+
+test("la vue d'ensemble affiche indicateurs, centre d'action expliqué et pipeline", async ({ page }) => {
   await open(page, "/");
-  for (const label of ["Chiffre d'affaires facturé", "Trésorerie disponible", "MRR", "Pipeline commercial"]) await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Alertes prioritaires" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Missions du jour" })).toBeVisible();
+  for (const label of ["Relances en retard", "Missions du jour", "Nouveaux prospects à traiter", "Propositions en attente", "Valeur du pipeline"])
+    await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Centre d'action du jour" })).toBeVisible();
+  const first = page.locator("[data-action-kind]").first();
+  await expect(first).toHaveAttribute("data-action-kind", "overdue");
+  await expect(first.getByText("Pourquoi :")).toBeVisible();
   await expect(page.getByText(/Mode démonstration/)).toBeVisible();
+  // Les compteurs ouvrent des vues filtrées.
+  await page.getByRole("link", { name: /Relances en retard/ }).click();
+  await expect(page).toHaveURL(/\/missions\?view=overdue/);
+  await expect(page.getByRole("tab", { name: /En retard/ })).toHaveAttribute("aria-selected", "true");
 });
 
 test("recherche globale au clavier", async ({ page }) => {
   await open(page, "/");
   await page.keyboard.press("Control+k");
-  const input = page.getByPlaceholder("Rechercher un client, une facture, un projet…");
-  await input.fill("NovaRetail");
-  await expect(page.getByRole("option", { name: /NovaRetail/ }).first()).toBeVisible();
+  const input = page.getByPlaceholder("Rechercher un contact, une entreprise, une opportunité, une note…");
+  await input.fill("Sophie Garnier");
+  await expect(page.getByRole("option", { name: /Sophie Garnier/ }).first()).toBeVisible();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/clients\/cli_novaretail/);
-  await expect(page.locator("main h1")).toHaveText("NovaRetail");
+  await expect(page).toHaveURL(/\/contacts\/con_novaretail_sophie/);
+  await expect(page.locator("main h1")).toHaveText("Sophie Garnier");
 });
 
 test("la recherche sans résultat propose de créer un élément", async ({ page }) => {
   await open(page, "/");
   await page.keyboard.press("Control+k");
-  await page.getByPlaceholder("Rechercher un client, une facture, un projet…").fill("zzzz-introuvable");
+  await page.getByPlaceholder("Rechercher un contact, une entreprise, une opportunité, une note…").fill("zzzz-introuvable");
   await expect(page.getByText(/Aucun résultat pour/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Créer un client" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Créer un contact" })).toBeVisible();
 });
 
 test("bureaux 3D : carte plein écran, fiches au clic depuis la liste", async ({ page }) => {

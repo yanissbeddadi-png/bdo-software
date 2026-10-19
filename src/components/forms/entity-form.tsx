@@ -60,6 +60,7 @@ export function EntityForm<T extends FieldValues>({
   onCancel,
   submitLabel = "Enregistrer",
   footerExtra,
+  notice,
 }: {
   schema: ZodTypeAny;
   defaultValues: DefaultValues<T>;
@@ -68,6 +69,8 @@ export function EntityForm<T extends FieldValues>({
   onCancel?: () => void;
   submitLabel?: string;
   footerExtra?: React.ReactNode;
+  /** Message affiché au-dessus des boutons (avertissement, confirmation…). */
+  notice?: React.ReactNode;
 }) {
   const form = useForm<T>({ resolver: zodResolver(schema), defaultValues, mode: "onSubmit" });
   const [pending, setPending] = React.useState(false);
@@ -201,6 +204,7 @@ export function EntityForm<T extends FieldValues>({
             />
           );
         })}
+      {notice}
       <DialogFooter className="sm:col-span-2">
         {footerExtra}
         {onCancel ? (

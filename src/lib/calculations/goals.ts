@@ -3,6 +3,7 @@ import { daysBetween, inPeriod } from "./dates";
 import { summarizeData, type InvoiceSummary } from "./invoices";
 import { billedRevenue, overdueReceivables } from "./finance";
 import { computeMRR } from "./recurring";
+import { conversionRate, pipelineValue } from "./pipeline";
 import { averageEstimatedMargin, isTaskLate } from "./projects";
 
 export const GOAL_METRICS: Record<GoalMetric, { label: string; unit: string; direction: "up" | "down"; auto: boolean }> = {
@@ -17,6 +18,11 @@ export const GOAL_METRICS: Record<GoalMetric, { label: string; unit: string; dir
   active_clients: { label: "Clients actifs", unit: "clients", direction: "up", auto: true },
   new_leads: { label: "Nouveaux prospects sur la période", unit: "prospects", direction: "up", auto: true },
   new_subscriptions: { label: "Nouveaux abonnements sur la période", unit: "contrats", direction: "up", auto: true },
+  missions_done: { label: "Missions commerciales terminées sur la période", unit: "missions", direction: "up", auto: true },
+  interactions_logged: { label: "Interactions consignées sur la période", unit: "interactions", direction: "up", auto: true },
+  overdue_followups: { label: "Missions en retard (actuel)", unit: "missions", direction: "down", auto: true },
+  pipeline_value: { label: "Valeur du pipeline actif", unit: "€", direction: "up", auto: true },
+  conversion_rate: { label: "Taux de conversion des opportunités clôturées sur la période", unit: "%", direction: "up", auto: true },
 };
 
 /** Valeur actuelle d'un objectif, calculée depuis les données métier (montants exprimés en euros). */
@@ -41,9 +47,19 @@ export function goalCurrentValue(goal: Goal, data: AppData, today: ISODate, summ
     case "billed_revenue":
       return billedRevenue(sums(), period) / 100;
     case "active_clients":
-      return data.clients.filter((c) => c.status === "active").length;
+      return data.clients.filter((c) => c.relation === "customer" && c.status === "active").length;
     case "new_leads":
-      return data.leads.filter((l) => inPeriod(l.createdAt, period)).length;
+      return data.contacts.filter((c) => inPeriod(c.createdAt, period) && (c.relation === "prospect" || data.opportunities.some((o) => o.contactId === c.id))).length;
+    case "missions_done":
+      return data.tasks.filter((t) => t.type !== "internal" && t.status === "done" && inPeriod(t.completedAt, period)).length;
+    case "interactions_logged":
+      return data.salesActivities.filter((a) => a.done && a.type !== "stage_change" && a.type !== "task_done" && inPeriod(a.date, period)).length;
+    case "overdue_followups":
+      return data.tasks.filter((t) => t.type !== "internal" && t.status !== "done" && t.status !== "cancelled" && !!t.dueDate && t.dueDate < today).length;
+    case "pipeline_value":
+      return pipelineValue(data.opportunities) / 100;
+    case "conversion_rate":
+      return Math.round((conversionRate(data.opportunities, period) ?? 0) * 10) / 10;
     case "new_subscriptions":
       return data.subscriptions.filter((s) => inPeriod(s.startDate, period)).length;
   }

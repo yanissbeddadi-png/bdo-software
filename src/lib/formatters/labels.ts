@@ -10,7 +10,6 @@ import type {
   ProjectStatus,
   QuoteStatus,
   Role,
-  SalesActivityType,
   SkillKey,
   SubscriptionStatus,
   TaskComplexity,
@@ -113,14 +112,7 @@ export const GOAL_TYPE: Record<GoalType, string> = {
   team: "Équipe",
 };
 
-export const ACTIVITY_TYPE: Record<SalesActivityType, string> = {
-  call: "Appel",
-  email: "E-mail",
-  meeting: "Réunion",
-  demo: "Démonstration",
-  followup: "Relance",
-  note: "Note",
-};
+export { ACTIVITY_TYPE } from "@/lib/crm/model";
 
 export const PAYMENT_METHOD: Record<PaymentMethod, string> = {
   transfer: "Virement",

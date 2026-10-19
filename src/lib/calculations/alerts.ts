@@ -26,7 +26,14 @@ export type AlertKind =
   | "dependency"
   | "vat_declaration"
   | "vat_payment"
-  | "refund_due";
+  | "refund_due"
+  /* Automatisations CRM (lib/crm/automations.ts) */
+  | "crm_overdue"
+  | "crm_proposal"
+  | "crm_new_prospect"
+  | "crm_inactive"
+  | "crm_meeting_today"
+  | "crm_stale";
 
 export interface Alert {
   /** Clé de déduplication stable. */
@@ -60,6 +67,12 @@ export const ALERT_KIND_LABELS: Record<AlertKind, string> = {
   vat_declaration: "Déclaration de TVA",
   vat_payment: "Paiement de TVA",
   refund_due: "Remboursement client",
+  crm_overdue: "Relances en retard",
+  crm_proposal: "Proposition sans réponse",
+  crm_new_prospect: "Nouveau prospect à traiter",
+  crm_inactive: "Client inactif",
+  crm_meeting_today: "Rendez-vous du jour",
+  crm_stale: "Opportunité sans interaction",
 };
 
 const SEVERITY_WEIGHT: Record<AlertSeverity, number> = { danger: 300, warning: 200, info: 100 };

@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
 import { Database, Download, FileJson, Plus, RotateCcw, Save, ShieldAlert, Trash2, Upload } from "lucide-react";
-import type { CompanySettings, Role, RuleSettings, XpRuleKey } from "@/lib/domain/types";
+import type { CompanySettings, CrmSettings, Role, RuleSettings, XpRuleKey } from "@/lib/domain/types";
+import Link from "next/link";
 import { useCommand, useData } from "@/lib/store/hooks";
 import { useAppStore, repositoryKind } from "@/lib/store/app-store";
 import { useParam, useSyncedState } from "@/lib/store/params";
@@ -30,12 +31,20 @@ const XP_LABELS: Record<XpRuleKey, string> = {
   task_simple: "Tâche simple terminée",
   task_standard: "Tâche standard terminée",
   task_complex: "Tâche complexe terminée",
-  mission_daily: "Mission quotidienne terminée",
+  mission_daily: "Défi quotidien relevé",
   goal_intermediate: "Objectif à 50 %",
   goal_major: "Objectif atteint",
   project_done: "Projet terminé",
   client_validated: "Nouveau client validé (1re facture payée ou contrat actif)",
-  opportunity_won: "Opportunité gagnée",
+  opportunity_won: "Conversion : opportunité gagnée (une fois par opportunité)",
+  crm_prospect_qualified: "Prospect qualifié",
+  crm_contact_completed: "Fiche contact complète (entreprise, fonction, e-mail, téléphone)",
+  crm_call_logged: "Appel consigné",
+  crm_followup_done: "Relance planifiée réalisée",
+  crm_mission_done: "Mission CRM terminée",
+  crm_meeting_report: "Rendez-vous réalisé avec compte rendu",
+  crm_opportunity_qualified: "Opportunité qualifiée (passage en discussion)",
+  crm_week_on_track: "Semaine avec tous les suivis à jour",
   invoice_paid: "Facture payée intégralement (hors abonnements)",
   achievement_common: "Succès commun",
   achievement_rare: "Succès rare",
@@ -45,12 +54,13 @@ const XP_LABELS: Record<XpRuleKey, string> = {
 
 export function SettingsPage() {
   const tabParam = useParam("tab");
-  const [tab, setTab] = useSyncedState(tabParam ?? "entreprise");
+  const [tab, setTab] = useSyncedState(tabParam ?? "crm");
   return (
     <div className="space-y-6">
-      <PageHeader title="Paramètres" description="Configuration de l'entreprise, des préférences, de la gamification, des règles d'alerte, des données et des rôles." />
+      <PageHeader title="Paramètres" description="Règles du CRM, entreprise, préférences, gamification, données, rôles et accès aux modules historiques." />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
+          <TabsTrigger value="crm">CRM</TabsTrigger>
           <TabsTrigger value="entreprise">Entreprise</TabsTrigger>
           <TabsTrigger value="preferences">Préférences</TabsTrigger>
           <TabsTrigger value="gamification">Gamification et règles</TabsTrigger>
@@ -58,6 +68,9 @@ export function SettingsPage() {
           <TabsTrigger value="roles">Utilisateurs et rôles</TabsTrigger>
           <TabsTrigger value="audit">Journal d&apos;audit</TabsTrigger>
         </TabsList>
+        <TabsContent value="crm">
+          <CrmTab />
+        </TabsContent>
         <TabsContent value="entreprise">
           <CompanyTab />
         </TabsContent>
@@ -77,6 +90,142 @@ export function SettingsPage() {
           <AuditTab />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+const WEEKDAYS = [
+  { value: 1, label: "Lundi" },
+  { value: 2, label: "Mardi" },
+  { value: 3, label: "Mercredi" },
+  { value: 4, label: "Jeudi" },
+  { value: 5, label: "Vendredi" },
+  { value: 6, label: "Samedi" },
+  { value: 0, label: "Dimanche" },
+];
+
+/** Modules conservés hors de la navigation principale (données intactes, toujours utilisables). */
+const LEGACY_MODULES = [
+  { href: "/finances", label: "Finances", hint: "Factures, avoirs, dépenses, trésorerie, TVA, abonnements" },
+  { href: "/crm/devis", label: "Propositions commerciales", hint: "Devis liés aux opportunités" },
+  { href: "/projets", label: "Projets", hint: "Projets clients et livrables" },
+  { href: "/taches", label: "Tâches internes", hint: "Tâches hors CRM (projets, administratif)" },
+  { href: "/equipe", label: "Équipe", hint: "Collaborateurs et charge" },
+  { href: "/catalogue", label: "Produits et services", hint: "Catalogue et tarifs" },
+  { href: "/objectifs", label: "Objectifs", hint: "Objectifs chiffrés suivis automatiquement" },
+  { href: "/analyses", label: "Analyses financières", hint: "Indicateurs financiers historiques" },
+  { href: "/operations", label: "Opérations", hint: "Risques, notes et alertes" },
+  { href: "/notifications", label: "Notifications", hint: "Centre de notifications" },
+  { href: "/bureaux", label: "Bureaux 3D", hint: "Visualisation de l'entreprise" },
+];
+
+function CrmTab() {
+  const data = useData();
+  const run = useCommand();
+  const [c, setC] = React.useState<CrmSettings>(data.settings.crm);
+  const set = <K extends keyof CrmSettings>(k: K, v: CrmSettings[K]) => setC((s) => ({ ...s, [k]: v }));
+  const supabase = externalConnections().supabaseConfigured;
+  return (
+    <div className="grid gap-6 xl:grid-cols-2">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(C.updateCrmSettings, c);
+        }}
+      >
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Règles de suivi et automatisations</CardTitle>
+              <CardDescription>
+                Seuils utilisés par le centre d&apos;action, les notifications et les statistiques. Les automatisations sont locales, déterministes et ne créent jamais deux fois la même alerte.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field label="Contact inactif après (jours)" htmlFor="crm-inactive" help="Aucune interaction depuis ce délai : signalé dans le centre d'action.">
+              <Input id="crm-inactive" type="number" min={1} max={365} value={c.inactivityDays} onChange={(e) => set("inactivityDays", Number(e.target.value))} />
+            </Field>
+            <Field label="Proposition sans réponse après (jours)" htmlFor="crm-proposal">
+              <Input id="crm-proposal" type="number" min={1} max={120} value={c.proposalPendingDays} onChange={(e) => set("proposalPendingDays", Number(e.target.value))} />
+            </Field>
+            <Field label="Prospect « nouveau » pendant (jours)" htmlFor="crm-new" help="Sans interaction : il apparaît dans « Nouveaux prospects à traiter ».">
+              <Input id="crm-new" type="number" min={1} max={60} value={c.newProspectDays} onChange={(e) => set("newProspectDays", Number(e.target.value))} />
+            </Field>
+            <Field label="Appels récompensés par jour (XP)" htmlFor="crm-calls" help="Au-delà, les appels sont consignés sans XP (anti-abus).">
+              <Input id="crm-calls" type="number" min={0} max={100} value={c.dailyCallXpCap} onChange={(e) => set("dailyCallXpCap", Number(e.target.value))} />
+            </Field>
+            <fieldset className="sm:col-span-2">
+              <legend className="mb-2 text-xs font-medium text-muted">Jours ouvrés (séries et semaines rigoureuses)</legend>
+              <div className="flex flex-wrap gap-3">
+                {WEEKDAYS.map((d) => (
+                  <label key={d.value} className="inline-flex cursor-pointer items-center gap-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-[var(--accent)]"
+                      checked={c.workingDays.includes(d.value)}
+                      onChange={(e) => set("workingDays", e.target.checked ? [...c.workingDays, d.value] : c.workingDays.filter((x) => x !== d.value))}
+                    />
+                    {d.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-subtle">Un jour non ouvré n&apos;interrompt jamais une série ; une action ce jour-là compte en bonus.</p>
+            </fieldset>
+            <div className="sm:col-span-2">
+              <Button type="submit" variant="primary">
+                <Save /> Enregistrer
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </form>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Intégrations</CardTitle>
+              <CardDescription>État réel des connexions externes.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {[
+              { label: "Messagerie (envoi / réception d'e-mails)", ok: false },
+              { label: "Agenda externe (Google, Outlook…)", ok: false },
+              { label: "Téléphonie", ok: false },
+              { label: "Base de données Supabase", ok: supabase },
+            ].map((i) => (
+              <div key={i.label} className="flex items-center justify-between gap-2">
+                <span>{i.label}</span>
+                <Badge tone={i.ok ? "success" : "neutral"}>{i.ok ? "Configurée" : "Non configurée"}</Badge>
+              </div>
+            ))}
+            <p className="pt-2 text-[11px] text-subtle">
+              Sans intégration, l&apos;application n&apos;envoie aucun e-mail et ne crée aucun rendez-vous externe : les interactions sont consignées manuellement et les rappels restent internes.
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Modules historiques</CardTitle>
+              <CardDescription>Retirés de la navigation principale, conservés avec toutes leurs données.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-1 sm:grid-cols-2">
+              {LEGACY_MODULES.map((m) => (
+                <li key={m.href}>
+                  <Link href={m.href} className="block rounded-lg px-2 py-1.5 hover:bg-interactive">
+                    <span className="text-sm text-fg">{m.label}</span>
+                    <span className="block text-[11px] text-muted">{m.hint}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -3,12 +3,12 @@ import { execute } from "@/lib/domain/runtime";
 import * as C from "@/lib/domain/commands";
 import { summarizeInvoices } from "@/lib/calculations/invoices";
 import { documentTotals } from "@/lib/calculations/money";
-import { ctx, emptyData, line, NOW, TODAY } from "@/test/fixtures";
+import { client, ctx, CLIENT_INPUT, emptyData, line, OPPORTUNITY_INPUT, TASK_INPUT, TODAY } from "@/test/fixtures";
 import type { AppData } from "@/lib/domain/types";
 
 function base(): AppData {
   const d = emptyData();
-  d.clients = [{ id: "cli_1", name: "NovaTest", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "", documents: [], createdAt: NOW, updatedAt: NOW }];
+  d.clients = [client()];
   return d;
 }
 function ok<R>(res: ReturnType<typeof execute<unknown, R>>) {
@@ -109,104 +109,15 @@ describe("devis", () => {
 });
 
 describe("CRM", () => {
-  it("refuse les doublons évidents de prospects et de clients", () => {
-    const lead = {
-      company: "Acme Industrie",
-      contactName: "Jean Test",
-      email: "jean@acme.example",
-      phone: "",
-      sector: "",
-      source: "Site web",
-      priority: "normal" as const,
-      status: "new" as const,
-      nextAction: "",
-      nextActionDate: null,
-      notes: "",
-    };
-    const a = ok(execute(base(), C.createLead, lead, ctx()));
-    expect(execute(a.data, C.createLead, { ...lead, company: "ACME industrie" }, ctx()).ok).toBe(false);
-    expect(execute(a.data, C.createLead, { ...lead, company: "Autre", email: "JEAN@acme.example" }, ctx()).ok).toBe(false);
-    expect(execute(a.data, C.createLead, { ...lead, company: "novatest", email: "" }, ctx()).ok).toBe(false);
-    expect(execute(base(), C.createClient, { name: "Nova Test", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "" }, ctx()).ok).toBe(false);
-  });
-
-  it("convertit uniquement un prospect qualifié et rattache ses opportunités", () => {
-    let d = base();
-    const l = ok(
-      execute(
-        d,
-        C.createLead,
-        {
-          company: "Helios",
-          contactName: "Margaux Riviere",
-          email: "m@helios.example",
-          phone: "",
-          sector: "Énergie",
-          source: "Salon",
-          priority: "high",
-          status: "new",
-          nextAction: "",
-          nextActionDate: null,
-          notes: "",
-        },
-        ctx(),
-      ),
-    );
-    d = l.data;
-    d = ok(
-      execute(
-        d,
-        C.createOpportunity,
-        {
-          name: "Atelier",
-          clientId: null,
-          leadId: l.result.id,
-          contactId: null,
-          amount: 100_000,
-          probability: 20,
-          stage: "qualification",
-          expectedCloseDate: "2026-12-01",
-          source: "",
-          ownerId: null,
-          nextAction: "",
-          notes: "",
-        },
-        ctx(),
-      ),
-    ).data;
-    expect(execute(d, C.convertLead, { id: l.result.id }, ctx()).ok).toBe(false);
-    d = ok(execute(d, C.updateLead, { id: l.result.id, values: { ...l.result, status: "qualified" } }, ctx())).data;
-    const conv = ok(execute(d, C.convertLead, { id: l.result.id }, ctx()));
-    expect(conv.data.opportunities[0]!.clientId).toBe(conv.result.id);
-    expect(conv.data.contacts.some((c) => c.clientId === conv.result.id && c.isPrimary)).toBe(true);
-    expect(conv.data.leads[0]!.status).toBe("converted");
+  it("refuse une entreprise en doublon évident", () => {
+    expect(execute(base(), C.createClient, { ...CLIENT_INPUT, name: "Nova Test" }, ctx()).ok).toBe(false);
+    expect(execute(base(), C.createClient, { ...CLIENT_INPUT, name: "Autre entreprise" }, ctx()).ok).toBe(true);
   });
 
   it("déplacer une opportunité met à jour probabilité et date de clôture sans créer d'encaissement", () => {
-    let d = base();
-    const o = ok(
-      execute(
-        d,
-        C.createOpportunity,
-        {
-          name: "Deal",
-          clientId: "cli_1",
-          leadId: null,
-          contactId: null,
-          amount: 100_000,
-          probability: 10,
-          stage: "new",
-          expectedCloseDate: "2026-12-01",
-          source: "",
-          ownerId: null,
-          nextAction: "",
-          notes: "",
-        },
-        ctx(),
-      ),
-    );
-    d = ok(execute(o.data, C.moveOpportunity, { id: o.result.id, stage: "negotiation" }, ctx())).data;
-    expect(d.opportunities[0]!.probability).toBe(70);
+    const o = ok(execute(base(), C.createOpportunity, OPPORTUNITY_INPUT, ctx()));
+    let d = ok(execute(o.data, C.moveOpportunity, { id: o.result.id, stage: "negotiation" }, ctx())).data;
+    expect(d.opportunities[0]!.probability).toBe(75);
     d = ok(execute(d, C.moveOpportunity, { id: o.result.id, stage: "won" }, ctx())).data;
     expect(d.opportunities[0]!.closedAt).not.toBeNull();
     expect(d.payments).toHaveLength(0);
@@ -214,21 +125,7 @@ describe("CRM", () => {
 });
 
 describe("tâches et projets", () => {
-  const task = {
-    title: "Revue",
-    description: "",
-    assigneeId: null,
-    priority: "normal" as const,
-    status: "todo" as const,
-    complexity: "simple" as const,
-    dueDate: "2026-10-20",
-    estimateHours: 1,
-    projectId: null,
-    clientId: null,
-    goalId: null,
-    dependsOn: [],
-    recurrence: "weekly" as const,
-  };
+  const task = { ...TASK_INPUT, recurrence: "weekly" as const };
 
   it("une tâche récurrente terminée planifie l'occurrence suivante", () => {
     const t = ok(execute(base(), C.createTask, task, ctx()));
@@ -282,29 +179,8 @@ describe("permissions et validation", () => {
   });
 
   it("autorise la création de tâche au collaborateur mais pas la création de client", () => {
-    expect(
-      execute(
-        base(),
-        C.createTask,
-        {
-          title: "x",
-          description: "",
-          assigneeId: null,
-          priority: "low",
-          status: "todo",
-          complexity: "simple",
-          dueDate: null,
-          estimateHours: 1,
-          projectId: null,
-          clientId: null,
-          goalId: null,
-          dependsOn: [],
-          recurrence: "none",
-        },
-        ctx("collaborateur"),
-      ).ok,
-    ).toBe(true);
-    expect(execute(base(), C.createClient, { name: "Y", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "" }, ctx("collaborateur")).ok).toBe(false);
+    expect(execute(base(), C.createTask, { ...TASK_INPUT, title: "x", priority: "low", dueDate: null }, ctx("collaborateur")).ok).toBe(true);
+    expect(execute(base(), C.createClient, { ...CLIENT_INPUT, name: "Y" }, ctx("collaborateur")).ok).toBe(false);
   });
 
   it("revalide les entrées et renvoie les erreurs par champ", () => {

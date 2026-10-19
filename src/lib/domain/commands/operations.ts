@@ -127,7 +127,7 @@ export const createTask: Command<TaskInput, Task> = (data, input, ctx) => {
   assertCan(ctx, "tasks.write");
   const v = parse(taskSchema, input);
   checkDependencies(data.tasks, null, v.dependsOn);
-  const task: Task = { id: newId("tsk"), ...v, actualHours: 0, comments: [], completedAt: v.status === "done" ? ctx.now : null, createdAt: ctx.now, updatedAt: ctx.now };
+  const task: Task = { id: newId("tsk"), ...v, result: "", actualHours: 0, comments: [], completedAt: v.status === "done" ? ctx.now : null, createdAt: ctx.now, updatedAt: ctx.now };
   let next = { ...data, tasks: [...data.tasks, task] };
   next = activity(next, ctx, "task_created", `Tâche « ${task.title} » créée`, { type: "task", id: task.id });
   return { data: next, result: task, message: "Tâche créée." };

@@ -3,6 +3,8 @@ import { newId } from "@/lib/domain/ids";
 import { summarizeData, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { evaluateGoal } from "@/lib/calculations/goals";
 import { ACHIEVEMENTS, RARITY_XP_RULE, RARITY_LABELS } from "./achievements";
+import { isContactComplete } from "@/lib/crm/views";
+import { rigorousWeeks } from "@/lib/crm/streak";
 import { computeGameMetrics, trackNoLateTasks } from "./metrics";
 import { levelFromXp, titleForLevel } from "./levels";
 import { computeRank, rankName } from "./ranks";
@@ -126,14 +128,97 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
   if (g.enabled) {
     for (const t of data.tasks) {
       if (t.status !== "done" || !t.completedAt) continue;
+      const crm = t.type !== "internal";
+      // Anti-abus : une mission CRM non rattachée à un contact, une entreprise ou une
+      // opportunité ne rapporte rien (pas de missions « vides » pour accumuler des points).
+      if (crm && !t.contactId && !t.clientId && !t.opportunityId) continue;
+      const amount = !crm
+        ? rewards[TASK_RULE[t.complexity]]
+        : t.type === "followup"
+          ? rewards.crm_followup_done
+          : t.type === "meeting" && t.result.trim()
+            ? rewards.crm_meeting_report
+            : rewards.crm_mission_done;
       candidates.push({
         key: `task:${t.id}`,
-        amount: rewards[TASK_RULE[t.complexity]],
-        reason: `Tâche terminée : ${t.title}`,
+        amount,
+        reason: crm ? `Mission terminée : ${t.title}` : `Tâche terminée : ${t.title}`,
         source: "task",
         ref: { type: "task", id: t.id },
         at: t.completedAt,
         capGroup: { name: "task", limit: DAILY_TASK_XP_CAP },
+      });
+    }
+    // Interactions consignées : appels (avec résumé) et comptes rendus de rendez-vous.
+    const meetingTasks = new Set(data.tasks.filter((t) => t.type === "meeting").map((t) => t.id));
+    for (const a of data.salesActivities) {
+      if (!a.done || (!a.contactId && !a.clientId)) continue;
+      const summary = `${a.outcome} ${a.notes}`.trim();
+      if (a.type === "call" && summary.length >= 5)
+        candidates.push({
+          key: `call:${a.id}`,
+          amount: rewards.crm_call_logged,
+          reason: `Appel consigné : ${a.subject}`,
+          source: "interaction",
+          ref: a.contactId ? { type: "contact", id: a.contactId } : { type: "client", id: a.clientId! },
+          at: a.createdAt,
+          capGroup: { name: "call", limit: data.settings.crm.dailyCallXpCap },
+        });
+      if (a.type === "meeting" && a.outcome.trim() && !(a.taskId && meetingTasks.has(a.taskId)))
+        candidates.push({
+          key: `meeting-report:${a.id}`,
+          amount: rewards.crm_meeting_report,
+          reason: `Compte rendu de rendez-vous : ${a.subject}`,
+          source: "interaction",
+          ref: a.contactId ? { type: "contact", id: a.contactId } : { type: "client", id: a.clientId! },
+          at: a.createdAt,
+          capGroup: { name: "meeting", limit: 5 },
+        });
+    }
+    // Fiches contact complètes et prospects qualifiés (une fois par contact).
+    const qualifiedByContact = new Map<string, string>();
+    for (const o of data.opportunities) {
+      if (!o.qualifiedAt) continue;
+      candidates.push({
+        key: `opportunity-qualified:${o.id}`,
+        amount: rewards.crm_opportunity_qualified,
+        reason: `Opportunité qualifiée : ${o.name}`,
+        source: "opportunity",
+        ref: { type: "opportunity", id: o.id },
+        at: o.qualifiedAt,
+      });
+      if (o.contactId && (!qualifiedByContact.has(o.contactId) || o.qualifiedAt < qualifiedByContact.get(o.contactId)!)) qualifiedByContact.set(o.contactId, o.qualifiedAt);
+    }
+    for (const c of data.contacts) {
+      if (!isContactComplete(c)) continue;
+      candidates.push({
+        key: `contact-complete:${c.id}`,
+        amount: rewards.crm_contact_completed,
+        reason: `Fiche contact complète : ${c.firstName} ${c.lastName}`,
+        source: "contact",
+        ref: { type: "contact", id: c.id },
+        at: c.createdAt,
+        capGroup: { name: "contact", limit: 10 },
+      });
+      const qualifiedAt = qualifiedByContact.get(c.id);
+      if (qualifiedAt)
+        candidates.push({
+          key: `prospect-qualified:${c.id}`,
+          amount: rewards.crm_prospect_qualified,
+          reason: `Prospect qualifié : ${c.firstName} ${c.lastName}`,
+          source: "contact",
+          ref: { type: "contact", id: c.id },
+          at: qualifiedAt,
+        });
+    }
+    for (const w of rigorousWeeks(data, today)) {
+      candidates.push({
+        key: `week-on-track:${w.key}`,
+        amount: rewards.crm_week_on_track,
+        reason: `Semaine ${w.key} : toutes les relances faites à temps`,
+        source: "streak",
+        ref: null,
+        at: `${w.end}T18:00:00.000Z`,
       });
     }
     for (const p of data.projects) {
@@ -207,7 +292,7 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
       candidates.push({
         key: `mission:${m.id}`,
         amount: m.xpReward,
-        reason: `Mission terminée : ${m.title}`,
+        reason: `Défi relevé : ${m.title}`,
         source: "mission",
         ref: { type: "mission", id: m.id },
         at: m.completedAt,
@@ -248,7 +333,8 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
   const capUsage = new Map<string, number>();
   const capKey = (group: string, at: string) => `${group}:${at.slice(0, 10)}`;
   for (const x of data.xpTransactions) {
-    const group = x.idempotencyKey.startsWith("task:") ? "task" : x.idempotencyKey.startsWith("invoice:") ? "invoice" : null;
+    const prefix = x.idempotencyKey.split(":")[0];
+    const group = ({ task: "task", invoice: "invoice", call: "call", "meeting-report": "meeting", "contact-complete": "contact" } as Record<string, string>)[prefix ?? ""] ?? null;
     if (group) capUsage.set(capKey(group, x.at), (capUsage.get(capKey(group, x.at)) ?? 0) + 1);
   }
   const customMissionIds = new Set(missions.filter((m) => m.source === "custom").map((m) => `mission:${m.id}`));
@@ -289,9 +375,9 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
   const xpTransactions = [...data.xpTransactions, ...awarded];
 
   for (const m of completedMissions) {
-    log("mission", `mission:${m.id}`, `Mission terminée : ${m.title}`, { type: "mission", id: m.id });
-    notify(`mission:${m.id}`, "Mission accomplie", m.title, { type: "mission", id: m.id });
-    if (!silent) activity.push({ id: newId("act"), at: now, type: "mission_completed", description: `Mission « ${m.title} » validée`, ref: { type: "mission", id: m.id } });
+    log("mission", `mission:${m.id}`, `Défi relevé : ${m.title}`, { type: "mission", id: m.id });
+    notify(`mission:${m.id}`, "Défi relevé", m.title, { type: "mission", id: m.id });
+    if (!silent) activity.push({ id: newId("act"), at: now, type: "mission_completed", description: `Défi « ${m.title} » relevé`, ref: { type: "mission", id: m.id } });
   }
 
   // 6. Niveaux (dérivés de l'XP totale ; seul le dernier niveau annoncé est mémorisé).
@@ -304,7 +390,7 @@ export function reconcileGamification(input: AppData, opts: ReconcileOptions): R
   }
   if (levelUps.length) {
     notify(`level:${level}`, `Niveau ${level} atteint`, `Nouveau titre : ${titleForLevel(level)}`, null);
-    if (!silent) activity.push({ id: newId("act"), at: now, type: "level_up", description: `Le dirigeant passe au niveau ${level}`, ref: null });
+    if (!silent) activity.push({ id: newId("act"), at: now, type: "level_up", description: `Niveau ${level} atteint — ${titleForLevel(level)}`, ref: null });
   }
   g.announcedLevel = Math.max(g.announcedLevel, level);
 

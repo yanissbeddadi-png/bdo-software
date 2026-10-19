@@ -3,12 +3,14 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Dialog as D } from "radix-ui";
-import { Building2, CornerDownLeft, FileText, FolderKanban, Handshake, ListTodo, ReceiptText, Swords, User, UserRound, Search } from "lucide-react";
+import { Building2, CornerDownLeft, FileText, FolderKanban, Handshake, ListTodo, MessagesSquare, NotebookPen, ReceiptText, Swords, User, UserRound, Search } from "lucide-react";
 import { useData } from "@/lib/store/hooks";
 import { useUiStore } from "@/lib/store/ui-store";
 import { NAV } from "./nav";
 import { formatEUR } from "@/lib/formatters";
 import { documentTotals } from "@/lib/calculations/money";
+import { STAGE_LABELS } from "@/lib/calculations/pipeline";
+import { activityLabel } from "@/lib/crm/model";
 
 interface Item {
   id: string;
@@ -18,7 +20,7 @@ interface Item {
   keywords: string;
 }
 
-/** Recherche globale (Ctrl/Cmd + K) : clients, contacts, projets, tâches, factures, devis, opportunités, collaborateurs, missions. */
+/** Recherche globale (Ctrl/Cmd + K) : contacts, entreprises, opportunités, missions, activités, notes, puis modules historiques. Résultats groupés par type. */
 export function SearchCommand() {
   const open = useUiStore((s) => s.searchOpen);
   const setOpen = useUiStore((s) => s.setSearchOpen);
@@ -40,13 +42,10 @@ export function SearchCommand() {
 
   const groups = React.useMemo(() => {
     const clients = new Map(data.clients.map((c) => [c.id, c.name]));
+    const contacts = new Map(data.contacts.map((c) => [c.id, `${c.firstName} ${c.lastName}`]));
+    const ref = (contactId: string | null, clientId: string | null) => [contactId ? contacts.get(contactId) : null, clientId ? clients.get(clientId) : null].filter(Boolean).join(" · ");
+    // Groupes CRM d'abord, puis les modules historiques (toujours accessibles).
     const g: { key: string; label: string; icon: React.ReactNode; items: Item[] }[] = [
-      {
-        key: "clients",
-        label: "Clients",
-        icon: <Building2 />,
-        items: data.clients.map((c) => ({ id: c.id, label: c.name, hint: c.sector, href: `/clients/${c.id}`, keywords: `${c.name} ${c.sector} ${c.city}` })),
-      },
       {
         key: "contacts",
         label: "Contacts",
@@ -54,14 +53,96 @@ export function SearchCommand() {
         items: data.contacts.map((c) => ({
           id: c.id,
           label: `${c.firstName} ${c.lastName}`,
-          hint: c.clientId ? clients.get(c.clientId) : c.jobTitle,
-          href: c.clientId ? `/clients/${c.clientId}?tab=contacts` : "/crm/prospects",
-          keywords: `${c.firstName} ${c.lastName} ${c.email} ${c.jobTitle}`,
+          hint: [c.jobTitle, c.clientId ? clients.get(c.clientId) : null].filter(Boolean).join(" · "),
+          href: `/contacts/${c.id}`,
+          keywords: `${c.firstName} ${c.lastName} ${c.email} ${c.phone} ${c.jobTitle} ${c.clientId ? (clients.get(c.clientId) ?? "") : ""}`,
+        })),
+      },
+      {
+        key: "companies",
+        label: "Entreprises",
+        icon: <Building2 />,
+        items: data.clients.map((c) => ({ id: c.id, label: c.name, hint: c.sector, href: `/entreprises/${c.id}`, keywords: `${c.name} ${c.sector} ${c.city}` })),
+      },
+      {
+        key: "opps",
+        label: "Opportunités",
+        icon: <Handshake />,
+        items: data.opportunities.map((o) => ({
+          id: o.id,
+          label: o.name,
+          hint: `${STAGE_LABELS[o.stage]} · ${formatEUR(o.amount, { round: true })}`,
+          href: `/pipeline?focus=${o.id}`,
+          keywords: `${o.name} ${ref(o.contactId, o.clientId)}`,
+        })),
+      },
+      {
+        key: "missions",
+        label: "Missions",
+        icon: <ListTodo />,
+        items: data.tasks
+          .filter((t) => t.type !== "internal")
+          .map((t) => ({
+            id: t.id,
+            label: t.title,
+            hint: [t.status === "done" ? "Terminée" : (t.dueDate ?? ""), ref(t.contactId, t.clientId)].filter(Boolean).join(" · "),
+            href: `/missions?focus=${t.id}${t.status === "done" ? "&view=done" : ""}`,
+            keywords: `${t.title} ${ref(t.contactId, t.clientId)}`,
+          })),
+      },
+      {
+        key: "activities",
+        label: "Activités",
+        icon: <MessagesSquare />,
+        items: data.salesActivities
+          .filter((a) => a.done && a.type !== "stage_change")
+          .map((a) => ({
+            id: a.id,
+            label: a.subject,
+            hint: `${activityLabel(a)} · ${a.date.slice(0, 10).split("-").reverse().join("/")}`,
+            href: a.contactId ? `/contacts/${a.contactId}?tab=activites` : `/activites?focus=${a.id}`,
+            keywords: `${a.subject} ${a.outcome} ${ref(a.contactId, a.clientId)}`,
+          })),
+      },
+      {
+        key: "notes",
+        label: "Notes",
+        icon: <NotebookPen />,
+        items: data.notes.map((n) => ({
+          id: n.id,
+          label: n.title,
+          hint: ref(n.contactId, n.clientId),
+          href: n.contactId ? `/contacts/${n.contactId}?tab=notes` : n.clientId ? `/entreprises/${n.clientId}?tab=notes` : "/operations?tab=notes",
+          keywords: `${n.title} ${n.body.slice(0, 200)} ${ref(n.contactId, n.clientId)}`,
+        })),
+      },
+      {
+        key: "quotes",
+        label: "Propositions",
+        icon: <FileText />,
+        items: data.quotes.map((q) => ({
+          id: q.id,
+          label: q.number,
+          hint: clients.get(q.clientId),
+          href: `/crm/devis/${q.id}`,
+          keywords: `${q.number} proposition devis ${clients.get(q.clientId) ?? ""}`,
+        })),
+      },
+      {
+        key: "invoices",
+        label: "Factures (module historique)",
+        icon: <ReceiptText />,
+        items: data.invoices.map((i) => ({
+          id: i.id,
+          label: i.number,
+          hint: `${clients.get(i.clientId) ?? ""} · ${formatEUR(documentTotals(i.items).totalTTC)}`,
+          href: `/finances/factures/${i.id}`,
+          keywords: `${i.number} facture ${clients.get(i.clientId) ?? ""}`,
         })),
       },
       {
         key: "projects",
-        label: "Projets",
+        label: "Projets (module historique)",
         icon: <FolderKanban />,
         items: data.projects.map((p) => ({
           id: p.id,
@@ -70,48 +151,6 @@ export function SearchCommand() {
           href: `/projets/${p.id}`,
           keywords: `${p.code} ${p.name} ${clients.get(p.clientId) ?? ""}`,
         })),
-      },
-      {
-        key: "tasks",
-        label: "Tâches",
-        icon: <ListTodo />,
-        items: data.tasks.map((t) => ({ id: t.id, label: t.title, hint: t.status === "done" ? "Terminée" : (t.dueDate ?? ""), href: `/taches?focus=${t.id}`, keywords: t.title })),
-      },
-      {
-        key: "invoices",
-        label: "Factures",
-        icon: <ReceiptText />,
-        items: data.invoices.map((i) => ({
-          id: i.id,
-          label: i.number,
-          hint: `${clients.get(i.clientId) ?? ""} · ${formatEUR(documentTotals(i.items).totalTTC)}`,
-          href: `/finances/factures/${i.id}`,
-          keywords: `${i.number} ${clients.get(i.clientId) ?? ""}`,
-        })),
-      },
-      {
-        key: "credit-notes",
-        label: "Avoirs",
-        icon: <ReceiptText />,
-        items: data.creditNotes.map((c) => ({
-          id: c.id,
-          label: c.number,
-          hint: `${clients.get(c.clientId) ?? ""} · −${formatEUR(documentTotals(c.items).totalTTC)}`,
-          href: `/finances/avoirs/${c.id}`,
-          keywords: `${c.number} avoir ${clients.get(c.clientId) ?? ""} ${c.reason}`,
-        })),
-      },
-      {
-        key: "quotes",
-        label: "Devis",
-        icon: <FileText />,
-        items: data.quotes.map((q) => ({ id: q.id, label: q.number, hint: clients.get(q.clientId), href: `/crm/devis/${q.id}`, keywords: `${q.number} ${clients.get(q.clientId) ?? ""}` })),
-      },
-      {
-        key: "opps",
-        label: "Opportunités",
-        icon: <Handshake />,
-        items: data.opportunities.map((o) => ({ id: o.id, label: o.name, hint: formatEUR(o.amount, { round: true }), href: `/crm?focus=${o.id}`, keywords: o.name })),
       },
       {
         key: "employees",
@@ -126,10 +165,12 @@ export function SearchCommand() {
         })),
       },
       {
-        key: "missions",
-        label: "Missions",
+        key: "challenges",
+        label: "Défis",
         icon: <Swords />,
-        items: data.missions.filter((m) => m.status !== "cancelled").map((m) => ({ id: m.id, label: m.title, hint: `+${m.xpReward} XP`, href: `/missions?focus=${m.id}`, keywords: m.title })),
+        items: data.missions
+          .filter((m) => m.status !== "cancelled")
+          .map((m) => ({ id: m.id, label: m.title, hint: `+${m.xpReward} XP`, href: `/progression?tab=defis&focus=${m.id}`, keywords: m.title })),
       },
     ];
     return g;
@@ -167,7 +208,7 @@ export function SearchCommand() {
               <Command.Input
                 value={query}
                 onValueChange={setQuery}
-                placeholder="Rechercher un client, une facture, un projet…"
+                placeholder="Rechercher un contact, une entreprise, une opportunité, une note…"
                 className="h-12 w-full bg-transparent text-sm text-fg outline-none placeholder:text-subtle"
               />
               <kbd className="hidden rounded border border-border px-1.5 text-[10px] text-subtle sm:inline">Échap</kbd>
@@ -176,14 +217,14 @@ export function SearchCommand() {
               <Command.Empty className="px-4 py-8 text-center text-sm text-muted">
                 <p>Aucun résultat pour « {q} ».</p>
                 <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  <button type="button" className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-interactive" onClick={() => create("prospect")}>
+                    Créer un contact
+                  </button>
                   <button type="button" className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-interactive" onClick={() => create("client")}>
-                    Créer un client
+                    Créer une entreprise
                   </button>
-                  <button type="button" className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-interactive" onClick={() => create("lead")}>
-                    Créer un prospect
-                  </button>
-                  <button type="button" className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-interactive" onClick={() => create("task")}>
-                    Créer une tâche
+                  <button type="button" className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-interactive" onClick={() => create("action")}>
+                    Planifier une mission
                   </button>
                 </div>
               </Command.Empty>

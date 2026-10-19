@@ -24,4 +24,10 @@ for f in supabase/tests/bootstrap.sql supabase/migrations/*.sql supabase/seed.sq
   echo "→ $f"
   $P -d bdo -f "$f" >/dev/null
 done
-echo "Migrations, seed et RLS : OK"
+# Reprise des données legacy par la migration CRM : base séparée, migrations 001-003, données v2, puis 004.
+$P -c "create database bdo_legacy"
+for f in supabase/tests/bootstrap.sql supabase/migrations/2026101500000[123]_*.sql supabase/tests/crm_legacy.sql supabase/migrations/20261015000004_crm.sql supabase/tests/crm_legacy_check.sql; do
+  echo "→ (legacy) $f"
+  $P -d bdo_legacy -f "$f" >/dev/null
+done
+echo "Migrations, seed, RLS et reprise CRM : OK"

@@ -25,20 +25,20 @@ export const THEMES: RewardDefinition[] = [
   { id: "theme-emerald", kind: "theme", name: "Émeraude", description: "Accent vert profond.", unlock: { type: "level", level: 5 }, color: "#34D399" },
   { id: "theme-violet", kind: "theme", name: "Améthyste", description: "Accent violet des stratèges.", unlock: { type: "level", level: 10 }, color: "#A78BFA" },
   { id: "theme-gold", kind: "theme", name: "Or impérial", description: "Accent doré réservé aux dirigeants aguerris.", unlock: { type: "level", level: 20 }, color: "#FBBF24" },
-  { id: "theme-cyan", kind: "theme", name: "Cyan orbital", description: "Débloqué par le succès « Cap des 10 k€ de MRR ».", unlock: { type: "achievement", id: "mrr-10k" }, color: "#22D3EE" },
+  { id: "theme-cyan", kind: "theme", name: "Cyan orbital", description: "Débloqué par le succès « Cinq conversions ».", unlock: { type: "achievement", id: "five-conversions" }, color: "#22D3EE" },
 ];
 
 export const FRAMES: RewardDefinition[] = [
-  { id: "frame-bronze", kind: "frame", name: "Cadre bronze", description: "Premier projet livré.", unlock: { type: "achievement", id: "first-project-done" }, color: "#D97706" },
-  { id: "frame-silver", kind: "frame", name: "Cadre argent", description: "Dix clients actifs.", unlock: { type: "achievement", id: "ten-active-clients" }, color: "#CBD5E1" },
-  { id: "frame-gold", kind: "frame", name: "Cadre or", description: "Gestionnaire rigoureux.", unlock: { type: "achievement", id: "rigorous-manager" }, color: "#FBBF24" },
-  { id: "frame-violet", kind: "frame", name: "Cadre épique", description: "Stratège commercial.", unlock: { type: "achievement", id: "sales-strategist" }, color: "#A78BFA" },
+  { id: "frame-bronze", kind: "frame", name: "Cadre bronze", description: "Premier client gagné.", unlock: { type: "achievement", id: "first-sale" }, color: "#D97706" },
+  { id: "frame-silver", kind: "frame", name: "Cadre argent", description: "Dix missions accomplies.", unlock: { type: "achievement", id: "ten-missions" }, color: "#CBD5E1" },
+  { id: "frame-gold", kind: "frame", name: "Cadre or", description: "Semaine de suivi rigoureux.", unlock: { type: "achievement", id: "rigorous-week" }, color: "#FBBF24" },
+  { id: "frame-violet", kind: "frame", name: "Cadre épique", description: "Série de 14 jours.", unlock: { type: "achievement", id: "streak-14" }, color: "#A78BFA" },
 ];
 
 export const TITLES: RewardDefinition[] = [
   ...LEVEL_TITLES.map((t) => ({ id: `title-${t.level}`, kind: "title" as const, name: t.title, description: `Titre du niveau ${t.level}.`, unlock: { type: "level" as const, level: t.level } })),
-  { id: "title-closer", kind: "title", name: "Closer", description: "Débloqué par « Stratège commercial ».", unlock: { type: "achievement", id: "sales-strategist" } },
-  { id: "title-treasurer", kind: "title", name: "Gardien de la trésorerie", description: "Débloqué par « Trésorerie solide ».", unlock: { type: "achievement", id: "positive-cash-3m" } },
+  { id: "title-closer", kind: "title", name: "Closer", description: "Débloqué par « Cinq conversions ».", unlock: { type: "achievement", id: "five-conversions" } },
+  { id: "title-followup", kind: "title", name: "Maître des relances", description: "Débloqué par « Zéro relance en retard ».", unlock: { type: "achievement", id: "zero-overdue" } },
 ];
 
 /** Bâtiments du siège virtuel, débloqués par le rang de l'entreprise. */

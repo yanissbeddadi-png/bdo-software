@@ -14,10 +14,12 @@ describe("jeu de données de démonstration", () => {
   const d = createSeedData(ANCHOR);
 
   it("respecte les volumes minimaux du cahier des charges", () => {
-    expect(d.clients.length).toBeGreaterThanOrEqual(15);
-    expect(d.contacts.length).toBeGreaterThanOrEqual(20);
-    expect(d.leads.length).toBeGreaterThanOrEqual(12);
-    expect(d.opportunities.length).toBeGreaterThanOrEqual(10);
+    expect(d.clients.length).toBeGreaterThanOrEqual(25);
+    expect(d.contacts.length).toBeGreaterThanOrEqual(30);
+    expect(d.leads).toEqual([]); // entité historique : les prospects sont des contacts
+    expect(d.opportunities.length).toBeGreaterThanOrEqual(20);
+    expect(d.salesActivities.length).toBeGreaterThanOrEqual(80);
+    expect(d.tasks.filter((t) => t.type !== "internal").length).toBeGreaterThanOrEqual(30);
     expect(d.products.length).toBeGreaterThanOrEqual(8);
     expect(d.projects.length).toBeGreaterThanOrEqual(12);
     expect(d.tasks.length).toBeGreaterThanOrEqual(40);
@@ -25,12 +27,31 @@ describe("jeu de données de démonstration", () => {
     expect(d.expenses.length).toBeGreaterThanOrEqual(15);
     expect(d.quotes.length).toBeGreaterThanOrEqual(10);
     expect(d.employees.length).toBeGreaterThanOrEqual(6);
-    expect(d.goals.length).toBeGreaterThanOrEqual(8);
-    expect(d.missions.length).toBeGreaterThanOrEqual(12);
+    expect(d.goals.length).toBeGreaterThanOrEqual(6);
+    expect(d.missions.length).toBeGreaterThanOrEqual(8); // défis (gamification)
     expect(d.achievements.length).toBeGreaterThanOrEqual(10);
     expect(d.activity.length).toBeGreaterThanOrEqual(20);
     expect(d.notifications.length).toBeGreaterThan(1);
     expect(isAppData(d)).toBe(true);
+  });
+
+  it("contient les entreprises de démonstration demandées, dans des états variés", () => {
+    const names = d.clients.map((c) => c.name);
+    for (const n of ["NovaRetail", "HexaLogistics", "GreenPulse", "CloudNest", "Finova Conseil", "Orbis Industrie", "PixelForge", "UrbanFlow", "DataSpring", "LuminaTech"]) expect(names).toContain(n);
+    const relations = new Set(d.clients.map((c) => c.relation));
+    for (const r of ["prospect", "customer", "former", "partner"]) expect(relations.has(r as never)).toBe(true);
+    const stages = new Set(d.opportunities.map((o) => o.stage));
+    for (const s of ["new", "qualify", "discussion", "proposal", "negotiation", "won", "lost"]) expect(stages.has(s as never)).toBe(true);
+    const crm = d.tasks.filter((t) => t.type !== "internal");
+    expect(crm.some((t) => t.status !== "done" && t.status !== "cancelled" && t.dueDate! < ANCHOR)).toBe(true); // en retard
+    expect(crm.some((t) => t.dueDate === ANCHOR && t.status !== "done")).toBe(true); // du jour
+    expect(crm.some((t) => t.status === "done")).toBe(true);
+    // Toutes les références sont valides.
+    const ids = new Set([...d.contacts, ...d.clients, ...d.opportunities].map((x) => x.id));
+    for (const t of crm) for (const ref of [t.contactId, t.clientId, t.opportunityId]) if (ref) expect(ids.has(ref)).toBe(true);
+    for (const a of d.salesActivities) for (const ref of [a.contactId, a.clientId, a.opportunityId]) if (ref) expect(ids.has(ref)).toBe(true);
+    const goals = new Set(d.goals.map((g) => g.id));
+    for (const t of d.tasks) if (t.goalId) expect(goals.has(t.goalId)).toBe(true);
   });
 
   it("est reproductible pour une même date d'ancrage (hors identifiants techniques générés)", () => {

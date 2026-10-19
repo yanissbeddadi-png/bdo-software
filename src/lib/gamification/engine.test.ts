@@ -3,7 +3,7 @@ import { execute, finalize } from "@/lib/domain/runtime";
 import * as C from "@/lib/domain/commands";
 import { totalXp, reconcileGamification } from "./engine";
 import { levelFromXp } from "./levels";
-import { ctx, emptyData, invoice, line, NOW, TODAY } from "@/test/fixtures";
+import { client, ctx, emptyData, invoice, line, NOW, OPPORTUNITY_INPUT, TASK_INPUT, TODAY } from "@/test/fixtures";
 import type { AppData, Task } from "@/lib/domain/types";
 
 function ok<R>(res: ReturnType<typeof execute<unknown, R>>): Extract<typeof res, { ok: true }> {
@@ -11,25 +11,11 @@ function ok<R>(res: ReturnType<typeof execute<unknown, R>>): Extract<typeof res,
   return res;
 }
 
-const taskInput = (title: string, complexity: Task["complexity"] = "standard") => ({
-  title,
-  description: "",
-  assigneeId: null,
-  priority: "normal" as const,
-  status: "todo" as const,
-  complexity,
-  dueDate: "2026-10-20",
-  estimateHours: 2,
-  projectId: null,
-  clientId: null,
-  goalId: null,
-  dependsOn: [],
-  recurrence: "none" as const,
-});
+const taskInput = (title: string, complexity: Task["complexity"] = "standard") => ({ ...TASK_INPUT, title, complexity, estimateHours: 2 });
 
 function withClient(): AppData {
   const d = emptyData();
-  d.clients = [{ id: "cli_1", name: "Client Test", sector: "", status: "active", city: "", website: "", satisfaction: 4, notes: "", documents: [], createdAt: NOW, updatedAt: NOW }];
+  d.clients = [client({ name: "Client Test", satisfaction: 4 })];
   return d;
 }
 
@@ -94,27 +80,7 @@ describe("attribution d'XP", () => {
 
   it("une opportunité gagnée, perdue puis regagnée n'est récompensée qu'une fois", () => {
     let d = withClient();
-    const o = ok(
-      execute(
-        d,
-        C.createOpportunity,
-        {
-          name: "Deal",
-          clientId: "cli_1",
-          leadId: null,
-          contactId: null,
-          amount: 1_000_000,
-          probability: 50,
-          stage: "proposal",
-          expectedCloseDate: "2026-11-01",
-          source: "",
-          ownerId: null,
-          nextAction: "",
-          notes: "",
-        },
-        ctx(),
-      ),
-    );
+    const o = ok(execute(d, C.createOpportunity, { ...OPPORTUNITY_INPUT, amount: 1_000_000, probability: 50, stage: "proposal", expectedCloseDate: "2026-11-01" }, ctx()));
     d = o.data;
     const won = ok(execute(d, C.moveOpportunity, { id: o.result.id, stage: "won" }, ctx()));
     expect(won.awarded.some((x) => x.idempotencyKey === `opportunity:${o.result.id}`)).toBe(true);
@@ -139,33 +105,68 @@ describe("niveaux, succès, missions, objectifs", () => {
   });
 
   it("débloque un succès selon sa condition, une seule fois", () => {
-    const res = ok(execute(emptyData(), C.createClient, { name: "Premier", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "" }, ctx()));
-    expect(res.unlockedAchievements).toContain("first-client");
-    expect(res.awarded.find((x) => x.idempotencyKey === "achievement:first-client")?.amount).toBe(50);
-    const again = ok(execute(res.data, C.createClient, { name: "Second", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "" }, ctx()));
-    expect(again.unlockedAchievements).not.toContain("first-client");
+    const prospect = (firstName: string) => ({
+      firstName,
+      lastName: "Test",
+      jobTitle: "",
+      email: "",
+      phone: "",
+      clientId: null,
+      newCompanyName: `Société ${firstName}`,
+      source: "Salon",
+      ownerId: null,
+      relation: "prospect" as const,
+      priority: "normal" as const,
+      stage: null,
+      opportunityName: "",
+      amount: 0,
+      notes: "",
+      nextAction: null,
+      confirmDuplicate: false,
+    });
+    const res = ok(execute(emptyData(), C.createProspect, prospect("Premier"), ctx()));
+    expect(res.unlockedAchievements).toContain("first-prospect");
+    expect(res.awarded.some((x) => x.idempotencyKey === "achievement:first-prospect")).toBe(true);
+    const again = ok(execute(res.data, C.createProspect, prospect("Second"), ctx()));
+    expect(again.unlockedAchievements).not.toContain("first-prospect");
   });
 
-  it("génère des missions automatiques idempotentes et les termine quand la condition est remplie", () => {
+  it("génère un défi idempotent pour une opportunité inactive et le valide à la prochaine interaction", () => {
     let d = withClient();
-    d.invoices = [invoice({ id: "inv_late", issueDate: "2026-08-01", dueDate: "2026-09-01" })];
+    const o = ok(execute(d, C.createOpportunity, OPPORTUNITY_INPUT, ctx()));
+    d = { ...o.data, opportunities: o.data.opportunities.map((x) => ({ ...x, lastInteractionAt: "2026-08-01T10:00:00.000Z" })) };
     d = finalize(d, { now: NOW, today: TODAY }).data;
-    const relance = d.missions.filter((m) => m.autoKey === "relance:inv_late");
-    expect(relance).toHaveLength(1);
+    const key = `opportunite:${o.result.id}:2026-08-01`;
+    expect(d.missions.filter((m) => m.autoKey === key)).toHaveLength(1);
     d = finalize(d, { now: NOW, today: TODAY }).data;
-    expect(d.missions.filter((m) => m.autoKey === "relance:inv_late")).toHaveLength(1);
-    const res = ok(execute(d, C.logInvoiceFollowUp, { invoiceId: "inv_late", notes: "Appel" }, ctx()));
-    const m = res.data.missions.find((x) => x.autoKey === "relance:inv_late")!;
+    expect(d.missions.filter((m) => m.autoKey === key)).toHaveLength(1);
+    const m0 = d.missions.find((x) => x.autoKey === key)!;
+    expect(execute(d, C.setMissionStatus, { id: m0.id, status: "done" }, ctx()).ok).toBe(false);
+    const res = ok(
+      execute(
+        d,
+        C.logInteraction,
+        {
+          type: "call",
+          direction: "out",
+          date: TODAY,
+          subject: "Point d'étape",
+          notes: "",
+          outcome: "",
+          nextStep: "",
+          contactId: null,
+          clientId: "cli_1",
+          opportunityId: o.result.id,
+          ownerId: null,
+          taskId: null,
+          followUp: null,
+        },
+        ctx(),
+      ),
+    );
+    const m = res.data.missions.find((x) => x.autoKey === key)!;
     expect(m.status).toBe("done");
     expect(res.awarded.some((x) => x.idempotencyKey === `mission:${m.id}`)).toBe(true);
-  });
-
-  it("une mission à condition automatique ne peut pas être validée manuellement", () => {
-    let d = withClient();
-    d.invoices = [invoice({ id: "inv_late", issueDate: "2026-08-01", dueDate: "2026-09-01" })];
-    d = finalize(d, { now: NOW, today: TODAY }).data;
-    const m = d.missions.find((x) => x.autoKey === "relance:inv_late")!;
-    expect(execute(d, C.setMissionStatus, { id: m.id, status: "done" }, ctx()).ok).toBe(false);
   });
 
   it("récompense un objectif à 50 % puis à 100 %, sans doublon", () => {

@@ -2,16 +2,22 @@ import type { Cents, ISODate, Opportunity, OpportunityStage } from "@/lib/domain
 import { daysBetween, inPeriod, type Period } from "./dates";
 import { roundCents } from "./money";
 
-export const STAGES: { id: OpportunityStage; label: string; defaultProbability: number }[] = [
-  { id: "new", label: "Nouveau prospect", defaultProbability: 5 },
-  { id: "contacted", label: "Contact établi", defaultProbability: 10 },
-  { id: "qualification", label: "Qualification", defaultProbability: 20 },
-  { id: "meeting", label: "Rendez-vous", defaultProbability: 35 },
-  { id: "proposal", label: "Proposition envoyée", defaultProbability: 50 },
-  { id: "negotiation", label: "Négociation", defaultProbability: 70 },
-  { id: "won", label: "Gagnée", defaultProbability: 100 },
-  { id: "lost", label: "Perdue", defaultProbability: 0 },
+/**
+ * Étapes commerciales du pipeline (cycle de vente). L'état de suivi (à relancer, en
+ * retard…) est distinct : il est calculé à partir des missions (`lib/crm/follow-up.ts`).
+ */
+export const STAGES: { id: OpportunityStage; label: string; short: string; defaultProbability: number; color: string }[] = [
+  { id: "new", label: "Nouveaux prospects", short: "Nouveau", defaultProbability: 5, color: "#64748b" },
+  { id: "qualify", label: "À qualifier", short: "À qualifier", defaultProbability: 15, color: "#3987e5" },
+  { id: "discussion", label: "En discussion", short: "En discussion", defaultProbability: 35, color: "#9085e9" },
+  { id: "proposal", label: "Proposition envoyée", short: "Proposition", defaultProbability: 55, color: "#c98500" },
+  { id: "negotiation", label: "Négociation", short: "Négociation", defaultProbability: 75, color: "#d95926" },
+  { id: "won", label: "Gagné", short: "Gagné", defaultProbability: 100, color: "#199e70" },
+  { id: "lost", label: "Perdu / archivé", short: "Perdu", defaultProbability: 0, color: "#e66767" },
 ];
+
+/** Étapes à partir desquelles une opportunité est considérée comme qualifiée. */
+export const QUALIFIED_STAGES: OpportunityStage[] = ["discussion", "proposal", "negotiation", "won"];
 
 export const STAGE_LABELS = Object.fromEntries(STAGES.map((s) => [s.id, s.label])) as Record<OpportunityStage, string>;
 
@@ -19,8 +25,9 @@ export function stageIndex(stage: OpportunityStage): number {
   return STAGES.findIndex((s) => s.id === stage);
 }
 
+/** Opportunité active : ni gagnée, ni perdue, ni archivée. */
 export function isOpen(opp: Opportunity): boolean {
-  return opp.stage !== "won" && opp.stage !== "lost";
+  return opp.stage !== "won" && opp.stage !== "lost" && !opp.archivedAt;
 }
 
 /** Valeur brute du pipeline : somme des montants des opportunités ouvertes. */

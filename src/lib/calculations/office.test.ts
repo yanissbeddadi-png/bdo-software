@@ -32,12 +32,12 @@ describe("bureaux virtuels", () => {
     const at = (minute: number, id: string) => officePresence(d, TODAY, minute).find((p) => p.employee.id === id)!;
     expect(at(8 * 60, "emp_camille").activity).toBe("away");
     expect(at(19 * 60, "emp_camille").activity).toBe("away");
-    // Démo Kerys à 10 h (heure de Paris) : Camille en salle de réunion.
-    const demo = at(10 * 60 + 15, "emp_camille");
+    // Rendez-vous planifié à 16 h (mission CRM) : Sacha en salle de réunion.
+    const demo = at(16 * 60 + 15, "emp_sacha");
     expect(demo.activity).toBe("meeting");
     expect(inZone(demo.position, "reunion")).toBe(true);
-    // Appel de Nora à 14 h : reste à son poste.
-    const call = at(14 * 60 + 10, "emp_nora");
+    // Appel planifié à 14 h 30 : Camille reste à son poste.
+    const call = at(14 * 60 + 40, "emp_camille");
     expect(call.activity).toBe("call");
     expect(call.position).toEqual(call.desk);
     // Chacun déjeune une heure entre 12 h et 14 h, dans l'espace détente.

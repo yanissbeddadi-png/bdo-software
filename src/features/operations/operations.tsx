@@ -15,7 +15,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MonthCalendar, LegendDot, type CalendarEvent } from "@/components/shared/calendar";
 import { AlertCard } from "@/components/dashboard/widgets";
-import { NotesGrid } from "@/features/clients/clients";
+import { NotesGrid } from "@/components/crm/notes-grid";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

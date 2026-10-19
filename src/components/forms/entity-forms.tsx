@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import type { Client, Contact, Employee, Expense, Goal, Invoice, Lead, Note, Opportunity, Product, Project, Quote, Subscription, Task } from "@/lib/domain/types";
+import type { Client, Contact, Employee, Expense, Goal, Invoice, Note, Opportunity, Product, Project, Quote, Subscription, Task } from "@/lib/domain/types";
 import * as C from "@/lib/domain/commands";
 import * as S from "@/lib/validation/schemas";
 import { EntityForm, type FieldConfig } from "./entity-form";
@@ -11,25 +11,12 @@ import { EXPENSE_CATEGORY_LABELS, PRODUCT_TYPE_LABELS } from "@/lib/calculations
 import { creditableAmount } from "@/lib/calculations/invoices";
 import { GOAL_METRICS } from "@/lib/calculations/goals";
 import { MISSION_CATEGORY_LABELS, MISSION_DIFFICULTY_LABELS, MISSION_TYPE_LABELS } from "@/lib/gamification/missions";
-import {
-  ACTIVITY_TYPE,
-  BILLING_MODE,
-  CLIENT_STATUS,
-  COMPLEXITY,
-  DEPARTMENT,
-  GOAL_TYPE,
-  LEAD_STATUS,
-  options,
-  PAYMENT_METHOD,
-  PRIORITY,
-  PROJECT_STATUS,
-  SKILL,
-  SUBSCRIPTION_STATUS,
-  TASK_STATUS,
-} from "@/lib/formatters/labels";
+import { BILLING_MODE, CLIENT_STATUS, COMPLEXITY, DEPARTMENT, GOAL_TYPE, options, PAYMENT_METHOD, PRIORITY, PROJECT_STATUS, SKILL, SUBSCRIPTION_STATUS, TASK_STATUS } from "@/lib/formatters/labels";
 import { formatEUR } from "@/lib/formatters";
 import { newId } from "@/lib/domain/ids";
-import { NativeSelect } from "@/components/ui/input";
+import { Input, NativeSelect } from "@/components/ui/input";
+import { z } from "zod";
+import { COMPANY_SIZES, RELATION, SOURCES, TASK_TYPE_LABEL } from "@/lib/crm/model";
 
 type Done<T> = (result: T) => void;
 interface FormProps<E, R = E> {
@@ -50,7 +37,7 @@ function useOptions() {
         .map((c) => ({ value: c.id, label: c.name })),
       employees: data.employees.filter((e) => e.status !== "left").map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })),
       projects: data.projects.filter((p) => p.status !== "cancelled").map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })),
-      leads: data.leads.filter((l) => l.status !== "converted").map((l) => ({ value: l.id, label: l.company })),
+      contacts: data.contacts.filter((c) => !c.archivedAt).map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` })),
       opportunities: data.opportunities.map((o) => ({ value: o.id, label: o.name })),
       products: data.products.filter((p) => p.status === "active").map((p) => ({ value: p.id, label: p.name })),
       goals: data.goals.filter((g) => !g.archived).map((g) => ({ value: g.id, label: g.title })),
@@ -66,28 +53,60 @@ function pick<T>(defaults: Record<string, unknown> | undefined, key: string, fal
 
 /* ----------------------------- Client ----------------------------- */
 
-export function ClientForm({ entity, onDone, onCancel }: FormProps<Client>) {
+export function ClientForm({ entity, defaults, onDone, onCancel }: FormProps<Client>) {
   const run = useCommand();
+  const o = useOptions();
   const fields: FieldConfig<S.ClientInput>[] = [
-    { name: "name", label: "Nom", type: "text", span: 2 },
+    { name: "name", label: "Raison sociale", type: "text", span: 2 },
+    { name: "relation", label: "Relation", type: "select", options: options(RELATION) },
+    { name: "status", label: "Statut du compte", type: "select", options: options(CLIENT_STATUS) },
     { name: "sector", label: "Secteur", type: "text" },
+    { name: "size", label: "Taille", type: "select", nullable: true, options: COMPANY_SIZES.map((v) => ({ value: v, label: `${v} salariés` })) },
     { name: "city", label: "Ville", type: "text" },
-    { name: "status", label: "Statut", type: "select", options: options(CLIENT_STATUS) },
+    { name: "country", label: "Pays", type: "text" },
+    { name: "website", label: "Site web", type: "text", placeholder: "https://…" },
+    { name: "source", label: "Source", type: "select", options: SOURCES.map((v) => ({ value: v, label: v })) },
+    { name: "ownerId", label: "Responsable", type: "select", nullable: true, options: o.employees },
     { name: "satisfaction", label: "Satisfaction (1–5)", type: "rating" },
-    { name: "website", label: "Site web", type: "text", span: 2, placeholder: "https://…" },
     { name: "notes", label: "Notes", type: "textarea" },
   ];
   return (
     <EntityForm<S.ClientInput>
-      schema={S.clientSchema}
+      schema={S.clientSchema.extend({ size: S.clientSchema.shape.size.nullable().transform((v) => v ?? "") })}
       defaultValues={
         entity
-          ? { name: entity.name, sector: entity.sector, status: entity.status, city: entity.city, website: entity.website, satisfaction: entity.satisfaction, notes: entity.notes }
-          : { name: "", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "" }
+          ? {
+              name: entity.name,
+              sector: entity.sector,
+              status: entity.status,
+              relation: entity.relation,
+              size: entity.size,
+              city: entity.city,
+              country: entity.country,
+              website: entity.website,
+              ownerId: entity.ownerId,
+              source: entity.source,
+              satisfaction: entity.satisfaction,
+              notes: entity.notes,
+            }
+          : {
+              name: "",
+              sector: "",
+              status: "active",
+              relation: pick(defaults, "relation", "prospect"),
+              size: "",
+              city: "",
+              country: "France",
+              website: "",
+              ownerId: null,
+              source: "Site web",
+              satisfaction: null,
+              notes: "",
+            }
       }
       fields={fields}
       onCancel={onCancel}
-      submitLabel={entity ? "Enregistrer" : "Créer le client"}
+      submitLabel={entity ? "Enregistrer" : "Créer l'entreprise"}
       onSubmit={(values) => {
         const res = entity ? run(C.updateClient, { id: entity.id, values }) : run(C.createClient, values);
         if (res.ok) onDone(res.result);
@@ -99,105 +118,74 @@ export function ClientForm({ entity, onDone, onCancel }: FormProps<Client>) {
 
 /* ----------------------------- Contact ----------------------------- */
 
+/** Modification d'un contact (la création passe par `ProspectForm`, avec détection des doublons). */
 export function ContactForm({ entity, defaults, onDone, onCancel }: FormProps<Contact>) {
   const run = useCommand();
   const o = useOptions();
-  const fields: FieldConfig<S.ContactInput>[] = [
+  const [duplicate, setDuplicate] = React.useState<string | null>(null);
+  const fields: FieldConfig<S.ContactInput & { confirmDuplicate: boolean }>[] = [
     { name: "firstName", label: "Prénom", type: "text" },
     { name: "lastName", label: "Nom", type: "text" },
     { name: "jobTitle", label: "Fonction", type: "text" },
-    { name: "clientId", label: "Client", type: "select", nullable: true, options: o.clients },
+    { name: "clientId", label: "Entreprise", type: "select", nullable: true, options: o.clients },
     { name: "email", label: "E-mail", type: "email", placeholder: "prenom.nom@exemple.example" },
     { name: "phone", label: "Téléphone", type: "text" },
-    { name: "isPrimary", label: "Contact principal", type: "switch" },
-    { name: "leadId", label: "Prospect", type: "select", nullable: true, options: o.leads },
+    { name: "relation", label: "Statut de relation", type: "select", options: options(RELATION) },
+    { name: "priority", label: "Priorité", type: "select", options: options(PRIORITY) },
+    { name: "source", label: "Source", type: "select", options: SOURCES.map((v) => ({ value: v, label: v })) },
+    { name: "ownerId", label: "Responsable", type: "select", nullable: true, options: o.employees },
+    { name: "isPrimary", label: "Contact principal de l'entreprise", type: "switch" },
     { name: "notes", label: "Notes", type: "textarea" },
+    { name: "confirmDuplicate", label: "Enregistrer malgré le doublon", type: "switch", hidden: !duplicate, span: 2 },
   ];
   return (
-    <EntityForm<S.ContactInput>
-      schema={S.contactSchema}
+    <EntityForm<S.ContactInput & { confirmDuplicate: boolean }>
+      schema={S.contactSchema.extend({ confirmDuplicate: z.boolean() })}
       defaultValues={
         entity
           ? {
               clientId: entity.clientId,
-              leadId: entity.leadId,
               firstName: entity.firstName,
               lastName: entity.lastName,
               jobTitle: entity.jobTitle,
               email: entity.email,
               phone: entity.phone,
+              relation: entity.relation,
+              priority: entity.priority,
+              source: entity.source,
+              ownerId: entity.ownerId,
               isPrimary: entity.isPrimary,
               notes: entity.notes,
-            }
-          : { clientId: pick(defaults, "clientId", null), leadId: pick(defaults, "leadId", null), firstName: "", lastName: "", jobTitle: "", email: "", phone: "", isPrimary: false, notes: "" }
-      }
-      fields={fields}
-      onCancel={onCancel}
-      onSubmit={(values) => {
-        const res = entity ? run(C.updateContact, { id: entity.id, values }) : run(C.createContact, values);
-        if (res.ok) onDone(res.result);
-        return res;
-      }}
-    />
-  );
-}
-
-/* ----------------------------- Prospect ----------------------------- */
-
-export function LeadForm({ entity, onDone, onCancel }: FormProps<Lead>) {
-  const run = useCommand();
-  const today = useToday();
-  const statusOptions = options(LEAD_STATUS).filter((s) => s.value !== "converted" || entity?.status === "converted");
-  const fields: FieldConfig<S.LeadInput>[] = [
-    { name: "company", label: "Entreprise", type: "text" },
-    { name: "contactName", label: "Contact", type: "text" },
-    { name: "email", label: "E-mail", type: "email" },
-    { name: "phone", label: "Téléphone", type: "text" },
-    { name: "sector", label: "Secteur", type: "text" },
-    { name: "source", label: "Source", type: "select", options: ["Site web", "Salon", "Recommandation", "LinkedIn", "Partenaire", "Appel entrant", "Autre"].map((v) => ({ value: v, label: v })) },
-    { name: "priority", label: "Priorité", type: "select", options: options(PRIORITY) },
-    { name: "status", label: "Statut", type: "select", options: statusOptions },
-    { name: "nextAction", label: "Prochaine action", type: "text" },
-    { name: "nextActionDate", label: "Date de relance", type: "date", nullable: true },
-    { name: "notes", label: "Notes", type: "textarea" },
-  ];
-  return (
-    <EntityForm<S.LeadInput>
-      schema={S.leadSchema}
-      defaultValues={
-        entity
-          ? {
-              company: entity.company,
-              contactName: entity.contactName,
-              email: entity.email,
-              phone: entity.phone,
-              sector: entity.sector,
-              source: entity.source,
-              priority: entity.priority,
-              status: entity.status,
-              nextAction: entity.nextAction,
-              nextActionDate: entity.nextActionDate,
-              notes: entity.notes,
+              confirmDuplicate: false,
             }
           : {
-              company: "",
-              contactName: "",
+              clientId: pick(defaults, "clientId", null),
+              firstName: "",
+              lastName: "",
+              jobTitle: "",
               email: "",
               phone: "",
-              sector: "",
-              source: "Site web",
+              relation: pick(defaults, "relation", "prospect"),
               priority: "normal",
-              status: "new",
-              nextAction: "Premier appel de découverte",
-              nextActionDate: addDays(today, 2),
+              source: "Site web",
+              ownerId: null,
+              isPrimary: false,
               notes: "",
+              confirmDuplicate: false,
             }
       }
       fields={fields}
+      notice={
+        duplicate ? (
+          <p role="alert" className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-warning sm:col-span-2">
+            Doublon probable : {duplicate} Aucune fusion automatique n&apos;est effectuée.
+          </p>
+        ) : null
+      }
       onCancel={onCancel}
-      submitLabel={entity ? "Enregistrer" : "Créer le prospect"}
-      onSubmit={(values) => {
-        const res = entity ? run(C.updateLead, { id: entity.id, values }) : run(C.createLead, values);
+      onSubmit={({ confirmDuplicate, ...values }) => {
+        const res = entity ? run(C.updateContact, { id: entity.id, values, confirmDuplicate }) : run(C.createContact, { ...values, confirmDuplicate });
+        if (!res.ok && res.fieldErrors.duplicate) setDuplicate(res.error);
         if (res.ok) onDone(res.result);
         return res;
       }}
@@ -210,12 +198,13 @@ export function LeadForm({ entity, onDone, onCancel }: FormProps<Lead>) {
 export function OpportunityForm({ entity, defaults, onDone, onCancel }: FormProps<Opportunity>) {
   const run = useCommand();
   const o = useOptions();
+  const data = useData();
   const today = useToday();
   const fields: FieldConfig<S.OpportunityInput>[] = [
     { name: "name", label: "Nom de l'opportunité", type: "text", span: 2 },
-    { name: "clientId", label: "Client", type: "select", nullable: true, options: o.clients },
-    { name: "leadId", label: "ou prospect", type: "select", nullable: true, options: o.leads },
-    { name: "amount", label: "Montant estimé HT", type: "money" },
+    { name: "clientId", label: "Entreprise", type: "select", nullable: true, options: o.clients },
+    { name: "contactId", label: "Contact principal", type: "select", nullable: true, options: o.contacts },
+    { name: "amount", label: "Valeur estimée HT", type: "money" },
     { name: "probability", label: "Probabilité (%)", type: "number", min: 0, max: 100 },
     { name: "stage", label: "Étape", type: "select", options: STAGES.map((s) => ({ value: s.id, label: s.label })) },
     { name: "expectedCloseDate", label: "Clôture estimée", type: "date" },
@@ -223,10 +212,10 @@ export function OpportunityForm({ entity, defaults, onDone, onCancel }: FormProp
       name: "source",
       label: "Source",
       type: "select",
-      options: ["Site web", "Salon", "Recommandation", "LinkedIn", "Partenaire", "Client existant", "Appel entrant"].map((v) => ({ value: v, label: v })),
+      options: SOURCES.map((v) => ({ value: v, label: v })),
     },
-    { name: "ownerId", label: "Commercial responsable", type: "select", nullable: true, options: o.employees },
-    { name: "nextAction", label: "Prochaine action", type: "text", span: 2 },
+    { name: "ownerId", label: "Responsable", type: "select", nullable: true, options: o.employees },
+    { name: "priority", label: "Priorité", type: "select", options: options(PRIORITY) },
     { name: "notes", label: "Notes", type: "textarea" },
   ];
   return (
@@ -245,20 +234,22 @@ export function OpportunityForm({ entity, defaults, onDone, onCancel }: FormProp
               expectedCloseDate: entity.expectedCloseDate,
               source: entity.source,
               ownerId: entity.ownerId,
+              priority: entity.priority,
               nextAction: entity.nextAction,
               notes: entity.notes,
             }
           : {
               name: "",
               clientId: pick(defaults, "clientId", null),
-              leadId: pick(defaults, "leadId", null),
-              contactId: null,
+              leadId: null,
+              contactId: pick(defaults, "contactId", null),
               amount: 0,
-              probability: 10,
-              stage: "new",
+              probability: 5,
+              stage: pick(defaults, "stage", "new"),
               expectedCloseDate: addDays(today, 45),
               source: "Site web",
-              ownerId: "emp_camille",
+              ownerId: data.settings.user.employeeId ?? null,
+              priority: "normal",
               nextAction: "",
               notes: "",
             }
@@ -268,50 +259,6 @@ export function OpportunityForm({ entity, defaults, onDone, onCancel }: FormProp
       submitLabel={entity ? "Enregistrer" : "Créer l'opportunité"}
       onSubmit={(values) => {
         const res = entity ? run(C.updateOpportunity, { id: entity.id, values }) : run(C.createOpportunity, values);
-        if (res.ok) onDone(res.result);
-        return res;
-      }}
-    />
-  );
-}
-
-/* ----------------------------- Activité commerciale ----------------------------- */
-
-export function ActivityForm({ defaults, onDone, onCancel }: FormProps<unknown>) {
-  const run = useCommand();
-  const o = useOptions();
-  const today = useToday();
-  const fields: FieldConfig<S.SalesActivityInput>[] = [
-    { name: "type", label: "Type", type: "select", options: options(ACTIVITY_TYPE) },
-    { name: "date", label: "Date", type: "date" },
-    { name: "subject", label: "Objet", type: "text", span: 2 },
-    { name: "clientId", label: "Client", type: "select", nullable: true, options: o.clients },
-    { name: "leadId", label: "Prospect", type: "select", nullable: true, options: o.leads },
-    { name: "opportunityId", label: "Opportunité", type: "select", nullable: true, options: o.opportunities },
-    { name: "done", label: "Déjà réalisée", type: "switch", help: "Désactivez pour planifier un rappel." },
-    { name: "notes", label: "Compte rendu", type: "textarea" },
-  ];
-  return (
-    <EntityForm<S.SalesActivityInput>
-      schema={S.salesActivitySchema}
-      defaultValues={{
-        type: "call",
-        date: today,
-        subject: "",
-        notes: "",
-        clientId: pick(defaults, "clientId", null),
-        leadId: pick(defaults, "leadId", null),
-        opportunityId: pick(defaults, "opportunityId", null),
-        invoiceId: null,
-        ownerId: null,
-        done: true,
-      }}
-      fields={fields}
-      onCancel={onCancel}
-      submitLabel="Enregistrer l'activité"
-      onSubmit={(values) => {
-        const date = values.date.length === 10 ? `${values.date}T${new Date().toISOString().slice(11)}` : values.date;
-        const res = run(C.logSalesActivity, { ...values, date });
         if (res.ok) onDone(res.result);
         return res;
       }}
@@ -744,8 +691,19 @@ export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>
   const dependencyOptions = data.tasks
     .filter((t) => t.id !== entity?.id && t.status !== "cancelled" && (!entity?.projectId || t.projectId === entity.projectId))
     .map((t) => ({ value: t.id, label: t.title }));
+  const crm = (entity?.type ?? pick(defaults, "type", "internal")) !== "internal";
   const fields: FieldConfig<S.TaskInput>[] = [
     { name: "title", label: "Titre", type: "text", span: 2 },
+    { name: "type", label: "Type", type: "select", options: Object.entries(TASK_TYPE_LABEL).map(([value, label]) => ({ value, label })), hidden: !crm },
+    {
+      name: "dueTime",
+      label: "Heure (HH:mm)",
+      type: "custom",
+      hidden: !crm,
+      render: ({ value, onChange }) => <Input value={(value as string) ?? ""} placeholder="HH:mm" onChange={(e) => onChange(e.target.value || null)} aria-label="Heure" />,
+    },
+    { name: "contactId", label: "Contact", type: "select", nullable: true, options: o.contacts, hidden: !crm },
+    { name: "opportunityId", label: "Opportunité", type: "select", nullable: true, options: o.opportunities, hidden: !crm },
     { name: "assigneeId", label: "Responsable", type: "select", nullable: true, options: o.employees },
     { name: "dueDate", label: "Échéance", type: "date", nullable: true },
     { name: "priority", label: "Priorité", type: "select", options: options(PRIORITY) },
@@ -787,6 +745,10 @@ export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>
               goalId: entity.goalId,
               dependsOn: entity.dependsOn,
               recurrence: entity.recurrence,
+              type: entity.type,
+              contactId: entity.contactId,
+              opportunityId: entity.opportunityId,
+              dueTime: entity.dueTime,
             }
           : {
               title: "",
@@ -802,6 +764,10 @@ export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>
               goalId: null,
               dependsOn: [],
               recurrence: "none",
+              type: pick(defaults, "type", "internal"),
+              contactId: pick(defaults, "contactId", null),
+              opportunityId: pick(defaults, "opportunityId", null),
+              dueTime: null,
             }
       }
       fields={fields}
@@ -1070,7 +1036,9 @@ export function NoteForm({ entity, defaults, onDone, onCancel }: FormProps<Note>
   const o = useOptions();
   const fields: FieldConfig<S.NoteInput>[] = [
     { name: "title", label: "Titre", type: "text", span: 2 },
-    { name: "clientId", label: "Client", type: "select", nullable: true, options: o.clients },
+    { name: "contactId", label: "Contact", type: "select", nullable: true, options: o.contacts },
+    { name: "clientId", label: "Entreprise", type: "select", nullable: true, options: o.clients },
+    { name: "opportunityId", label: "Opportunité", type: "select", nullable: true, options: o.opportunities },
     { name: "projectId", label: "Projet", type: "select", nullable: true, options: o.projects },
     { name: "body", label: "Contenu", type: "textarea" },
   ];
@@ -1079,8 +1047,15 @@ export function NoteForm({ entity, defaults, onDone, onCancel }: FormProps<Note>
       schema={S.noteSchema}
       defaultValues={
         entity
-          ? { title: entity.title, body: entity.body, clientId: entity.clientId, projectId: entity.projectId }
-          : { title: "", body: "", clientId: pick(defaults, "clientId", null), projectId: pick(defaults, "projectId", null) }
+          ? { title: entity.title, body: entity.body, clientId: entity.clientId, projectId: entity.projectId, contactId: entity.contactId, opportunityId: entity.opportunityId }
+          : {
+              title: "",
+              body: "",
+              clientId: pick(defaults, "clientId", null),
+              projectId: pick(defaults, "projectId", null),
+              contactId: pick(defaults, "contactId", null),
+              opportunityId: pick(defaults, "opportunityId", null),
+            }
       }
       fields={fields}
       onCancel={onCancel}

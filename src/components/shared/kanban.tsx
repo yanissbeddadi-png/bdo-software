@@ -20,6 +20,9 @@ export function KanbanBoard<T extends { id: string }, S extends string>({
   onMove,
   renderCard,
   itemLabel,
+  renderHeader,
+  cardClassName,
+  emptyLabel = "Aucun élément",
 }: {
   columns: KanbanColumn<S>[];
   items: T[];
@@ -27,6 +30,10 @@ export function KanbanBoard<T extends { id: string }, S extends string>({
   onMove: (item: T, to: S) => void;
   renderCard: (item: T) => React.ReactNode;
   itemLabel: (item: T) => string;
+  /** En-tête de colonne personnalisé (compteurs, valeurs…). */
+  renderHeader?: (column: KanbanColumn<S>, items: T[]) => React.ReactNode;
+  cardClassName?: (item: T) => string | undefined;
+  emptyLabel?: string;
 }) {
   const [over, setOver] = React.useState<S | null>(null);
   const [dragging, setDragging] = React.useState<string | null>(null);
@@ -54,10 +61,14 @@ export function KanbanBoard<T extends { id: string }, S extends string>({
               }}
               className={cn("flex w-72 shrink-0 flex-col rounded-xl border bg-bg-elevated", over === col.id ? "border-accent bg-accent/5" : "border-border")}
             >
-              <header className="flex items-center justify-between border-b border-border px-3 py-2.5">
-                <h3 className="text-sm font-medium text-fg">{col.label}</h3>
-                <span className="text-xs tabular text-muted">{list.length}</span>
-              </header>
+              {renderHeader ? (
+                renderHeader(col, list)
+              ) : (
+                <header className="flex items-center justify-between border-b border-border px-3 py-2.5">
+                  <h3 className="text-sm font-medium text-fg">{col.label}</h3>
+                  <span className="text-xs tabular text-muted">{list.length}</span>
+                </header>
+              )}
               <div className="flex min-h-24 flex-col gap-2 p-2">
                 {list.map((item) => (
                   <article
@@ -68,7 +79,12 @@ export function KanbanBoard<T extends { id: string }, S extends string>({
                       setDragging(item.id);
                     }}
                     onDragEnd={() => setDragging(null)}
-                    className={cn("cursor-grab rounded-lg border border-border bg-card p-3 shadow-sm hover:border-border-strong active:cursor-grabbing", dragging === item.id && "opacity-50")}
+                    data-card-id={item.id}
+                    className={cn(
+                      "cursor-grab rounded-lg border border-border bg-card p-3 shadow-sm hover:border-border-strong active:cursor-grabbing",
+                      dragging === item.id && "opacity-50",
+                      cardClassName?.(item),
+                    )}
                   >
                     {renderCard(item)}
                     <NativeSelect aria-label={`Déplacer ${itemLabel(item)}`} value={getColumn(item)} onChange={(e) => onMove(item, e.target.value as S)} className="mt-2 h-7 text-[11px]">
@@ -80,7 +96,7 @@ export function KanbanBoard<T extends { id: string }, S extends string>({
                     </NativeSelect>
                   </article>
                 ))}
-                {!list.length ? <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] text-subtle">Aucun élément</p> : null}
+                {!list.length ? <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] text-subtle">{emptyLabel}</p> : null}
               </div>
             </section>
           );

@@ -8,7 +8,7 @@ import { vatPeriods, currentVatEstimate } from "@/lib/calculations/vat";
 import { buildForecast } from "@/lib/calculations/cashflow";
 import { computeAlerts } from "@/lib/calculations/alerts";
 import { migrateData } from "@/lib/database/migrations";
-import { ctx, emptyData, line, NOW, TODAY } from "@/test/fixtures";
+import { ctx, emptyData, line, NOW, TODAY, client } from "@/test/fixtures";
 import type { AppData, Expense } from "@/lib/domain/types";
 
 function ok<R>(res: ReturnType<typeof execute<unknown, R>>): Extract<typeof res, { ok: true }> {
@@ -18,7 +18,7 @@ function ok<R>(res: ReturnType<typeof execute<unknown, R>>): Extract<typeof res,
 
 function base(): AppData {
   const d = emptyData();
-  d.clients = [{ id: "cli_1", name: "NovaTest", sector: "", status: "active", city: "", website: "", satisfaction: null, notes: "", documents: [], createdAt: NOW, updatedAt: NOW }];
+  d.clients = [client()];
   d.settings.company.vatTrackingStart = "2026-08-01";
   d.settings.company.vatDueDay = 24;
   d.settings.company.openingBalance = 1_000_000;
@@ -214,21 +214,16 @@ describe("TVA", () => {
     expect(execute(data, C.declareVatReturn, { period: "2026-08" }, ctx("finance")).ok).toBe(true);
   });
 
-  it("alerte, mission et prévision de trésorerie", () => {
+  it("alerte et prévision de trésorerie", () => {
     const { data } = scenario();
     const alerts = computeAlerts(data, TODAY, summarizeData(data, TODAY));
     expect(alerts.some((a) => a.key === "vat-declare:2026-08")).toBe(true);
     const f = buildForecast(data, TODAY, "central");
     expect(f.items.some((i) => i.kind === "vat" && i.amount === -20_000)).toBe(true);
 
-    const reconciled = finalize(data, { now: NOW, today: TODAY }).data;
-    const mission = reconciled.missions.find((m) => m.autoKey === "tva:2026-08");
-    expect(mission?.status).not.toBe("done");
-    const declared = ok(execute(reconciled, C.declareVatReturn, { period: "2026-08" }, ctx()));
-    expect(declared.data.missions.find((m) => m.id === mission!.id)?.status).toBe("done");
-    expect(declared.awarded.some((x) => x.idempotencyKey === `mission:${mission!.id}`)).toBe(true);
-    // La période suivante devient la nouvelle mission.
-    expect(declared.data.missions.some((m) => m.autoKey === "tva:2026-09")).toBe(true);
+    // Les défis automatiques sont désormais centrés CRM : la TVA reste suivie par les alertes du module Finances.
+    const declared = ok(execute(data, C.declareVatReturn, { period: "2026-08" }, ctx()));
+    expect(computeAlerts(declared.data, TODAY, summarizeData(declared.data, TODAY)).some((a) => a.key === "vat-declare:2026-08")).toBe(false);
   });
 });
 
@@ -244,7 +239,7 @@ describe("migration des données locales", () => {
     delete legacy.settings.company.vatDueDay;
     legacy.settings.demo.version = 1;
     const migrated = migrateData(legacy as unknown as AppData, TODAY);
-    expect(migrated.settings.demo.version).toBe(2);
+    expect(migrated.settings.demo.version).toBe(3);
     expect(migrated.creditNotes).toEqual([]);
     expect(migrated.vatReturns).toEqual([]);
     expect(migrated.sequences.creditNote).toBe(0);

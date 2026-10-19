@@ -3,7 +3,19 @@ const base = process.argv[2] ?? "http://localhost:3100";
 const outDir = process.argv[3] ?? "/tmp/claude-0/shots";
 const routes = [
   "/",
+  "/pipeline",
+  "/contacts",
+  "/contacts/con_novaretail_sophie",
+  "/entreprises",
+  "/entreprises/cli_novaretail",
   "/missions",
+  "/calendrier",
+  "/activites",
+  "/statistiques",
+  "/progression",
+  "/progression?tab=defis",
+  "/parametres",
+  // Modules historiques (hors navigation principale).
   "/bureaux",
   "/finances",
   "/finances/factures",
@@ -12,11 +24,7 @@ const routes = [
   "/finances/tva",
   "/finances/avoirs",
   "/finances/abonnements",
-  "/crm",
-  "/crm/prospects",
   "/crm/devis",
-  "/crm/activites",
-  "/clients",
   "/projets",
   "/taches",
   "/equipe",
@@ -24,9 +32,7 @@ const routes = [
   "/operations",
   "/analyses",
   "/objectifs",
-  "/progression",
   "/notifications",
-  "/parametres",
 ];
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -42,7 +48,7 @@ const ids = await page.evaluate(() => {
   const d = JSON.parse(localStorage.getItem("bdo-software:demo-data:v1"));
   return { inv: d.invoices[5].id, cli: d.clients[0].id, prj: d.projects[5].id, quo: d.quotes[0].id };
 });
-routes.push(`/finances/factures/${ids.inv}`, `/clients/${ids.cli}`, `/projets/${ids.prj}`, `/crm/devis/${ids.quo}`, "/finances/avoirs/cn_001", "/route-inexistante");
+routes.push(`/finances/factures/${ids.inv}`, `/entreprises/${ids.cli}`, `/projets/${ids.prj}`, `/crm/devis/${ids.quo}`, "/finances/avoirs/cn_001", "/route-inexistante");
 for (const r of routes) {
   errors = [];
   await page.goto(base + r, { waitUntil: "networkidle" });

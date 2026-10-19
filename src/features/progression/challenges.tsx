@@ -6,7 +6,7 @@ import { useData, useSummaries, useToday } from "@/lib/store/hooks";
 import { useParam, useSyncedState } from "@/lib/store/params";
 import { useUiStore } from "@/lib/store/ui-store";
 import { evaluateCondition, MISSION_CATEGORY_LABELS, MISSION_TYPE_LABELS, missionStatus, recommendedMissions, PRIORITY_ORDER } from "@/lib/gamification/missions";
-import { PageHeader, SectionTitle } from "@/components/shared/page-header";
+import { SectionTitle } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterBar, useFilters } from "@/components/tables/filter-bar";
@@ -25,8 +25,12 @@ const CONDITION_LABELS: Record<Mission["condition"]["kind"], string> = {
   invoice_paid: "Facture intégralement payée",
   task_done: "Tâche terminée",
   opportunity_touched: "Nouvelle interaction ou changement d'étape",
-  leads_created: "Nombre de prospects créés depuis le début de la semaine",
-  sales_activities_logged: "Activités commerciales réalisées cette semaine",
+  leads_created: "Nombre de contacts prospects créés depuis le début de la période",
+  sales_activities_logged: "Interactions commerciales consignées cette semaine",
+  interactions_logged: "Interactions consignées depuis le début de la période",
+  prospects_qualified: "Prospects qualifiés (opportunité passée « En discussion » ou au-delà)",
+  no_overdue_followups: "Aucune mission CRM en retard",
+  day_actions_done: "Toutes les missions CRM du jour terminées",
   projects_done: "Projets prioritaires terminés",
   mrr_reached: "MRR atteint",
   cash_review: "Revue de trésorerie validée cette semaine",
@@ -34,7 +38,8 @@ const CONDITION_LABELS: Record<Mission["condition"]["kind"], string> = {
   vat_declared: "Déclaration de TVA de la période enregistrée",
 };
 
-export function MissionsPage() {
+/** Défis (gamification) : objectifs courts dérivés des données CRM. Distincts des missions CRM. */
+export function ChallengesPanel() {
   const data = useData();
   const today = useToday();
   const summaries = useSummaries();
@@ -57,23 +62,22 @@ export function MissionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Centre de missions"
-        description="Missions générées automatiquement à partir des données (relances, opportunités inactives, tâches critiques, revue de trésorerie…) et missions personnalisées. Une même situation ne recrée jamais la même mission."
-        actions={
-          <Button variant="primary" onClick={() => openCreate("mission")}>
-            <Plus /> Mission personnalisée
-          </Button>
-        }
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <p className="max-w-3xl text-sm text-muted">
+          Défis générés à partir de vos données CRM (journée de suivi, prospection, qualification, zéro relance en retard…) et défis personnalisés. Une même situation ne recrée jamais le même défi.
+        </p>
+        <Button variant="primary" onClick={() => openCreate("challenge")}>
+          <Plus /> Défi personnalisé
+        </Button>
+      </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="Missions actives" value={data.missions.filter((m) => m.status === "todo" || m.status === "in_progress").length} />
+        <MetricCard label="Défis actifs" value={data.missions.filter((m) => m.status === "todo" || m.status === "in_progress").length} />
         <MetricCard label="En retard" value={data.missions.filter((m) => missionStatus(m, today) === "overdue").length} tone="danger" />
         <MetricCard label="Terminées" value={done.length} tone="success" />
-        <MetricCard label="XP gagnée via missions" value={`${formatInt(xpFromMissions)} XP`} tone="gold" hint="L'XP est une unité ludique, sans valeur monétaire." />
+        <MetricCard label="XP gagnée via les défis" value={`${formatInt(xpFromMissions)} XP`} tone="gold" hint="L'XP est une unité ludique, sans valeur monétaire." />
       </div>
       <section>
-        <SectionTitle title="Missions du jour" description="Recommandées selon la priorité et l'échéance" />
+        <SectionTitle title="Défis du jour" description="Recommandés selon la priorité et l'échéance" />
         {daily.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {daily.map((m) => (
@@ -81,7 +85,7 @@ export function MissionsPage() {
             ))}
           </div>
         ) : (
-          <EmptyState title="Aucune mission active" />
+          <EmptyState title="Aucun défi actif" />
         )}
       </section>
       <section className="space-y-3">
@@ -126,7 +130,7 @@ export function MissionsPage() {
                       <>
                         {m.status !== "done" && m.status !== "cancelled" && ev.target > 1 ? (
                           <div className="w-full">
-                            <ProgressBar value={(Math.min(ev.current, ev.target) / ev.target) * 100} tone="violet" label="Progression de la mission" />
+                            <ProgressBar value={(Math.min(ev.current, ev.target) / ev.target) * 100} tone="violet" label="Progression du défi" />
                             <p className="mt-1 text-[11px] text-subtle tabular">
                               {m.condition.kind === "mrr_reached" ? `${formatInt(Math.round(ev.current / 100))} € / ${formatInt(Math.round(ev.target / 100))} €` : `${ev.current} / ${ev.target}`}
                             </p>
@@ -144,7 +148,7 @@ export function MissionsPage() {
             })}
           </div>
         ) : (
-          <EmptyState title="Aucune mission pour ces critères" />
+          <EmptyState title="Aucun défi pour ces critères" />
         )}
       </section>
       <FormDialog
@@ -163,7 +167,7 @@ export function MissionsPage() {
               {CONDITION_LABELS[history.condition.kind]}
             </p>
             <p className="text-xs text-subtle">
-              Origine : {history.source === "auto" ? `règle automatique (clé ${history.autoKey})` : history.source === "custom" ? "mission personnalisée" : "jeu de démonstration"}
+              Origine : {history.source === "auto" ? `règle automatique (clé ${history.autoKey})` : history.source === "custom" ? "défi personnalisé" : "jeu de démonstration"}
             </p>
             <ol className="space-y-1.5 border-l border-border pl-4">
               {history.history.map((h, i) => (

@@ -35,9 +35,9 @@ describe("courbe d'expérience", () => {
   });
 
   it("titres ludiques", () => {
-    expect(titleForLevel(1)).toBe("Fondateur");
-    expect(titleForLevel(9)).toBe("Gestionnaire");
-    expect(titleForLevel(20)).toBe("Stratège");
-    expect(titleForLevel(100)).toBe("Légende entrepreneuriale");
+    expect(titleForLevel(1)).toBe("Débutant");
+    expect(titleForLevel(9)).toBe("Prospecteur");
+    expect(titleForLevel(20)).toBe("Gestionnaire de comptes");
+    expect(titleForLevel(100)).toBe("Maître du CRM");
   });
 });

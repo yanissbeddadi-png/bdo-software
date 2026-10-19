@@ -32,7 +32,7 @@ import { formatDate, formatDueIn, formatEUR, formatNumber, formatPercent } from 
 import { csvMoney } from "@/lib/export/csv";
 import { cn } from "@/lib/utils";
 import { TaskTable } from "@/features/tasks/tasks";
-import { NotesGrid } from "@/features/clients/clients";
+import { NotesGrid } from "@/components/crm/notes-grid";
 import { expenseTTC } from "@/lib/calculations/money";
 
 const STATUS_ORDER: ProjectStatus[] = ["to_plan", "planned", "in_progress", "on_hold", "at_risk", "done", "cancelled"];

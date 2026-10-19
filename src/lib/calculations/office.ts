@@ -194,7 +194,7 @@ export function formatMinute(minute: number): string {
 }
 
 /** Emploi du temps du jour (réunions, appels, pauses) de tous les collaborateurs présents. */
-export function daySchedule(data: Pick<AppData, "employees" | "salesActivities" | "settings">, today: ISODate): ScheduleEvent[] {
+export function daySchedule(data: Pick<AppData, "employees" | "salesActivities" | "tasks" | "settings">, today: ISODate): ScheduleEvent[] {
   const tz = data.settings.company.timezone;
   const events: ScheduleEvent[] = [];
   const present = data.employees.filter((e) => e.status === "active");
@@ -206,6 +206,14 @@ export function daySchedule(data: Pick<AppData, "employees" | "salesActivities" 
     if (local.date !== today) continue;
     const duration = a.type === "call" ? 30 : 60;
     events.push({ employeeId: a.ownerId, start: local.minute, end: local.minute + duration, activity: a.type === "call" ? "call" : "meeting", label: a.subject });
+  }
+  // Rendez-vous et appels planifiés (missions CRM avec heure) du jour.
+  for (const t of data.tasks) {
+    if (!t.assigneeId || !ids.has(t.assigneeId) || t.dueDate !== today || !t.dueTime || t.status === "cancelled") continue;
+    if (t.type !== "meeting" && t.type !== "call") continue;
+    const [hh, mm] = t.dueTime.split(":").map(Number);
+    const start = (hh ?? 0) * 60 + (mm ?? 0);
+    events.push({ employeeId: t.assigneeId, start, end: start + (t.type === "call" ? 30 : 60), activity: t.type, label: t.title });
   }
   for (const e of present) {
     const h = hash(`${e.id}:${today}`);
@@ -371,7 +379,11 @@ export function zoneStates(data: AppData, today: ISODate, summaries: InvoiceSumm
         kpis = [
           { label: "Opportunités ouvertes", value: open.length, unit: "count" },
           { label: "Pipeline pondéré", value: open.reduce((s, o) => s + Math.round((o.amount * o.probability) / 100), 0), unit: "eur" },
-          { label: "Activités planifiées", value: data.salesActivities.filter((a) => !a.done && a.date.slice(0, 10) >= today).length, unit: "count" },
+          {
+            label: "Actions planifiées",
+            value: data.tasks.filter((t) => t.type !== "internal" && t.status !== "done" && t.status !== "cancelled" && !!t.dueDate && t.dueDate >= today).length,
+            unit: "count",
+          },
         ];
         break;
       }
@@ -402,16 +414,15 @@ export function zoneStates(data: AppData, today: ISODate, summaries: InvoiceSumm
         break;
       case "accueil":
         kpis = [
-          { label: "Clients actifs", value: data.clients.filter((c) => c.status === "active").length, unit: "count" },
-          { label: "Nouveaux prospects", value: data.leads.filter((l) => l.status === "new").length, unit: "count" },
+          { label: "Clients actifs", value: data.clients.filter((c) => c.relation === "customer" && c.status === "active").length, unit: "count" },
+          { label: "Prospects actifs", value: data.contacts.filter((c) => c.relation === "prospect").length, unit: "count" },
         ];
         break;
       case "reunion": {
-        const tz = data.settings.company.timezone;
         kpis = [
           {
             label: "Réunions et démos aujourd'hui",
-            value: data.salesActivities.filter((a) => (a.type === "meeting" || a.type === "demo") && localDateMinute(a.date, tz).date === today).length,
+            value: data.tasks.filter((t) => t.type === "meeting" && t.dueDate === today && t.status !== "cancelled").length,
             unit: "count",
           },
         ];

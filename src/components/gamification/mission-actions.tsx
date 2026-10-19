@@ -31,7 +31,12 @@ export function MissionActions({ mission, showCancel }: { mission: Mission; show
       break;
     case "task_done":
       actions.push(
-        <Button key="t" size="sm" variant="primary" onClick={() => run(setTaskStatus, { id: c.taskId, status: "done" })}>
+        <Button
+          key="t"
+          size="sm"
+          variant="primary"
+          onClick={() => (data.tasks.find((t) => t.id === c.taskId)?.type === "internal" ? run(setTaskStatus, { id: c.taskId, status: "done" }) : openCreate("complete", { taskId: c.taskId }))}
+        >
           <CheckCircle2 /> Terminer la tâche
         </Button>,
       );
@@ -43,10 +48,9 @@ export function MissionActions({ mission, showCancel }: { mission: Mission; show
           size="sm"
           variant="primary"
           onClick={() =>
-            openCreate("activity", {
+            openCreate("interaction", {
               opportunityId: c.opportunityId,
-              clientId: data.opportunities.find((o) => o.id === c.opportunityId)?.clientId ?? null,
-              leadId: data.opportunities.find((o) => o.id === c.opportunityId)?.leadId ?? null,
+              contactId: data.opportunities.find((o) => o.id === c.opportunityId)?.contactId ?? null,
             })
           }
         >
@@ -56,15 +60,37 @@ export function MissionActions({ mission, showCancel }: { mission: Mission; show
       break;
     case "leads_created":
       actions.push(
-        <Button key="l" size="sm" variant="primary" onClick={() => openCreate("lead")}>
+        <Button key="l" size="sm" variant="primary" onClick={() => openCreate("prospect")}>
           Ajouter un prospect
         </Button>,
       );
       break;
     case "sales_activities_logged":
+    case "interactions_logged":
       actions.push(
-        <Button key="a" size="sm" variant="primary" onClick={() => openCreate("activity")}>
-          Consigner une activité
+        <Button key="a" size="sm" variant="primary" onClick={() => openCreate("interaction")}>
+          Consigner une interaction
+        </Button>,
+      );
+      break;
+    case "prospects_qualified":
+      actions.push(
+        <Button key="q" size="sm" variant="secondary" asChild>
+          <Link href="/pipeline?stage=qualify">Voir les prospects à qualifier</Link>
+        </Button>,
+      );
+      break;
+    case "no_overdue_followups":
+      actions.push(
+        <Button key="o" size="sm" variant="secondary" asChild>
+          <Link href="/missions?view=overdue">Voir les missions en retard</Link>
+        </Button>,
+      );
+      break;
+    case "day_actions_done":
+      actions.push(
+        <Button key="j" size="sm" variant="secondary" asChild>
+          <Link href="/missions?view=today">Voir les missions du jour</Link>
         </Button>,
       );
       break;

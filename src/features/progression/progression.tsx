@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Check, CheckCircle2, Circle, Crown, Lock, Paintbrush, ScrollText, Sparkles, Trophy } from "lucide-react";
+import { Box, Check, CheckCircle2, Circle, Crown, Flame, Lock, Paintbrush, ScrollText, Sparkles, Swords, Trophy } from "lucide-react";
 import { useCommand, useData, useToday } from "@/lib/store/hooks";
 import { useParam, useSyncedState } from "@/lib/store/params";
 import { useProgression } from "@/lib/store/progression";
@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/misc";
 import { formatDateTime, formatInt, formatXp } from "@/lib/formatters";
 import { Headquarters } from "./headquarters";
+import { ChallengesPanel } from "./challenges";
+import { activeDays, computeStreak } from "@/lib/crm/streak";
 import { cn } from "@/lib/utils";
 import { evaluateGoal } from "@/lib/calculations/goals";
 import { GOAL_STATUS } from "@/lib/formatters/labels";
@@ -36,6 +38,7 @@ export function ProgressionPage() {
   const tabParam = useParam("tab");
   const [tab, setTab] = useSyncedState(tabParam ?? "apercu");
   const g = data.settings.gamification;
+  const streak = React.useMemo(() => computeStreak(activeDays(data), today, data.settings.crm.workingDays), [data, today]);
 
   if (!g.enabled)
     return (
@@ -57,13 +60,13 @@ export function ProgressionPage() {
   const xpSeries = months.map((m) => ({ month: m, xp: data.xpTransactions.filter((x) => x.at.slice(0, 7) <= m).reduce((s, x) => s + x.amount, 0) }));
   const weekly = data.missions.filter((m) => m.type === "weekly" && (m.status === "todo" || m.status === "in_progress"));
   const strategic = data.goals.filter((goal) => !goal.archived).map((goal) => evaluateGoal(goal, data, today));
-  const kindLabel: Record<string, string> = { xp: "XP", level_up: "Niveau", mission: "Mission", achievement: "Succès", rank: "Rang", reward: "Récompense" };
+  const kindLabel: Record<string, string> = { xp: "XP", level_up: "Niveau", mission: "Défi", achievement: "Succès", rank: "Rang", reward: "Récompense" };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Progression"
-        description="Dimension ludique de BDO Software : l'XP récompense des actions métier réellement validées, une seule fois. L'XP n'a aucune valeur monétaire ; aucune fonction de gestion n'est bloquée par le niveau."
+        description="Dimension ludique du CRM : l'XP récompense des actions commerciales réellement réalisées (qualification, suivi, rendez-vous, conversion), une seule fois. L'XP n'a aucune valeur monétaire ; aucune fonction de gestion n'est bloquée par le niveau."
       />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="relative overflow-hidden">
@@ -71,7 +74,7 @@ export function ProgressionPage() {
           <CardContent className="relative flex items-center gap-5 pt-5">
             <LevelBadge level={p.level.level} size="lg" frameColor={p.frameColor} />
             <div className="min-w-0 flex-1 space-y-2">
-              <p className="text-xs uppercase tracking-wide text-violet">Niveau du dirigeant</p>
+              <p className="text-xs uppercase tracking-wide text-violet">Niveau commercial</p>
               <p className="text-xl font-semibold">
                 Niveau {p.level.level} · {p.title}
               </p>
@@ -110,10 +113,36 @@ export function ProgressionPage() {
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <span className={cn("flex size-12 items-center justify-center rounded-full", streak.current ? "bg-warning/15 text-warning" : "bg-interactive text-subtle")}>
+              <Flame className="size-6" aria-hidden />
+            </span>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-warning">Série de suivi</p>
+              <p className="text-xl font-semibold tabular">
+                {streak.current} jour{streak.current > 1 ? "s" : ""} ouvré{streak.current > 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+          <div className="flex-1 text-xs text-muted">
+            <p>
+              Meilleure série : <span className="tabular text-fg">{streak.best} j</span> · Semaines de suivi rigoureux : <span className="tabular text-fg">{p.metrics.rigorousWeeks}</span>
+            </p>
+            <p className="mt-1">
+              {streak.activeToday
+                ? "Série entretenue aujourd'hui."
+                : "Aujourd'hui ne compte pas encore : consignez une interaction ou terminez une mission. Une journée non ouvrée n'interrompt jamais la série."}
+            </p>
+            <p className="mt-1 text-subtle">Paliers : 3, 7, 14 et 30 jours. Ouvrir l&apos;application ne compte pas ; seules les actions CRM réelles comptent.</p>
+          </div>
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="XP totale" value={formatXp(p.xp)} tone="gold" />
         <MetricCard label="Succès obtenus" value={`${p.achievementsCount} / ${p.achievementsTotal}`} />
-        <MetricCard label="Missions terminées" value={p.missionsDone} />
+        <MetricCard label="Défis relevés" value={p.missionsDone} />
         <MetricCard label="Récompenses débloquées" value={[...TITLES, ...THEMES, ...FRAMES].filter((r) => isRewardUnlocked(r, p.rewardCtx)).length} />
       </div>
 
@@ -121,6 +150,9 @@ export function ProgressionPage() {
         <TabsList>
           <TabsTrigger value="apercu">
             <Sparkles /> Aperçu
+          </TabsTrigger>
+          <TabsTrigger value="defis">
+            <Swords /> Défis
           </TabsTrigger>
           <TabsTrigger value="succes">
             <Trophy /> Succès
@@ -143,6 +175,11 @@ export function ProgressionPage() {
                 <CardTitle>Siège virtuel de BDO Software</CardTitle>
                 <CardDescription>Le quartier se développe à chaque nouveau rang d&apos;entreprise.</CardDescription>
               </div>
+              <Button asChild size="sm" variant="secondary">
+                <Link href="/bureaux">
+                  <Box /> Bureaux 3D
+                </Link>
+              </Button>
             </CardHeader>
             <CardContent>
               <Headquarters rank={p.rank.rank} />
@@ -153,7 +190,7 @@ export function ProgressionPage() {
               <MonthlyLineChart money={false} area data={xpSeries} series={[{ key: "xp", label: "XP cumulée", color: SERIES[6] }]} />
             </ChartCard>
             <section>
-              <SectionTitle title="Défis hebdomadaires" description="Missions de la semaine en cours" />
+              <SectionTitle title="Défis hebdomadaires" description="Défis de la semaine en cours" />
               <div className="space-y-2.5">
                 {weekly.length ? (
                   weekly.map((m) => <MissionCard key={m.id} mission={m} today={today} compact action={<MissionActions mission={m} />} />)
@@ -166,11 +203,11 @@ export function ProgressionPage() {
           <div className="grid gap-4 xl:grid-cols-2">
             <section>
               <SectionTitle
-                title="Missions actives"
+                title="Défis actifs"
                 actions={
-                  <Link href="/missions" className="text-xs text-accent hover:underline">
-                    Centre de missions →
-                  </Link>
+                  <button type="button" onClick={() => setTab("defis")} className="cursor-pointer text-xs text-accent hover:underline">
+                    Tous les défis →
+                  </button>
                 }
               />
               <div className="space-y-2.5">
@@ -203,6 +240,10 @@ export function ProgressionPage() {
               </Card>
             </section>
           </div>
+        </TabsContent>
+
+        <TabsContent value="defis" className="space-y-6">
+          <ChallengesPanel />
         </TabsContent>
 
         <TabsContent value="succes" className="space-y-6">

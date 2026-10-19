@@ -3,7 +3,8 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronsLeft, ChevronsRight, Hexagon } from "lucide-react";
-import { NAV, isActive } from "./nav";
+import { NAV, isActive, type NavCounter } from "./nav";
+import { useNavCounters } from "@/lib/store/crm";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/lib/store/ui-store";
 import { useData } from "@/lib/store/hooks";
@@ -22,7 +23,7 @@ export function Logo({ collapsed }: { collapsed?: boolean }) {
       {!collapsed ? (
         <div className="min-w-0 leading-tight">
           <p className="truncate text-sm font-semibold text-fg">{data.settings.company.name}</p>
-          <p className="truncate text-[11px] text-muted">Business Simulator</p>
+          <p className="truncate text-[11px] text-muted">CRM · Command Center</p>
         </div>
       ) : null}
     </Link>
@@ -31,7 +32,14 @@ export function Logo({ collapsed }: { collapsed?: boolean }) {
 
 export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const unread = useData().notifications.filter((n) => !n.read).length;
+  const counters = useNavCounters();
+  const badge = (counter: NavCounter | undefined): { value: number; danger: boolean; label: string } | null => {
+    if (counter === "newProspects" && counters.newProspects) return { value: counters.newProspects, danger: false, label: "nouveaux prospects" };
+    if (counter === "missions" && counters.overdue) return { value: counters.overdue, danger: true, label: "missions en retard" };
+    if (counter === "missions" && counters.missionsToday) return { value: counters.missionsToday, danger: false, label: "missions du jour" };
+    if (counter === "meetings" && counters.upcomingMeetings) return { value: counters.upcomingMeetings, danger: false, label: "rendez-vous à venir" };
+    return null;
+  };
   return (
     <nav aria-label="Navigation principale" className="flex flex-col gap-0.5">
       {NAV.map((item) => {
@@ -51,9 +59,18 @@ export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNav
             {active ? <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent" aria-hidden /> : null}
             <Icon className={cn("size-[18px] shrink-0", active ? "text-accent" : "text-subtle group-hover:text-muted")} />
             {!collapsed ? <span className="truncate">{item.label}</span> : null}
-            {item.href === "/notifications" && unread > 0 ? (
-              <span className={cn("rounded-full bg-danger px-1.5 text-[10px] font-semibold text-bg tabular", collapsed ? "absolute right-1 top-1" : "ml-auto")}>{unread > 99 ? "99+" : unread}</span>
-            ) : null}
+            {(() => {
+              const b = badge(item.counter);
+              return b ? (
+                <span
+                  title={`${b.value} ${b.label}`}
+                  aria-label={`${b.value} ${b.label}`}
+                  className={cn("rounded-full px-1.5 text-[10px] font-semibold tabular", b.danger ? "bg-danger text-bg" : "bg-accent/20 text-accent", collapsed ? "absolute right-1 top-1" : "ml-auto")}
+                >
+                  {b.value > 99 ? "99+" : b.value}
+                </span>
+              ) : null;
+            })()}
           </Link>
         );
         return (

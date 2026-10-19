@@ -1,8 +1,9 @@
-import type { AppData, CompanySettings, GamificationSettings, NotificationSettings, PreferenceSettings, Role, RuleSettings } from "@/lib/domain/types";
+import type { AppData, CompanySettings, CrmSettings, GamificationSettings, NotificationSettings, PreferenceSettings, Role, RuleSettings } from "@/lib/domain/types";
 import { ALL_REWARDS, isRewardUnlocked } from "@/lib/gamification/rewards";
 import { levelFromXp } from "@/lib/gamification/levels";
 import { totalXp } from "@/lib/gamification/engine";
-import { activity, assertCan, audit, DomainError, type Command } from "./core";
+import { crmSettingsSchema } from "@/lib/validation/schemas";
+import { activity, assertCan, audit, DomainError, parse, type Command } from "./core";
 
 export const updateCompanySettings: Command<Partial<CompanySettings>> = (data, input, ctx) => {
   assertCan(ctx, "settings.write");
@@ -45,6 +46,15 @@ export const updateGamificationSettings: Command<Partial<GamificationSettings>> 
   let next = { ...data, settings: { ...data.settings, gamification } };
   if (input.xpRewards || input.dailyInvoiceXpCap !== undefined) next = audit(next, ctx, "settings.gamification", null, Object.keys(input).join(", "));
   return { data: next, result: undefined, message: "Paramètres de gamification enregistrés." };
+};
+
+/** Seuils des automatisations CRM (relances, inactivité, nouveaux prospects) et jours ouvrés. */
+export const updateCrmSettings: Command<CrmSettings> = (data, input, ctx) => {
+  assertCan(ctx, "settings.write");
+  const v = parse(crmSettingsSchema, input);
+  const crm: CrmSettings = { ...v, workingDays: [...new Set(v.workingDays)].sort((a, b) => a - b) };
+  const next = audit({ ...data, settings: { ...data.settings, crm } }, ctx, "settings.crm", null, "");
+  return { data: next, result: undefined, message: "Paramètres CRM enregistrés." };
 };
 
 export const updateRules: Command<Partial<RuleSettings>> = (data, input, ctx) => {

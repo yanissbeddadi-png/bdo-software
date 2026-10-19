@@ -2,9 +2,9 @@ import { formatEUR, formatNumber } from "@/lib/formatters";
 import type { GameMetrics } from "./metrics";
 
 /**
- * Rangs de l'entreprise. Le rang n'est jamais lié à une seule métrique de CA : chaque
- * rang combine clients actifs, revenus récurrents, livraisons, rentabilité,
- * satisfaction, objectifs et solidité de trésorerie. Un rang est atteint lorsque
+ * Rangs de l'entreprise (portefeuille commercial). Chaque rang combine plusieurs
+ * critères CRM : clients actifs, conversions, pipeline, rigueur du suivi, satisfaction,
+ * objectifs et régularité. Un rang est atteint lorsque
  * tous ses critères (et ceux des rangs précédents) sont remplis.
  */
 
@@ -27,7 +27,6 @@ export interface RankDefinition {
 const count = (v: number | null) => (v === null ? "—" : String(Math.round(v)));
 const euros = (v: number | null) => (v === null ? "—" : formatEUR(v, { compact: true }));
 const pct = (v: number | null) => (v === null ? "—" : `${formatNumber(v, 1)} %`);
-const months = (v: number | null) => (v === null ? "—" : `${formatNumber(v, 1)} mois`);
 const score = (v: number | null) => (v === null ? "—" : `${formatNumber(v, 1)} / 5`);
 
 function crit(id: string, label: string, current: number | null, target: number, display: (v: number | null) => string) {
@@ -35,41 +34,43 @@ function crit(id: string, label: string, current: number | null, target: number,
 }
 
 export const RANKS: RankDefinition[] = [
-  { rank: 1, name: "Startup", description: "L'aventure commence.", criteria: () => [] },
+  { rank: 1, name: "Startup commerciale", description: "Le portefeuille démarre.", criteria: () => [] },
   {
     rank: 2,
-    name: "Studio numérique",
-    description: "Premiers clients fidèles et premières livraisons.",
-    criteria: (m) => [crit("clients", "Clients actifs", m.activeClients, 3, count), crit("projects", "Projets livrés", m.projectsDone, 1, count)],
+    name: "Portefeuille naissant",
+    description: "Premiers clients signés et premières actions de suivi.",
+    criteria: (m) => [crit("clients", "Clients actifs", m.activeClients, 3, count), crit("won", "Opportunités gagnées", m.wonOpportunities, 1, count)],
   },
   {
     rank: 3,
-    name: "Agence en croissance",
-    description: "Des revenus récurrents et un rythme de livraison établi.",
-    criteria: (m) => [crit("clients", "Clients actifs", m.activeClients, 6, count), crit("mrr", "MRR", m.mrr, 300_000, euros), crit("projects", "Projets livrés", m.projectsDone, 3, count)],
+    name: "Équipe commerciale rodée",
+    description: "Un pipeline nourri et un rythme de conversion établi.",
+    criteria: (m) => [
+      crit("clients", "Clients actifs", m.activeClients, 6, count),
+      crit("won", "Opportunités gagnées", m.wonOpportunities, 3, count),
+      crit("pipeline", "Pipeline actif", m.pipeline, 15_000_000, euros),
+    ],
   },
   {
     rank: 4,
-    name: "Société structurée",
-    description: "Une base clients solide et une gestion maîtrisée.",
+    name: "Machine commerciale",
+    description: "Un suivi rigoureux et des objectifs tenus.",
     criteria: (m) => [
       crit("clients", "Clients actifs", m.activeClients, 10, count),
-      crit("mrr", "MRR", m.mrr, 800_000, euros),
-      crit("projects", "Projets livrés", m.projectsDone, 5, count),
+      crit("won", "Opportunités gagnées", m.wonOpportunities, 5, count),
+      crit("missions", "Missions commerciales terminées", m.crmMissionsDone, 30, count),
       crit("goals", "Objectifs atteints", m.goalsAchieved, 1, count),
-      crit("cash", "Trésorerie (mois de charges fixes)", m.cashMonths, 2, months),
     ],
   },
   {
     rank: 5,
-    name: "Entreprise rentable",
-    description: "Rentabilité durable et clients satisfaits.",
+    name: "Référence relation client",
+    description: "Des clients satisfaits et un suivi exemplaire.",
     criteria: (m) => [
       crit("clients", "Clients actifs", m.activeClients, 12, count),
-      crit("mrr", "MRR", m.mrr, 1_500_000, euros),
-      crit("margin", "Marge opérationnelle (3 mois)", m.margin3m, 10, pct),
+      crit("conversion", "Taux de conversion", m.conversionRate, 40, pct),
       crit("satisfaction", "Satisfaction client moyenne", m.avgSatisfaction, 4, score),
-      crit("cash", "Trésorerie (mois de charges fixes)", m.cashMonths, 3, months),
+      crit("weeks", "Semaines de suivi rigoureux", m.rigorousWeeks, 2, count),
     ],
   },
   {
@@ -78,22 +79,20 @@ export const RANKS: RankDefinition[] = [
     description: "Une référence sur son marché.",
     criteria: (m) => [
       crit("clients", "Clients actifs", m.activeClients, 20, count),
-      crit("mrr", "MRR", m.mrr, 3_000_000, euros),
-      crit("projects", "Projets livrés", m.projectsDone, 15, count),
-      crit("margin", "Marge opérationnelle (3 mois)", m.margin3m, 15, pct),
+      crit("won", "Opportunités gagnées", m.wonOpportunities, 15, count),
       crit("goals", "Objectifs atteints", m.goalsAchieved, 5, count),
+      crit("streak", "Meilleure série d'activité (jours)", m.bestStreak, 14, count),
     ],
   },
   {
     rank: 7,
-    name: "Groupe numérique",
-    description: "Un groupe solide, rentable et diversifié.",
+    name: "Leader du marché",
+    description: "Un portefeuille solide, fidèle et en croissance.",
     criteria: (m) => [
       crit("clients", "Clients actifs", m.activeClients, 35, count),
-      crit("mrr", "MRR", m.mrr, 6_000_000, euros),
-      crit("projects", "Projets livrés", m.projectsDone, 30, count),
-      crit("margin", "Marge opérationnelle (3 mois)", m.margin3m, 20, pct),
-      crit("cash", "Trésorerie (mois de charges fixes)", m.cashMonths, 6, months),
+      crit("won", "Opportunités gagnées", m.wonOpportunities, 30, count),
+      crit("pipeline", "Pipeline actif", m.pipeline, 100_000_000, euros),
+      crit("streak", "Meilleure série d'activité (jours)", m.bestStreak, 30, count),
     ],
   },
 ];

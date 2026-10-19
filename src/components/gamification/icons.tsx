@@ -1,5 +1,8 @@
 import {
   BadgeCheck,
+  BellRing,
+  Flame,
+  Phone,
   Banknote,
   Building2,
   CalendarCheck,
@@ -29,6 +32,9 @@ import {
 
 export const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
   BadgeCheck,
+  BellRing,
+  Flame,
+  Phone,
   Banknote,
   Building2,
   CalendarCheck,

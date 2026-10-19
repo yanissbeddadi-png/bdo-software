@@ -24,7 +24,7 @@ const out: string[] = [
   "-- Généré par scripts/generate-seed-sql.ts — DONNÉES FICTIVES DE DÉMONSTRATION",
   `-- Date d'ancrage : ${anchor}`,
   "begin;",
-  `insert into public.organizations (id, name, settings, is_demo) values (${lit(ORG)}, ${lit(d.settings.company.name)}, ${lit({ company: d.settings.company, rules: d.settings.rules, gamification: d.settings.gamification })}, true);`,
+  `insert into public.organizations (id, name, settings, is_demo) values (${lit(ORG)}, ${lit(d.settings.company.name)}, ${lit({ company: d.settings.company, rules: d.settings.rules, gamification: d.settings.gamification, crm: d.settings.crm })}, true);`,
 ];
 const insert = (table: string, rows: Record<string, V>[]) => {
   if (!rows.length) return;
@@ -41,6 +41,27 @@ insert(
   ACHIEVEMENTS.map((a) => ({ id: a.id, name: a.name, description: a.description, category: a.category, rarity: a.rarity, condition: a.condition, icon: a.icon })),
 );
 insert(
+  "employees",
+  d.employees.map((e) => ({
+    id: e.id,
+    ...org,
+    first_name: e.firstName,
+    last_name: e.lastName,
+    job_title: e.jobTitle,
+    department: e.department,
+    email: e.email,
+    hire_date: e.hireDate,
+    status: e.status,
+    monthly_cost: e.monthlyCost,
+    created_at: e.createdAt,
+    updated_at: e.updatedAt,
+  })),
+);
+insert(
+  "employee_skills",
+  d.employees.flatMap((e) => Object.entries(e.skills).map(([skill, level]) => ({ employee_id: e.id, skill, level }))),
+);
+insert(
   "clients",
   d.clients.map((c) => ({
     id: c.id,
@@ -48,8 +69,13 @@ insert(
     name: c.name,
     sector: c.sector,
     status: c.status,
+    relation: c.relation,
+    size: c.size,
     city: c.city,
+    country: c.country,
     website: c.website,
+    owner_id: c.ownerId,
+    source: c.source,
     satisfaction: c.satisfaction,
     notes: c.notes,
     created_at: c.createdAt,
@@ -93,6 +119,11 @@ insert(
     job_title: c.jobTitle,
     email: c.email,
     phone: c.phone,
+    relation: c.relation,
+    owner_id: c.ownerId,
+    source: c.source,
+    priority: c.priority,
+    archived_at: c.archivedAt,
     is_primary: c.isPrimary,
     notes: c.notes,
     created_at: c.createdAt,
@@ -100,25 +131,8 @@ insert(
   })),
 );
 insert(
-  "employees",
-  d.employees.map((e) => ({
-    id: e.id,
-    ...org,
-    first_name: e.firstName,
-    last_name: e.lastName,
-    job_title: e.jobTitle,
-    department: e.department,
-    email: e.email,
-    hire_date: e.hireDate,
-    status: e.status,
-    monthly_cost: e.monthlyCost,
-    created_at: e.createdAt,
-    updated_at: e.updatedAt,
-  })),
-);
-insert(
-  "employee_skills",
-  d.employees.flatMap((e) => Object.entries(e.skills).map(([skill, level]) => ({ employee_id: e.id, skill, level }))),
+  "contact_links",
+  d.contacts.flatMap((c) => c.links.map((l) => ({ id: l.id, ...org, contact_id: c.id, name: l.name, url: l.url, added_at: l.addedAt }))),
 );
 insert(
   "opportunities",
@@ -140,6 +154,9 @@ insert(
     notes: o.notes,
     closed_at: o.closedAt,
     lost_reason: o.lostReason,
+    priority: o.priority,
+    qualified_at: o.qualifiedAt,
+    archived_at: o.archivedAt,
     created_at: o.createdAt,
     updated_at: o.updatedAt,
   })),
@@ -387,6 +404,11 @@ insert(
     ...org,
     title: t.title,
     description: t.description,
+    type: t.type,
+    contact_id: t.contactId,
+    opportunity_id: t.opportunityId,
+    due_time: t.dueTime,
+    result: t.result,
     assignee_id: t.assigneeId,
     priority: t.priority,
     status: t.status,
@@ -426,6 +448,11 @@ insert(
     invoice_id: a.invoiceId,
     owner_id: a.ownerId,
     done: a.done,
+    contact_id: a.contactId,
+    direction: a.direction,
+    outcome: a.outcome,
+    next_step: a.nextStep,
+    task_id: a.taskId,
     created_at: a.createdAt,
   })),
 );
@@ -508,7 +535,18 @@ insert(
 );
 insert(
   "notes",
-  d.notes.map((n) => ({ id: n.id, ...org, title: n.title, body: n.body, client_id: n.clientId, project_id: n.projectId, created_at: n.createdAt, updated_at: n.updatedAt })),
+  d.notes.map((n) => ({
+    id: n.id,
+    ...org,
+    title: n.title,
+    body: n.body,
+    client_id: n.clientId,
+    project_id: n.projectId,
+    contact_id: n.contactId,
+    opportunity_id: n.opportunityId,
+    created_at: n.createdAt,
+    updated_at: n.updatedAt,
+  })),
 );
 out.push("commit;", "");
 

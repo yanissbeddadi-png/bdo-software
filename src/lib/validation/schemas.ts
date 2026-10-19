@@ -13,6 +13,14 @@ const vatRate = z.number().int().min(0).max(10_000);
 const text = (max = 2000) => z.string().trim().max(max, `${max} caractères maximum`);
 const required = (label: string, max = 200) => z.string().trim().min(1, `${label} est obligatoire`).max(max, `${max} caractères maximum`);
 const priority = z.enum(["low", "normal", "high", "critical"]);
+const relation = z.enum(["prospect", "customer", "former", "partner", "archived"]);
+const email = z.string().trim().email("Adresse e-mail invalide").or(z.literal(""));
+const time = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Heure invalide (HH:mm)")
+  .nullable();
+const crmTaskType = z.enum(["call", "email", "followup", "meeting", "qualification", "proposal_prep", "proposal_send", "sales_followup", "retention", "request", "other", "internal"]);
+const stage = z.enum(["new", "qualify", "discussion", "proposal", "negotiation", "won", "lost"]);
 
 export const lineItemSchema = z.object({
   id: z.string().min(1),
@@ -30,12 +38,18 @@ export const lineItemSchema = z.object({
 
 const nonNegativeTotal = (items: { quantity: number; unitPrice: number }[]) => items.reduce((s, i) => s + Math.round(i.quantity * i.unitPrice), 0) >= 0;
 
+/** Entreprise (organisation). */
 export const clientSchema = z.object({
   name: required("Le nom"),
   sector: text(100),
   status: z.enum(["active", "inactive", "churned"]),
+  relation,
+  size: text(20),
   city: text(100),
+  country: text(80),
   website: text(200),
+  ownerId: optionalId,
+  source: text(100),
   satisfaction: z.number().int().min(1).max(5).nullable(),
   notes: text(),
 });
@@ -43,17 +57,60 @@ export type ClientInput = z.infer<typeof clientSchema>;
 
 export const contactSchema = z.object({
   clientId: optionalId,
-  leadId: optionalId,
   firstName: required("Le prénom", 100),
   lastName: required("Le nom", 100),
   jobTitle: text(100),
-  email: z.string().trim().email("Adresse e-mail invalide").or(z.literal("")),
+  email,
   phone: text(40),
+  relation,
+  ownerId: optionalId,
+  source: text(100),
+  priority,
   isPrimary: z.boolean(),
   notes: text(),
 });
 export type ContactInput = z.infer<typeof contactSchema>;
 
+/** Prochaine action planifiée à la création (devient une mission). */
+const nextActionSchema = z.object({
+  title: required("La prochaine action", 200),
+  type: crmTaskType,
+  dueDate: isoDate,
+  dueTime: time,
+});
+
+/**
+ * Création rapide d'un contact / prospect : entreprise existante ou nouvelle, opportunité
+ * facultative (étape commerciale), note initiale et prochaine action facultatives.
+ */
+export const prospectSchema = z
+  .object({
+    firstName: required("Le prénom", 100),
+    lastName: required("Le nom", 100),
+    jobTitle: text(100),
+    email,
+    phone: text(40),
+    clientId: optionalId,
+    newCompanyName: text(200),
+    source: text(100),
+    ownerId: optionalId,
+    relation,
+    priority,
+    stage: stage.nullable(),
+    opportunityName: text(200),
+    amount: cents,
+    notes: text(),
+    nextAction: nextActionSchema.nullable(),
+    /** Confirmation explicite après un avertissement de doublon probable. */
+    confirmDuplicate: z.boolean(),
+  })
+  .refine((p) => !p.stage || !!p.clientId || !!p.newCompanyName.trim() || p.opportunityName.trim().length > 0, {
+    message: "Indiquez une entreprise ou un nom d'opportunité",
+    path: ["opportunityName"],
+  });
+export type ProspectInput = z.infer<typeof prospectSchema>;
+
+/** @deprecated Ancienne entité prospect (conservée pour la lecture des données migrées). */
 export const leadSchema = z.object({
   company: required("L'entreprise"),
   contactName: text(150),
@@ -77,30 +134,36 @@ export const opportunitySchema = z
     contactId: optionalId,
     amount: cents,
     probability: z.number().int().min(0, "0 à 100").max(100, "0 à 100"),
-    stage: z.enum(["new", "contacted", "qualification", "meeting", "proposal", "negotiation", "won", "lost"]),
+    stage,
     expectedCloseDate: isoDate,
     source: text(100),
     ownerId: optionalId,
+    priority,
     nextAction: text(300),
     notes: text(),
   })
-  .refine((o) => o.clientId || o.leadId, { message: "Associez un client ou un prospect", path: ["clientId"] });
+  .refine((o) => o.clientId || o.contactId, { message: "Associez une entreprise ou un contact", path: ["clientId"] });
 export type OpportunityInput = z.infer<typeof opportunitySchema>;
 
+/** Interaction consignée (fait passé). Une suite éventuelle est planifiée comme mission. */
 export const salesActivitySchema = z
   .object({
-    type: z.enum(["call", "email", "meeting", "demo", "followup", "note"]),
+    type: z.enum(["call", "email", "meeting", "demo", "message", "followup", "note"]),
+    direction: z.enum(["in", "out"]).nullable(),
     date: z.string().min(10),
-    subject: required("L'objet"),
+    subject: required("Le résumé"),
     notes: text(),
+    outcome: text(500),
+    nextStep: text(300),
+    contactId: optionalId,
     clientId: optionalId,
-    leadId: optionalId,
     opportunityId: optionalId,
-    invoiceId: optionalId,
     ownerId: optionalId,
-    done: z.boolean(),
+    /** Mission réalisée par cette interaction (ex. relance planifiée), terminée en même temps. */
+    taskId: optionalId,
+    followUp: nextActionSchema.nullable(),
   })
-  .refine((a) => a.clientId || a.leadId || a.opportunityId, { message: "Associez l'activité à un client, un prospect ou une opportunité", path: ["clientId"] });
+  .refine((a) => a.contactId || a.clientId || a.opportunityId, { message: "Associez l'interaction à un contact, une entreprise ou une opportunité", path: ["contactId"] });
 export type SalesActivityInput = z.infer<typeof salesActivitySchema>;
 
 export const productSchema = z.object({
@@ -227,6 +290,10 @@ export type ProjectInput = z.infer<typeof projectSchema>;
 export const taskSchema = z.object({
   title: required("Le titre"),
   description: text(),
+  type: crmTaskType,
+  contactId: optionalId,
+  opportunityId: optionalId,
+  dueTime: time,
   assigneeId: optionalId,
   priority,
   status: z.enum(["todo", "in_progress", "waiting", "done", "cancelled"]),
@@ -275,6 +342,11 @@ export const goalSchema = z
       "active_clients",
       "new_leads",
       "new_subscriptions",
+      "missions_done",
+      "interactions_logged",
+      "overdue_followups",
+      "pipeline_value",
+      "conversion_rate",
     ]),
     startValue: z.number(),
     targetValue: z.number(),
@@ -304,5 +376,24 @@ export const noteSchema = z.object({
   body: text(5000),
   clientId: optionalId,
   projectId: optionalId,
+  contactId: optionalId,
+  opportunityId: optionalId,
 });
 export type NoteInput = z.infer<typeof noteSchema>;
+
+/** Réalisation d'une mission : résultat, note, prochaine action facultative. */
+export const completeMissionSchema = z.object({
+  id: z.string().min(1),
+  result: text(500),
+  note: text(2000),
+  followUp: nextActionSchema.nullable(),
+});
+export type CompleteMissionInput = z.infer<typeof completeMissionSchema>;
+
+export const crmSettingsSchema = z.object({
+  inactivityDays: z.number().int().min(1).max(365),
+  proposalPendingDays: z.number().int().min(1).max(120),
+  newProspectDays: z.number().int().min(1).max(60),
+  workingDays: z.array(z.number().int().min(0).max(6)).min(1, "Au moins un jour ouvré"),
+  dailyCallXpCap: z.number().int().min(0).max(100),
+});

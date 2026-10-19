@@ -1,75 +1,39 @@
-import {
-  Building,
-  LayoutDashboard,
-  Swords,
-  Wallet,
-  Handshake,
-  Building2,
-  FolderKanban,
-  ListTodo,
-  Users,
-  Package,
-  CalendarClock,
-  ChartColumn,
-  Target,
-  Trophy,
-  Bell,
-  Settings,
-  type LucideIcon,
-} from "lucide-react";
+import { LayoutDashboard, Columns3, Contact, Building2, ListChecks, CalendarDays, MessagesSquare, ChartColumn, Trophy, Settings, type LucideIcon } from "lucide-react";
+
+/** Compteur calculé affiché à côté d'une entrée de navigation. */
+export type NavCounter = "newProspects" | "missions" | "meetings";
 
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  counter?: NavCounter;
   children?: { href: string; label: string }[];
 }
 
+/** Navigation principale du CRM. Les modules historiques restent accessibles depuis Paramètres. */
 export const NAV: NavItem[] = [
   { href: "/", label: "Vue d'ensemble", icon: LayoutDashboard },
-  { href: "/missions", label: "Centre de missions", icon: Swords },
-  { href: "/bureaux", label: "Bureaux 3D", icon: Building },
-  {
-    href: "/finances",
-    label: "Finances",
-    icon: Wallet,
-    children: [
-      { href: "/finances", label: "Synthèse" },
-      { href: "/finances/factures", label: "Factures" },
-      { href: "/finances/depenses", label: "Dépenses" },
-      { href: "/finances/avoirs", label: "Avoirs" },
-      { href: "/finances/tresorerie", label: "Trésorerie" },
-      { href: "/finances/tva", label: "TVA" },
-      { href: "/finances/abonnements", label: "Revenus récurrents" },
-    ],
-  },
-  {
-    href: "/crm",
-    label: "Ventes et CRM",
-    icon: Handshake,
-    children: [
-      { href: "/crm", label: "Pipeline" },
-      { href: "/crm/prospects", label: "Prospects" },
-      { href: "/crm/devis", label: "Devis" },
-      { href: "/crm/activites", label: "Activités" },
-    ],
-  },
-  { href: "/clients", label: "Clients", icon: Building2 },
-  { href: "/projets", label: "Projets", icon: FolderKanban },
-  { href: "/taches", label: "Tâches", icon: ListTodo },
-  { href: "/equipe", label: "Équipe", icon: Users },
-  { href: "/catalogue", label: "Produits et services", icon: Package },
-  { href: "/operations", label: "Opérations", icon: CalendarClock },
-  { href: "/analyses", label: "Analyses", icon: ChartColumn },
-  { href: "/objectifs", label: "Objectifs", icon: Target },
+  { href: "/pipeline", label: "Pipeline CRM", icon: Columns3 },
+  { href: "/contacts", label: "Contacts", icon: Contact, counter: "newProspects" },
+  { href: "/entreprises", label: "Entreprises clientes", icon: Building2 },
+  { href: "/missions", label: "Missions", icon: ListChecks, counter: "missions" },
+  { href: "/calendrier", label: "Calendrier", icon: CalendarDays, counter: "meetings" },
+  { href: "/activites", label: "Activités", icon: MessagesSquare },
+  { href: "/statistiques", label: "Statistiques", icon: ChartColumn },
   { href: "/progression", label: "Progression", icon: Trophy },
-  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
 
 const LABELS: Record<string, string> = {
   "": "Vue d'ensemble",
-  missions: "Centre de missions",
+  pipeline: "Pipeline CRM",
+  contacts: "Contacts",
+  entreprises: "Entreprises",
+  calendrier: "Calendrier",
+  statistiques: "Statistiques",
+  propositions: "Propositions",
+  missions: "Missions",
   bureaux: "Bureaux",
   finances: "Finances",
   factures: "Factures",

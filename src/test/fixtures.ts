@@ -1,4 +1,5 @@
-import type { AppData, CurrentUser, Invoice, LineItem, Role } from "@/lib/domain/types";
+import type { AppData, Client, CurrentUser, Invoice, LineItem, Role } from "@/lib/domain/types";
+import type { ClientInput, OpportunityInput, TaskInput } from "@/lib/validation/schemas";
 import { defaultSettings } from "@/lib/database/seed";
 import type { CommandContext } from "@/lib/domain/commands/core";
 
@@ -70,3 +71,77 @@ export function invoice(partial: Partial<Invoice> = {}): Invoice {
     ...partial,
   };
 }
+
+export function client(partial: Partial<Client> = {}): Client {
+  return {
+    id: "cli_1",
+    name: "NovaTest",
+    sector: "",
+    status: "active",
+    relation: "customer",
+    size: "",
+    city: "",
+    country: "France",
+    website: "",
+    ownerId: null,
+    source: "",
+    satisfaction: null,
+    notes: "",
+    documents: [],
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...partial,
+  };
+}
+
+/** Entrées de commande complètes (valeurs neutres), à surcharger dans chaque test. */
+export const CLIENT_INPUT: ClientInput = {
+  name: "Entreprise",
+  sector: "",
+  status: "active",
+  relation: "prospect",
+  size: "",
+  city: "",
+  country: "",
+  website: "",
+  ownerId: null,
+  source: "",
+  satisfaction: null,
+  notes: "",
+};
+
+export const TASK_INPUT: TaskInput = {
+  title: "Revue",
+  description: "",
+  type: "internal",
+  contactId: null,
+  opportunityId: null,
+  dueTime: null,
+  assigneeId: null,
+  priority: "normal",
+  status: "todo",
+  complexity: "simple",
+  dueDate: "2026-10-20",
+  estimateHours: 1,
+  projectId: null,
+  clientId: null,
+  goalId: null,
+  dependsOn: [],
+  recurrence: "none",
+};
+
+export const OPPORTUNITY_INPUT: OpportunityInput = {
+  name: "Deal",
+  clientId: "cli_1",
+  leadId: null,
+  contactId: null,
+  amount: 100_000,
+  probability: 10,
+  stage: "new",
+  expectedCloseDate: "2026-12-01",
+  source: "",
+  ownerId: null,
+  priority: "normal",
+  nextAction: "",
+  notes: "",
+};

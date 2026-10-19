@@ -1,5 +1,5 @@
 /**
- * Courbe d'expérience du dirigeant.
+ * Courbe d'expérience du responsable CRM.
  *
  * XP requise pour passer du niveau N au niveau N+1 = 100 + 25 × (N − 1).
  * Le niveau n'est jamais stocké : il est toujours recalculé depuis l'XP totale.
@@ -38,15 +38,15 @@ export function levelFromXp(totalXp: number): LevelInfo {
   return { level, totalXp: xp, xpIntoLevel, xpForNext, progress: isMax ? 1 : xpIntoLevel / xpForNext, isMax };
 }
 
+/** Titres ludiques du responsable CRM (sans valeur hiérarchique). */
 export const LEVEL_TITLES: { level: number; title: string }[] = [
-  { level: 1, title: "Fondateur" },
-  { level: 5, title: "Gestionnaire" },
-  { level: 10, title: "Entrepreneur" },
-  { level: 20, title: "Stratège" },
-  { level: 35, title: "Directeur" },
-  { level: 50, title: "Visionnaire" },
-  { level: 75, title: "Magnat du numérique" },
-  { level: 100, title: "Légende entrepreneuriale" },
+  { level: 1, title: "Débutant" },
+  { level: 5, title: "Prospecteur" },
+  { level: 10, title: "Négociateur" },
+  { level: 20, title: "Gestionnaire de comptes" },
+  { level: 35, title: "Expert relation client" },
+  { level: 50, title: "Stratège commercial" },
+  { level: 75, title: "Maître du CRM" },
 ];
 
 export function titleForLevel(level: number): string {

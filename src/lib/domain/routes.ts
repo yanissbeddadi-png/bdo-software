@@ -1,21 +1,19 @@
 import type { AppData, EntityRef } from "@/lib/domain/types";
 
 /** URL de la page affichant une entité (navigation depuis alertes, recherche, activité…). */
-export function entityHref(ref: EntityRef | null | undefined, data?: Pick<AppData, "contacts" | "payments">): string | null {
+export function entityHref(ref: EntityRef | null | undefined, data?: Pick<AppData, "contacts" | "payments" | "tasks">): string | null {
   if (!ref) return null;
   switch (ref.type) {
     case "client":
-      return `/clients/${ref.id}`;
-    case "contact": {
-      const c = data?.contacts.find((x) => x.id === ref.id);
-      return c?.clientId ? `/clients/${c.clientId}?tab=contacts` : "/crm/prospects";
-    }
+      return `/entreprises/${ref.id}`;
+    case "contact":
+      return `/contacts/${ref.id}`;
     case "lead":
-      return `/crm/prospects?focus=${ref.id}`;
+      return "/contacts?relation=prospect";
     case "opportunity":
-      return `/crm?focus=${ref.id}`;
+      return `/pipeline?focus=${ref.id}`;
     case "activity":
-      return "/crm/activites";
+      return `/activites?focus=${ref.id}`;
     case "product":
       return `/catalogue?focus=${ref.id}`;
     case "quote":
@@ -32,14 +30,16 @@ export function entityHref(ref: EntityRef | null | undefined, data?: Pick<AppDat
       return `/finances/abonnements?focus=${ref.id}`;
     case "project":
       return `/projets/${ref.id}`;
-    case "task":
-      return `/taches?focus=${ref.id}`;
+    case "task": {
+      const t = data?.tasks.find((x) => x.id === ref.id);
+      return t && t.type === "internal" ? `/taches?focus=${ref.id}` : `/missions?focus=${ref.id}`;
+    }
     case "employee":
       return `/equipe?focus=${ref.id}`;
     case "goal":
       return `/objectifs?focus=${ref.id}`;
     case "mission":
-      return `/missions?focus=${ref.id}`;
+      return `/progression?tab=defis&focus=${ref.id}`;
     case "achievement":
       return "/progression?tab=succes";
     case "note":

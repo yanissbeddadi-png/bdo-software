@@ -79,7 +79,16 @@ export type XpRuleKey =
   | "achievement_common"
   | "achievement_rare"
   | "achievement_epic"
-  | "achievement_legendary";
+  | "achievement_legendary"
+  /* Barème CRM */
+  | "crm_prospect_qualified"
+  | "crm_contact_completed"
+  | "crm_call_logged"
+  | "crm_followup_done"
+  | "crm_mission_done"
+  | "crm_meeting_report"
+  | "crm_opportunity_qualified"
+  | "crm_week_on_track";
 
 export interface GamificationSettings {
   enabled: boolean;
@@ -122,6 +131,22 @@ export interface CurrentUser {
   name: string;
   email: string;
   role: Role;
+  /** Collaborateur correspondant à l'utilisateur (vues « Mes prospects », responsable par défaut). */
+  employeeId?: ID | null;
+}
+
+/** Seuils et calendrier du suivi commercial (configurables). */
+export interface CrmSettings {
+  /** Contact jugé inactif sans interaction depuis N jours. */
+  inactivityDays: number;
+  /** Proposition envoyée sans réponse depuis N jours → alerte. */
+  proposalPendingDays: number;
+  /** Prospect « récent » (non traité) pendant N jours après sa création. */
+  newProspectDays: number;
+  /** Jours ouvrés (0 = dimanche … 6 = samedi) : base des séries d'activité. */
+  workingDays: number[];
+  /** Plafond quotidien d'appels récompensés (anti-abus). */
+  dailyCallXpCap: number;
 }
 
 /** Seuils des règles d'alertes et de risques opérationnels (configurables). */
@@ -142,6 +167,7 @@ export interface Settings {
   preferences: PreferenceSettings;
   gamification: GamificationSettings;
   notifications: NotificationSettings;
+  crm: CrmSettings;
   user: CurrentUser;
   /** Indique que le jeu de données provient du seed de démonstration. */
   demo: { seededAt: ISODateTime; anchorDate: ISODate; version: number };
@@ -153,6 +179,17 @@ export interface Settings {
 
 export type ClientStatus = "active" | "inactive" | "churned";
 
+/** Statut de relation (entreprise et contact). */
+export type RelationType = "prospect" | "customer" | "former" | "partner" | "archived";
+
+/** Lien ou référence de document (aucun fichier n'est stocké en mode démo). */
+export interface DocumentLink {
+  id: ID;
+  name: string;
+  url: string;
+  addedAt: ISODateTime;
+}
+
 export interface ClientDocument {
   id: ID;
   name: string;
@@ -160,11 +197,21 @@ export interface ClientDocument {
   addedAt: ISODateTime;
 }
 
+/**
+ * Entreprise (organisation) : prospect, client, ancien client ou partenaire.
+ * Le nom historique `Client` est conservé (factures, projets et abonnements y sont rattachés).
+ */
 export interface Client {
   id: ID;
   name: string;
   sector: string;
+  /** Activité commerciale d'un client (actif / inactif / perdu). */
   status: ClientStatus;
+  relation: RelationType;
+  size: string;
+  country: string;
+  ownerId: ID | null;
+  source: string;
   city: string;
   website: string;
   /** Satisfaction déclarée (1 à 5), donnée de démonstration. */
@@ -177,8 +224,16 @@ export interface Client {
 
 export interface Contact {
   id: ID;
+  /** Entreprise de rattachement. */
   clientId: ID | null;
+  /** Ancien prospect d'origine (données migrées). */
   leadId: ID | null;
+  relation: RelationType;
+  ownerId: ID | null;
+  source: string;
+  priority: Priority;
+  links: DocumentLink[];
+  archivedAt: ISODateTime | null;
   firstName: string;
   lastName: string;
   jobTitle: string;
@@ -215,7 +270,8 @@ export interface Lead {
 /* Ventes                                                              */
 /* ------------------------------------------------------------------ */
 
-export type OpportunityStage = "new" | "contacted" | "qualification" | "meeting" | "proposal" | "negotiation" | "won" | "lost";
+/** Étapes commerciales du pipeline (cycle de vente). */
+export type OpportunityStage = "new" | "qualify" | "discussion" | "proposal" | "negotiation" | "won" | "lost";
 
 export interface Opportunity {
   id: ID;
@@ -235,11 +291,17 @@ export interface Opportunity {
   notes: string;
   closedAt: ISODateTime | null;
   lostReason: string;
+  priority: Priority;
+  /** Première entrée au-delà de la qualification (étape « En discussion » ou suivante). */
+  qualifiedAt: ISODateTime | null;
+  /** Opportunité archivée (masquée du pipeline actif). */
+  archivedAt: ISODateTime | null;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
 
-export type SalesActivityType = "call" | "email" | "meeting" | "demo" | "followup" | "note";
+/** Interaction consignée (fait passé). `stage_change` et `task_done` sont générés par le CRM. */
+export type SalesActivityType = "call" | "email" | "meeting" | "demo" | "message" | "followup" | "note" | "stage_change" | "task_done";
 
 export interface SalesActivity {
   id: ID;
@@ -252,7 +314,15 @@ export interface SalesActivity {
   opportunityId: ID | null;
   invoiceId: ID | null;
   ownerId: ID | null;
-  /** `false` = activité planifiée à venir. */
+  contactId: ID | null;
+  /** Sens de l'échange (appel / e-mail / message). */
+  direction: "in" | "out" | null;
+  /** Résultat de l'échange. */
+  outcome: string;
+  /** Prochaine étape convenue (texte libre ; l'action elle-même est une mission). */
+  nextStep: string;
+  taskId: ID | null;
+  /** Toujours `true` depuis la v3 : une interaction est un fait passé (les plans sont des missions). */
   done: boolean;
   createdAt: ISODateTime;
 }
@@ -474,6 +544,9 @@ export type TaskStatus = "todo" | "in_progress" | "waiting" | "done" | "cancelle
 export type TaskComplexity = "simple" | "standard" | "complex";
 export type TaskRecurrence = "none" | "weekly" | "monthly";
 
+/** Type de mission. `internal` = tâche interne historique (projets), hors CRM. */
+export type CrmTaskType = "call" | "email" | "followup" | "meeting" | "qualification" | "proposal_prep" | "proposal_send" | "sales_followup" | "retention" | "request" | "other" | "internal";
+
 export interface TaskComment {
   id: ID;
   author: string;
@@ -481,10 +554,18 @@ export interface TaskComment {
   at: ISODateTime;
 }
 
+/** Mission : action à réaliser (CRM) ou tâche interne historique (`type: "internal"`). */
 export interface Task {
   id: ID;
   title: string;
   description: string;
+  type: CrmTaskType;
+  contactId: ID | null;
+  opportunityId: ID | null;
+  /** Heure prévue `HH:mm` (rendez-vous, appel). */
+  dueTime: string | null;
+  /** Résultat consigné à la réalisation. */
+  result: string;
   assigneeId: ID | null;
   priority: Priority;
   status: TaskStatus;
@@ -535,7 +616,23 @@ export type GoalType = "financial" | "commercial" | "operational" | "customer" |
 
 /** Indicateurs calculables automatiquement à partir des données métier. */
 export type GoalMetric =
-  "manual" | "mrr" | "overdue_receivables" | "won_opportunities" | "projects_completed" | "avg_project_margin" | "late_tasks" | "billed_revenue" | "active_clients" | "new_leads" | "new_subscriptions";
+  | "manual"
+  | "mrr"
+  | "overdue_receivables"
+  | "won_opportunities"
+  | "projects_completed"
+  | "avg_project_margin"
+  | "late_tasks"
+  | "billed_revenue"
+  | "active_clients"
+  | "new_leads"
+  | "new_subscriptions"
+  /* Indicateurs CRM */
+  | "missions_done"
+  | "interactions_logged"
+  | "overdue_followups"
+  | "pipeline_value"
+  | "conversion_rate";
 
 export interface KeyResult {
   id: ID;
@@ -589,7 +686,12 @@ export type MissionCondition =
   | { kind: "mrr_reached"; target: Cents }
   | { kind: "cash_review"; since: ISODateTime }
   | { kind: "no_late_tasks" }
-  | { kind: "vat_declared"; period: string };
+  | { kind: "vat_declared"; period: string }
+  /* Défis CRM */
+  | { kind: "no_overdue_followups" }
+  | { kind: "day_actions_done"; date: ISODate }
+  | { kind: "prospects_qualified"; count: number; since: ISODate }
+  | { kind: "interactions_logged"; count: number; since: ISODate };
 
 export interface EntityRef {
   type: EntityType;
@@ -628,7 +730,7 @@ export interface UnlockedAchievement {
   unlockedAt: ISODateTime;
 }
 
-export type XpSource = "task" | "mission" | "goal" | "project" | "client" | "opportunity" | "invoice" | "achievement";
+export type XpSource = "task" | "mission" | "goal" | "project" | "client" | "opportunity" | "invoice" | "achievement" | "interaction" | "contact" | "streak";
 
 export interface XpTransaction {
   id: ID;
@@ -725,7 +827,9 @@ export type ActivityEventType =
   | "credit_note_issued"
   | "refund_recorded"
   | "vat_declared"
-  | "vat_paid";
+  | "vat_paid"
+  | "contact_created"
+  | "interaction_logged";
 
 export interface ActivityEvent {
   id: ID;
@@ -751,6 +855,8 @@ export interface Note {
   body: string;
   clientId: ID | null;
   projectId: ID | null;
+  contactId: ID | null;
+  opportunityId: ID | null;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -763,6 +869,7 @@ export interface AppData {
   settings: Settings;
   clients: Client[];
   contacts: Contact[];
+  /** @deprecated Prospects historiques : migrés en entreprises + contacts (v3), toujours vide. */
   leads: Lead[];
   opportunities: Opportunity[];
   salesActivities: SalesActivity[];

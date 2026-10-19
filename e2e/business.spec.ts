@@ -1,27 +1,27 @@
 import { expect, test } from "@playwright/test";
 import { open, quickCreate } from "./helpers";
 
-test("création d'un client puis affichage des erreurs de validation", async ({ page }) => {
-  await open(page, "/clients");
-  await quickCreate(page, "Client");
+test("création d'une entreprise puis affichage des erreurs de validation", async ({ page }) => {
+  await open(page, "/entreprises");
+  await quickCreate(page, "Entreprise");
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Créer le client" }).click();
+  await dialog.getByRole("button", { name: "Créer l'entreprise" }).click();
   await expect(dialog.getByText("Le nom est obligatoire")).toBeVisible();
-  await dialog.getByLabel("Nom", { exact: true }).fill("Quantum Lab");
+  await dialog.getByLabel("Raison sociale").fill("Quantum Lab");
   await dialog.getByLabel("Secteur").fill("Recherche");
-  await dialog.getByRole("button", { name: "Créer le client" }).click();
-  await expect(page).toHaveURL(/\/clients\/cli_/);
+  await dialog.getByRole("button", { name: "Créer l'entreprise" }).click();
+  await expect(page).toHaveURL(/\/entreprises\/cli_/);
   await expect(page.locator("main h1")).toHaveText("Quantum Lab");
   // Doublon refusé
-  await quickCreate(page, "Client");
-  await page.getByRole("dialog").getByLabel("Nom", { exact: true }).fill("quantum lab");
-  await page.getByRole("dialog").getByRole("button", { name: "Créer le client" }).click();
+  await quickCreate(page, "Entreprise");
+  await page.getByRole("dialog").getByLabel("Raison sociale").fill("quantum lab");
+  await page.getByRole("dialog").getByRole("button", { name: "Créer l'entreprise" }).click();
   await expect(page.getByText(/existe déjà/).first()).toBeVisible();
 });
 
 test("facture : création, paiement partiel puis intégral, soldes recalculés", async ({ page }) => {
   await open(page, "/finances/factures");
-  await quickCreate(page, "Facture");
+  await page.getByRole("button", { name: "Nouvelle facture" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Client", { exact: true }).selectOption({ label: "PixelForge" });
   await dialog.getByLabel("Désignation ligne 1").fill("Audit de sécurité");
@@ -49,23 +49,6 @@ test("facture : création, paiement partiel puis intégral, soldes recalculés",
   await page.getByRole("dialog").getByRole("button", { name: "Enregistrer le paiement" }).click();
   await expect(page.getByText("Payée", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("+30 XP").first()).toBeVisible();
-});
-
-test("opportunité : création puis déplacement dans le pipeline", async ({ page }) => {
-  await open(page, "/crm");
-  await page.getByRole("button", { name: "Nouvelle opportunité" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Nom de l'opportunité").fill("Refonte API Orbis");
-  await dialog.getByLabel("Client", { exact: true }).selectOption({ label: "Orbis Industrie" });
-  await dialog.getByLabel("Montant estimé HT").fill("12000");
-  await dialog.getByRole("button", { name: "Créer l'opportunité" }).click();
-  await expect(page).toHaveURL(/focus=opp_/);
-  await page.keyboard.press("Escape");
-  const card = page.locator("article[data-opportunity]", { hasText: "Refonte API Orbis" });
-  await expect(page.locator('section[data-stage="new"]').locator("article", { hasText: "Refonte API Orbis" })).toBeVisible();
-  await card.getByLabel("Étape de Refonte API Orbis").selectOption("negotiation");
-  await expect(page.locator('section[data-stage="negotiation"]').locator("article", { hasText: "Refonte API Orbis" })).toBeVisible();
-  await expect(page.locator('section[data-stage="negotiation"]').locator("article", { hasText: "Refonte API Orbis" }).getByText("70 %")).toBeVisible();
 });
 
 test("devis : création depuis le catalogue", async ({ page }) => {
@@ -119,7 +102,8 @@ test("les filtres modifient réellement la liste des factures", async ({ page })
 test("permissions : un collaborateur ne peut pas émettre de facture", async ({ page }) => {
   await open(page, "/parametres?tab=roles");
   await page.getByLabel("Rôle simulé").selectOption("collaborateur");
-  await quickCreate(page, "Facture");
+  await open(page, "/finances/factures");
+  await page.getByRole("button", { name: "Nouvelle facture" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Client", { exact: true }).selectOption({ label: "PixelForge" });
   await dialog.getByLabel("Désignation ligne 1").fill("Test");
@@ -130,7 +114,7 @@ test("permissions : un collaborateur ne peut pas émettre de facture", async ({ 
 
 test("avoir total sur une facture payée puis remboursement du trop-perçu", async ({ page }) => {
   await open(page, "/finances/factures");
-  await quickCreate(page, "Facture");
+  await page.getByRole("button", { name: "Nouvelle facture" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Client", { exact: true }).selectOption({ label: "PixelForge" });
   await dialog.getByLabel("Désignation ligne 1").fill("Atelier annulé");
@@ -168,7 +152,7 @@ test("TVA : déclaration de la période puis paiement", async ({ page }) => {
   await open(page, "/finances/tva");
   await expect(page.getByText("À déclarer").or(page.getByText("Déclaration en retard")).first()).toBeVisible();
   await page.getByRole("button", { name: "Déclarer", exact: true }).first().click();
-  await expect(page.getByText(/\+\d+ XP/).first()).toBeVisible();
+  // Module historique : la déclaration n'est plus liée à un défi (les défis sont centrés CRM).
   await expect(page.getByText("À jour", { exact: true })).toBeVisible();
   const row = page.locator("tbody tr").first();
   const declared = row.getByText("Déclarée — à payer");

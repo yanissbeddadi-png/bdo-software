@@ -100,15 +100,28 @@ export interface SeriesDef {
 }
 
 /** Barres groupées par mois (montants en centimes). */
-export function MonthlyBarChart({ data, series, money = true, stacked }: { data: object[]; series: SeriesDef[]; money?: boolean; stacked?: boolean }) {
+export function MonthlyBarChart({
+  data,
+  series,
+  money = true,
+  stacked,
+  xLabel = formatMonth,
+}: {
+  data: object[];
+  series: SeriesDef[];
+  money?: boolean;
+  stacked?: boolean;
+  /** Libellé de l'axe des abscisses (par défaut : mois « AAAA-MM »). Clé de donnée : `month`. */
+  xLabel?: (key: string, long?: boolean) => string;
+}) {
   if (!data.length) return <EmptyState title="Aucune donnée sur la période" />;
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 8, right: 8, left: 4, bottom: 0 }} barGap={2} barCategoryGap="22%">
         <CartesianGrid {...GRID} />
-        <XAxis dataKey="month" tickFormatter={(m: string) => formatMonth(m)} {...AXIS} />
+        <XAxis dataKey="month" tickFormatter={(m: string) => xLabel(m)} {...AXIS} />
         <YAxis tickFormatter={money ? euroTick : (v: number) => formatNumber(v)} width={64} {...AXIS} />
-        <Tooltip cursor={{ fill: "var(--interactive)", opacity: 0.5 }} content={<ChartTooltip money={money} labelFormatter={(m) => formatMonth(m, false)} />} />
+        <Tooltip cursor={{ fill: "var(--interactive)", opacity: 0.5 }} content={<ChartTooltip money={money} labelFormatter={(m) => xLabel(m, true)} />} />
         {series.length > 1 ? <Legend wrapperStyle={legendStyle} iconType="square" iconSize={8} /> : null}
         <ReferenceLine y={0} stroke="var(--border-strong)" />
         {series.map((s) => (

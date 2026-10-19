@@ -8,20 +8,18 @@ import {
   CalendarDays,
   ChevronRight,
   FileText,
-  FolderPlus,
   Handshake,
   ListPlus,
   Menu,
   NotebookPen,
   Plus,
-  ReceiptText,
   Search,
-  Target,
   UserPlus,
-  Wallet,
   Settings,
   Trophy,
   UserCog,
+  BellRing,
+  MessageSquarePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -79,16 +77,14 @@ function Breadcrumb() {
 export function QuickCreateMenu({ label = "Créer" }: { label?: string }) {
   const openCreate = useUiStore((s) => s.openCreate);
   const items = [
-    { kind: "client", label: "Client", icon: Building2 },
-    { kind: "lead", label: "Prospect", icon: UserPlus },
-    { kind: "opportunity", label: "Opportunité commerciale", icon: Handshake },
-    { kind: "project", label: "Projet", icon: FolderPlus },
-    { kind: "task", label: "Tâche", icon: ListPlus },
-    { kind: "invoice", label: "Facture", icon: ReceiptText },
-    { kind: "expense", label: "Dépense", icon: Wallet },
-    { kind: "quote", label: "Devis", icon: FileText },
-    { kind: "note", label: "Note", icon: NotebookPen },
-    { kind: "goal", label: "Objectif", icon: Target },
+    { kind: "prospect", label: "Contact / prospect", icon: UserPlus, defaults: undefined },
+    { kind: "client", label: "Entreprise", icon: Building2, defaults: undefined },
+    { kind: "opportunity", label: "Opportunité", icon: Handshake, defaults: undefined },
+    { kind: "action", label: "Mission", icon: ListPlus, defaults: { type: "call" } },
+    { kind: "action", label: "Rappel / relance", icon: BellRing, defaults: { type: "followup" } },
+    { kind: "interaction", label: "Interaction passée", icon: MessageSquarePlus, defaults: undefined },
+    { kind: "note", label: "Note", icon: NotebookPen, defaults: undefined },
+    { kind: "quote", label: "Proposition commerciale", icon: FileText, defaults: undefined },
   ] as const;
   return (
     <DropdownMenu>
@@ -100,7 +96,7 @@ export function QuickCreateMenu({ label = "Créer" }: { label?: string }) {
       <DropdownMenuContent className="w-56">
         <DropdownMenuLabel>Création rapide</DropdownMenuLabel>
         {items.map((i) => (
-          <DropdownMenuItem key={i.kind} onSelect={() => openCreate(i.kind)}>
+          <DropdownMenuItem key={i.label} onSelect={() => openCreate(i.kind, i.defaults)}>
             <i.icon /> {i.label}
           </DropdownMenuItem>
         ))}
@@ -186,7 +182,7 @@ export function PeriodSelect({ className }: { className?: string }) {
   );
 }
 
-const PERIOD_ROUTES = ["/", "/finances", "/analyses"];
+const PERIOD_ROUTES = ["/finances", "/analyses"];
 
 export function Topbar() {
   const setMobile = useUiStore((s) => s.setMobileNavOpen);

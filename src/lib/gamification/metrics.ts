@@ -8,6 +8,8 @@ import { computeMRR } from "@/lib/calculations/recurring";
 import { evaluateGoal } from "@/lib/calculations/goals";
 import { RECURRING_CATEGORIES } from "@/lib/calculations/cashflow";
 import { expenseTTC } from "@/lib/calculations/money";
+import { buildCrmIndex, isContactComplete, isMissionOverdue } from "@/lib/crm/views";
+import { activeDays, computeStreak, rigorousWeeks } from "@/lib/crm/streak";
 
 /** Indicateurs métier utilisés par les succès et les rangs (calculés une seule fois). */
 export interface GameMetrics {
@@ -53,6 +55,26 @@ export interface GameMetrics {
   daysWithoutLateTasks: number;
   /** Déclarations de TVA déposées (et payées le cas échéant) au plus tard à l'échéance. */
   vatReturnsOnTime: number;
+  /* ---------- Indicateurs CRM ---------- */
+  /** Contacts prospects ajoutés (prospects actuels + contacts reliés à une opportunité). */
+  prospectsAdded: number;
+  /** Fiches contact complètes (entreprise, fonction, e-mail, téléphone). */
+  qualifiedContacts: number;
+  callsLogged: number;
+  followupsDone: number;
+  qualifiedOpportunities: number;
+  proposalsSent: number;
+  crmMissionsDone: number;
+  overdueFollowups: number;
+  /** Toutes les missions du jour sont terminées (au moins une). */
+  dayCleared: boolean;
+  meetingReports: number;
+  /** Semaines ISO complètes avec toutes les relances faites à temps (≥ 3). */
+  rigorousWeeks: number;
+  /** Tous les contacts prioritaires (≥ 3) ont un suivi à jour. */
+  priorityContactsUpToDate: boolean;
+  streak: number;
+  bestStreak: number;
 }
 
 export function computeGameMetrics(data: AppData, today: ISODate, summaries?: InvoiceSummary[]): GameMetrics {
@@ -76,7 +98,7 @@ export function computeGameMetrics(data: AppData, today: ISODate, summaries?: In
     if (cur > prev) hadMrrGrowth = true;
   }
 
-  const satisfactions = data.clients.filter((c) => c.status === "active" && c.satisfaction !== null).map((c) => c.satisfaction!);
+  const satisfactions = data.clients.filter((c) => c.relation === "customer" && c.status === "active" && c.satisfaction !== null).map((c) => c.satisfaction!);
   const won = data.opportunities.filter((o) => o.stage === "won").length;
   const lost = data.opportunities.filter((o) => o.stage === "lost").length;
   const activeEmployees = data.employees.filter((e) => e.status === "active");
@@ -85,7 +107,7 @@ export function computeGameMetrics(data: AppData, today: ISODate, summaries?: In
   return {
     today,
     clients: data.clients.length,
-    activeClients: data.clients.filter((c) => c.status === "active").length,
+    activeClients: data.clients.filter((c) => c.relation === "customer" && c.status === "active").length,
     quotes: data.quotes.length,
     wonOpportunities: won,
     closedOpportunities: won + lost,
@@ -114,8 +136,34 @@ export function computeGameMetrics(data: AppData, today: ISODate, summaries?: In
     overdue30: sums.filter((s) => s.status === "overdue" && s.daysOverdue > 30).length,
     overdueExpenses: data.expenses.filter((e) => !e.paid && e.dueDate < today).length,
     daysWithoutLateTasks: since ? Math.max(daysBetween(since, today), 0) : 0,
+    ...crmMetrics(data, today),
     vatReturnsOnTime: data.vatReturns.filter((r) => r.declaredAt.slice(0, 10) <= r.dueDate && (r.status === "credit" || (r.status === "paid" && r.paidDate !== null && r.paidDate <= r.dueDate)))
       .length,
+  };
+}
+
+function crmMetrics(data: AppData, today: ISODate) {
+  const crmTasks = data.tasks.filter((t) => t.type !== "internal");
+  const dueToday = crmTasks.filter((t) => t.dueDate === today && t.status !== "cancelled");
+  const index = buildCrmIndex(data, today);
+  const priority = index.contacts.filter((c) => !c.archived && (c.contact.priority === "high" || c.contact.priority === "critical"));
+  const streak = computeStreak(activeDays(data), today, data.settings.crm.workingDays);
+  const quotesSent = data.quotes.filter((q) => q.status !== "draft").length;
+  return {
+    prospectsAdded: data.contacts.filter((c) => c.relation === "prospect" || data.opportunities.some((o) => o.contactId === c.id)).length,
+    qualifiedContacts: data.contacts.filter(isContactComplete).length,
+    callsLogged: data.salesActivities.filter((a) => a.type === "call" && a.done).length,
+    followupsDone: crmTasks.filter((t) => t.type === "followup" && t.status === "done").length,
+    qualifiedOpportunities: data.opportunities.filter((o) => o.qualifiedAt).length,
+    proposalsSent: Math.max(quotesSent, data.opportunities.filter((o) => o.stage === "proposal" || o.stage === "negotiation" || o.stage === "won").length),
+    crmMissionsDone: crmTasks.filter((t) => t.status === "done").length,
+    overdueFollowups: crmTasks.filter((t) => isMissionOverdue(t, today)).length,
+    dayCleared: dueToday.length > 0 && dueToday.every((t) => t.status === "done"),
+    meetingReports: data.salesActivities.filter((a) => a.type === "meeting" && a.outcome.trim()).length + crmTasks.filter((t) => t.type === "meeting" && t.status === "done" && t.result.trim()).length,
+    rigorousWeeks: rigorousWeeks(data, today).length,
+    priorityContactsUpToDate: priority.length >= 3 && priority.every((c) => c.followUp === "up_to_date" || c.followUp === "waiting"),
+    streak: streak.current,
+    bestStreak: streak.best,
   };
 }
 

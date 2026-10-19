@@ -10,8 +10,6 @@
  */
 import type {
   AppData,
-  Client,
-  Contact,
   CreditNote,
   Refund,
   VatReturn,
@@ -22,11 +20,9 @@ import type {
   Invoice,
   ISODate,
   ISODateTime,
-  Lead,
   LineItem,
   Mission,
   Note,
-  Opportunity,
   Payment,
   PaymentMethod,
   Product,
@@ -43,8 +39,10 @@ import { documentTotals } from "@/lib/calculations/money";
 import { vatAmounts, vatDueDate } from "@/lib/calculations/vat";
 import { monthPeriod, monthsBetween } from "@/lib/calculations/dates";
 import { finalize } from "@/lib/domain/runtime";
+import { crmEntities, crmJournal } from "./seed-crm";
+import { DEFAULT_WORKING_DAYS } from "@/lib/crm/model";
 
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 /* ----------------------------- Utilitaires ----------------------------- */
 
@@ -70,13 +68,29 @@ export const DEFAULT_XP_REWARDS = {
   goal_major: 150,
   project_done: 100,
   client_validated: 75,
-  opportunity_won: 100,
+  opportunity_won: 50,
   invoice_paid: 30,
   achievement_common: 50,
   achievement_rare: 200,
   achievement_epic: 300,
   achievement_legendary: 500,
+  crm_prospect_qualified: 10,
+  crm_contact_completed: 5,
+  crm_call_logged: 5,
+  crm_followup_done: 10,
+  crm_mission_done: 15,
+  crm_meeting_report: 20,
+  crm_opportunity_qualified: 20,
+  crm_week_on_track: 40,
 } as const;
+
+export const DEFAULT_CRM_SETTINGS = {
+  inactivityDays: 45,
+  proposalPendingDays: 10,
+  newProspectDays: 7,
+  workingDays: [...DEFAULT_WORKING_DAYS],
+  dailyCallXpCap: 8,
+};
 
 export function defaultSettings(anchor: ISODate, now: ISODateTime): Settings {
   const simulationStart = startOfMonthISO(addMonths(anchor, -12));
@@ -131,8 +145,9 @@ export function defaultSettings(anchor: ISODate, now: ISODateTime): Settings {
       lastCashReviewAt: null,
       progressionStart: addDays(anchor, -75),
     },
-    notifications: { enabled: { finance: true, commercial: true, projet: true, taches: true, objectifs: true, gamification: true, systeme: true } },
-    user: { id: "usr_dirigeant", name: "Dirigeant BDO", email: "dirigeant@bdo-software.example", role: "dirigeant" },
+    notifications: { enabled: { finance: false, commercial: true, projet: false, taches: false, objectifs: true, gamification: true, systeme: true } },
+    crm: { ...DEFAULT_CRM_SETTINGS, workingDays: [...DEFAULT_CRM_SETTINGS.workingDays] },
+    user: { id: "usr_sacha", name: "Sacha Renard", email: "sacha.renard@bdo-software.example", role: "dirigeant", employeeId: "emp_sacha" },
     demo: { seededAt: now, anchorDate: anchor, version: SEED_VERSION },
   };
 }
@@ -169,7 +184,8 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     updatedAt: ts(hireDate),
   });
   const employees: Employee[] = [
-    emp("emp_camille", "Camille", "Laurent", "Responsable commerciale", "sales", "2023-03-01", 5600, { sales: 5, communication: 4, analysis: 3 }),
+    emp("emp_sacha", "Sacha", "Renard", "Responsable commercial & relation client", "sales", "2022-04-01", 6400, { sales: 5, communication: 5, analysis: 4 }),
+    emp("emp_camille", "Camille", "Laurent", "Chargée d'affaires", "sales", "2023-03-01", 5600, { sales: 5, communication: 4, analysis: 3 }),
     emp("emp_hugo", "Hugo", "Martin", "Lead développeur", "development", "2022-09-01", 6200, { development: 5, analysis: 4, project_management: 3 }),
     emp("emp_ines", "Inès", "Moreau", "Développeuse full-stack", "development", M(-6, 1), 4700, { development: 4, support: 2 }),
     emp("emp_thomas", "Thomas", "Petit", "Chef de projet", "operations", "2023-06-01", 5200, { project_management: 5, communication: 4, finance: 2 }),
@@ -206,273 +222,10 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     prod("prd_support", "BDO Support Premium", "SUP-PRM", "support", "Services récurrents", 250, 90, "monthly", "Support prioritaire 8h–19h, engagement de délai."),
   ];
 
-  /* ---------- Clients ---------- */
-  const cli = (id: string, name: string, sector: string, city: string, created: ISODate, satisfaction: number | null, status: Client["status"] = "active"): Client => ({
-    id,
-    name,
-    sector,
-    status,
-    city,
-    website: `https://www.${name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]/g, "")}.example`,
-    satisfaction,
-    notes: "",
-    documents: [],
-    createdAt: ts(created),
-    updatedAt: ts(created),
-  });
-  const clients: Client[] = [
-    cli("cli_novaretail", "NovaRetail", "Distribution", "Lyon", "2024-11-05", 5),
-    cli("cli_hexa", "HexaLogistics", "Logistique", "Villeurbanne", "2025-02-17", 4),
-    cli("cli_greenpulse", "GreenPulse", "Énergie", "Grenoble", "2025-06-10", 3),
-    cli("cli_horizon", "Atelier Horizon", "Artisanat & design", "Annecy", "2025-05-02", 4),
-    cli("cli_finova", "Finova Conseil", "Conseil financier", "Paris", M(-11, 8), 5),
-    cli("cli_cloudnest", "CloudNest", "Hébergement", "Lyon", M(-10, 14), 4),
-    cli("cli_medialink", "Medialink", "Médias", "Marseille", M(-10, 3), 3, "inactive"),
-    cli("cli_orbis", "Orbis Industrie", "Industrie", "Saint-Étienne", M(-8, 19), 4),
-    cli("cli_pixelforge", "PixelForge", "Jeux vidéo", "Montpellier", M(-7, 7), 5),
-    cli("cli_urbanflow", "UrbanFlow", "Mobilité", "Bordeaux", "2025-03-20", 2, "churned"),
-    cli("cli_bluepeak", "BluePeak", "Tourisme", "Chambéry", M(-6, 11), 4),
-    cli("cli_synapse", "Synapse RH", "Ressources humaines", "Lyon", M(-4, 22), 4),
-    cli("cli_ecobatir", "ÉcoBâtir", "Construction", "Clermont-Ferrand", M(-3, 9), null),
-    cli("cli_dataspring", "DataSpring", "Data & IA", "Nantes", M(-3, 25), 5),
-    cli("cli_lumina", "LuminaTech", "Électronique", "Toulouse", M(-1, 4), null),
-  ];
-  clients.find((c) => c.id === "cli_novaretail")!.documents.push({ id: "doc_nr_1", name: "Contrat-cadre NovaRetail 2025.pdf", kind: "Contrat", addedAt: ts("2024-11-20") });
-  clients.find((c) => c.id === "cli_orbis")!.documents.push({ id: "doc_or_1", name: "Cahier des charges automatisation devis.pdf", kind: "Cahier des charges", addedAt: ts(M(-4, 2)) });
-  clients.find((c) => c.id === "cli_medialink")!.notes = "Relation en pause depuis le report du projet intranet.";
-  clients.find((c) => c.id === "cli_urbanflow")!.notes = "Abonnement résilié — migration vers un outil interne.";
-
-  /* ---------- Contacts ---------- */
-  const contacts: Contact[] = [];
-  const contact = (clientId: string | null, leadId: string | null, firstName: string, lastName: string, jobTitle: string, domain: string, isPrimary: boolean, created: ISODateTime) => {
-    contacts.push({
-      id: `con_${(clientId ?? leadId ?? "x").split("_")[1]}_${firstName.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")}`,
-      clientId,
-      leadId,
-      firstName,
-      lastName,
-      jobTitle,
-      email: `${firstName.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")}.${lastName.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s/g, "")}@${domain}.example`,
-      phone: `+33 6 00 00 ${String(between(10, 99))} ${String(between(10, 99))}`,
-      isPrimary,
-      notes: "",
-      createdAt: created,
-      updatedAt: created,
-    });
-  };
-  const domainOf = (name: string) =>
-    name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]/g, "");
-  const contactSeed: [string, string, string, string][] = [
-    ["cli_novaretail", "Sophie", "Garnier", "Directrice e-commerce"],
-    ["cli_novaretail", "Julien", "Roche", "DSI"],
-    ["cli_hexa", "Marc", "Lefebvre", "Directeur des opérations"],
-    ["cli_greenpulse", "Claire", "Fontaine", "Responsable marketing"],
-    ["cli_greenpulse", "Paul", "Mercier", "Directeur administratif"],
-    ["cli_horizon", "Élodie", "Blanc", "Gérante"],
-    ["cli_finova", "Antoine", "Girard", "Associé"],
-    ["cli_cloudnest", "Sarah", "Chevalier", "CTO"],
-    ["cli_medialink", "Nicolas", "Faure", "Directeur digital"],
-    ["cli_orbis", "Isabelle", "Rousseau", "Directrice industrielle"],
-    ["cli_orbis", "Karim", "Haddad", "Responsable ADV"],
-    ["cli_pixelforge", "Lucas", "Bonnet", "Producteur exécutif"],
-    ["cli_urbanflow", "Manon", "Lambert", "Head of Product"],
-    ["cli_bluepeak", "Hélène", "Marchand", "Directrice générale"],
-    ["cli_synapse", "Romain", "Gauthier", "DRH"],
-    ["cli_synapse", "Amélie", "Perrin", "Chargée SIRH"],
-    ["cli_ecobatir", "Olivier", "Renaud", "Président"],
-    ["cli_dataspring", "Yasmine", "Cherif", "Head of Data"],
-    ["cli_lumina", "Benoît", "Arnaud", "Directeur service client"],
-  ];
-  const seenPrimary = new Set<string>();
-  for (const [clientId, first, last, job] of contactSeed) {
-    const client = clients.find((c) => c.id === clientId)!;
-    contact(clientId, null, first, last, job, domainOf(client.name), !seenPrimary.has(clientId), client.createdAt);
-    seenPrimary.add(clientId);
-  }
-
-  /* ---------- Prospects ---------- */
-  const lead = (
-    id: string,
-    company: string,
-    contactName: string,
-    sector: string,
-    source: string,
-    priority: Lead["priority"],
-    status: Lead["status"],
-    created: ISODate,
-    nextAction: string,
-    nextActionDate: ISODate | null,
-    convertedClientId: string | null = null,
-  ): Lead => ({
-    id,
-    company,
-    contactName,
-    email: contactName ? `${contactName.split(" ")[0]!.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")}@${domainOf(company)}.example` : "",
-    phone: `+33 1 00 00 ${String(between(10, 99))} ${String(between(10, 99))}`,
-    sector,
-    source,
-    priority,
-    status,
-    nextAction,
-    nextActionDate,
-    convertedClientId,
-    notes: "",
-    createdAt: ts(created),
-    updatedAt: ts(created),
-  });
-  const leads: Lead[] = [
-    lead("lead_solenne", "Maison Solenne", "Agathe Morel", "Cosmétique", "Salon", "high", "qualified", M(-2, 6), "Envoyer la proposition chiffrée", D(3)),
-    lead("lead_transalp", "TransAlp Fret", "Didier Vasseur", "Transport", "Recommandation", "high", "qualified", M(-2, 18), "Préparer la démonstration BDO Flow", D(6)),
-    lead("lead_kerys", "Kerys Santé", "Dr Laure Simon", "Santé", "Site web", "normal", "contacted", M(-1, 2), "Rappeler pour qualifier le besoin", D(-2)),
-    lead("lead_lumen", "Brasserie Lumen", "Victor Caron", "Agroalimentaire", "LinkedIn", "low", "new", M(0, 2), "Premier appel de découverte", D(2)),
-    lead("lead_vectis", "Vectis Avocats", "Maître Anne Leroy", "Juridique", "Partenaire", "normal", "contacted", M(-1, 20), "Envoyer une étude de cas", D(-5)),
-    lead("lead_optimum", "Optimum Immo", "Fabien Collin", "Immobilier", "Appel entrant", "normal", "new", D(-6), "Qualifier le budget", D(1)),
-    lead("lead_nordika", "Nordika Design", "Sven Larsen", "Design", "Site web", "low", "unqualified", M(-3, 10), "", null),
-    lead("lead_helios", "Helios Énergie", "Margaux Riviere", "Énergie", "Salon", "high", "qualified", M(-1, 12), "Organiser un atelier de cadrage", D(9)),
-    lead("lead_quartz", "Quartz Assurances", "Bruno Lemoine", "Assurance", "LinkedIn", "normal", "new", D(-3), "Premier appel de découverte", D(4)),
-    lead("lead_alto", "Alto Musique", "Chloé Vidal", "Culture", "Recommandation", "low", "contacted", M(-2, 27), "Relancer par e-mail", D(-12)),
-    lead("lead_verdure", "Verdure & Co", "Noémie Brun", "Paysagisme", "Site web", "normal", "new", D(-1), "Premier appel de découverte", D(5)),
-    lead("lead_lumina", "LuminaTech", "Benoît Arnaud", "Électronique", "Salon", "high", "converted", M(-3, 3), "", null, "cli_lumina"),
-  ];
-  contact(null, "lead_solenne", "Agathe", "Morel", "Directrice marketing", "maisonsolenne", false, ts(M(-2, 6)));
-  contact(null, "lead_transalp", "Didier", "Vasseur", "Directeur général", "transalpfret", false, ts(M(-2, 18)));
-  contact(null, "lead_helios", "Margaux", "Riviere", "Responsable innovation", "heliosenergie", false, ts(M(-1, 12)));
-
-  /* ---------- Opportunités ---------- */
-  const opp = (
-    id: string,
-    name: string,
-    clientId: string | null,
-    leadId: string | null,
-    amount: number,
-    stage: Opportunity["stage"],
-    probability: number,
-    created: ISODate,
-    expected: ISODate,
-    source: string,
-    ownerId: string,
-    lastInteraction: ISODate,
-    nextAction: string,
-    closed: ISODate | null = null,
-    lostReason = "",
-  ): Opportunity => ({
-    id,
-    name,
-    clientId,
-    leadId,
-    contactId: contacts.find((c) => (clientId && c.clientId === clientId && c.isPrimary) || (leadId && c.leadId === leadId))?.id ?? null,
-    amount: eur(amount),
-    probability,
-    stage,
-    expectedCloseDate: expected,
-    source,
-    ownerId,
-    lastInteractionAt: ts(lastInteraction, 15),
-    nextAction,
-    notes: "",
-    closedAt: closed ? ts(closed, 16) : null,
-    lostReason,
-    createdAt: ts(created),
-    updatedAt: ts(lastInteraction, 15),
-  });
-  const opportunities: Opportunity[] = [
-    opp("opp_orbis_auto", "Automatisation des devis Orbis", "cli_orbis", null, 68_000, "won", 100, M(-6, 2), M(-4, 15), "Salon", "emp_camille", M(-4, 12), "", M(-4, 12)),
-    opp("opp_pixel_app", "Application mobile PixelForge", "cli_pixelforge", null, 82_000, "won", 100, M(-6, 20), M(-4, 30), "Recommandation", "emp_camille", M(-4, 26), "", M(-4, 26)),
-    opp("opp_synapse_portal", "Portail collaborateurs Synapse RH", "cli_synapse", null, 46_000, "won", 100, M(-4, 25), M(-3, 20), "Site web", "emp_camille", M(-3, 18), "", M(-3, 18)),
-    opp("opp_dataspring_dw", "Data warehouse DataSpring", "cli_dataspring", null, 56_000, "won", 100, M(-3, 26), M(-1, 15), "LinkedIn", "emp_camille", M(-1, 14), "", M(-1, 14)),
-    opp("opp_lumina_bot", "Chatbot support IA LuminaTech", "cli_lumina", "lead_lumina", 32_000, "won", 100, M(-3, 5), D(-8), "Salon", "emp_camille", D(-9), "", D(-9)),
-    opp(
-      "opp_medialink_intranet",
-      "Refonte intranet Medialink",
-      "cli_medialink",
-      null,
-      38_000,
-      "lost",
-      0,
-      M(-5, 10),
-      M(-3, 30),
-      "Client existant",
-      "emp_camille",
-      M(-3, 22),
-      "",
-      M(-3, 22),
-      "Budget reporté à l'an prochain",
-    ),
-    opp(
-      "opp_bluepeak_field",
-      "Application terrain BluePeak",
-      "cli_bluepeak",
-      null,
-      24_000,
-      "lost",
-      0,
-      M(-4, 3),
-      M(-2, 15),
-      "Client existant",
-      "emp_camille",
-      M(-2, 9),
-      "",
-      M(-2, 9),
-      "Concurrent moins cher",
-    ),
-    opp(
-      "opp_nova_multisite",
-      "Extension BDO Analytics multi-sites",
-      "cli_novaretail",
-      null,
-      32_000,
-      "negotiation",
-      70,
-      M(-2, 4),
-      D(12),
-      "Client existant",
-      "emp_camille",
-      D(-3),
-      "Valider les conditions tarifaires",
-    ),
-    opp(
-      "opp_hexa_ai",
-      "Module IA de prévision des flux",
-      "cli_hexa",
-      null,
-      45_000,
-      "proposal",
-      50,
-      M(-2, 15),
-      D(25),
-      "Client existant",
-      "emp_camille",
-      D(-6),
-      "Relancer après envoi de la proposition",
-    ),
-    opp("opp_solenne_eshop", "Boutique en ligne Maison Solenne", null, "lead_solenne", 18_000, "qualification", 20, M(-2, 8), D(40), "Salon", "emp_camille", D(-4), "Envoyer la proposition chiffrée"),
-    opp("opp_transalp_tms", "Digitalisation du TMS TransAlp", null, "lead_transalp", 60_000, "meeting", 35, M(-2, 20), D(55), "Recommandation", "emp_camille", D(-7), "Démonstration BDO Flow"),
-    opp("opp_horizon_maint", "Maintenance évolutive Atelier Horizon", "cli_horizon", null, 9_600, "contacted", 10, M(-2, 1), D(20), "Client existant", "emp_camille", D(-31), "Relancer Élodie Blanc"),
-    opp("opp_kerys_portal", "Portail patients Kerys Santé", null, "lead_kerys", 25_000, "new", 5, M(-1, 3), D(75), "Site web", "emp_camille", D(-10), "Qualifier le besoin"),
-    opp(
-      "opp_green_training",
-      "Formation & accompagnement BDO CRM",
-      "cli_greenpulse",
-      null,
-      7_500,
-      "proposal",
-      50,
-      M(-1, 10),
-      D(5),
-      "Client existant",
-      "emp_camille",
-      D(-20),
-      "Obtenir la validation du devis",
-    ),
-  ];
+  /* ---------- Entreprises, contacts, opportunités (CRM) ---------- */
+  const seedHelpers = { anchor, D, M, ts, between };
+  const crm = crmEntities(seedHelpers);
+  const { clients, contacts, opportunities } = crm;
 
   /* ---------- Projets ---------- */
   const proj = (
@@ -780,6 +533,11 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
       id,
       title,
       description: opts.description ?? "",
+      type: "internal",
+      contactId: null,
+      opportunityId: null,
+      dueTime: null,
+      result: "",
       assigneeId,
       priority,
       status,
@@ -847,7 +605,7 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   task("Clôture mensuelle de septembre", null, "emp_nora", "high", "done", "standard", M(-1, 8), 12, 11, { recurrence: "monthly" });
   task("Clôture mensuelle d'octobre", null, "emp_nora", "high", "todo", "standard", M(1, 8), 12, 0, { recurrence: "monthly" });
   task("Relancer les factures GreenPulse échues", null, "emp_nora", "critical", "todo", "simple", D(-1), 2, 0, { clientId: "cli_greenpulse" });
-  task("Mettre à jour la grille tarifaire 2027", null, "emp_camille", "normal", "in_progress", "standard", D(20), 10, 4, { goalId: "goal_margin" });
+  task("Mettre à jour la grille tarifaire 2027", null, "emp_camille", "normal", "in_progress", "standard", D(20), 10, 4);
   task("Préparer le webinar BDO Analytics", null, "emp_camille", "normal", "todo", "standard", D(18), 14, 0);
   task("Revue hebdomadaire du pipeline", null, "emp_camille", "normal", "done", "simple", D(-4), 1, 1, { recurrence: "weekly" });
   task("Revue hebdomadaire du pipeline", null, "emp_camille", "normal", "todo", "simple", D(3), 1, 0, { recurrence: "weekly" });
@@ -1148,8 +906,6 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   const quarterEnd = endOfMonthISO(addMonths(quarterStart, 2));
   const semesterStart = Number(anchor.slice(5, 7)) <= 6 ? `${anchor.slice(0, 4)}-01-01` : `${anchor.slice(0, 4)}-07-01`;
   const semesterEnd = endOfMonthISO(addMonths(semesterStart, 5));
-  const yearStart = `${anchor.slice(0, 4)}-01-01`;
-  const yearEnd = `${anchor.slice(0, 4)}-12-31`;
   const goal = (
     id: string,
     title: string,
@@ -1183,17 +939,8 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     updatedAt: ts(start),
   });
   const qLabel = `T${q + 1} ${anchor.slice(0, 4)}`;
+  // Objectifs commerciaux (indicateurs CRM calculés automatiquement).
   const goals: Goal[] = [
-    goal("goal_mrr", "Atteindre 10 000 € de MRR", "financial", qLabel, quarterStart, quarterEnd, "emp_camille", "mrr", 7_500, 10_000, "€", {
-      description: "Développer la base d'abonnements SaaS et de maintenance.",
-      keyResults: [
-        { id: "kr_mrr_1", title: "Nouveaux abonnements signés", target: 4, current: 1, unit: "contrats" },
-        { id: "kr_mrr_2", title: "Montées en gamme", target: 3, current: 1, unit: "clients" },
-      ],
-    }),
-    goal("goal_overdue", "Réduire les factures échues sous 3 000 €", "financial", qLabel, quarterStart, quarterEnd, "emp_nora", "overdue_receivables", 40_000, 3_000, "€", {
-      description: "Fiabiliser le recouvrement et raccourcir les délais de paiement.",
-    }),
     goal(
       "goal_contracts",
       "Signer 5 nouveaux contrats",
@@ -1201,19 +948,25 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
       `S${Number(anchor.slice(5, 7)) <= 6 ? 1 : 2} ${anchor.slice(0, 4)}`,
       semesterStart,
       semesterEnd,
-      "emp_camille",
+      "emp_sacha",
       "won_opportunities",
       0,
       5,
       "contrats",
       { description: "Opportunités gagnées sur le semestre." },
     ),
-    goal("goal_projects", "Terminer 3 projets prioritaires", "operational", qLabel, quarterStart, quarterEnd, "emp_thomas", "projects_completed", 0, 3, "projets"),
-    goal("goal_margin", "Porter la marge moyenne des projets à 50 %", "financial", anchor.slice(0, 4), yearStart, yearEnd, "emp_nora", "avg_project_margin", 45, 50, "%", {
-      description: "Marge estimée moyenne (prix de vente − coût estimé).",
+    goal("goal_leads", "Générer 15 nouveaux prospects", "commercial", qLabel, quarterStart, quarterEnd, "emp_sacha", "new_leads", 0, 15, "prospects", {
+      description: "Contacts prospects créés sur le trimestre.",
     }),
-    goal("goal_late", "Zéro tâche en retard", "operational", qLabel, quarterStart, quarterEnd, "emp_thomas", "late_tasks", 10, 0, "tâches"),
-    goal("goal_revenue", "Facturer 600 k€ HT sur l'année", "growth", anchor.slice(0, 4), yearStart, yearEnd, "emp_camille", "billed_revenue", 0, 600_000, "€"),
+    goal("goal_missions", "Réaliser 40 actions commerciales", "commercial", qLabel, quarterStart, quarterEnd, "emp_sacha", "missions_done", 0, 40, "missions", {
+      description: "Missions CRM terminées (appels, relances, rendez-vous…).",
+    }),
+    goal("goal_followups", "Zéro relance en retard", "customer", qLabel, quarterStart, quarterEnd, "emp_sacha", "overdue_followups", 8, 0, "relances", {
+      description: "Missions de suivi échues et non réalisées.",
+    }),
+    goal("goal_pipeline", "Porter le pipeline actif à 400 k€", "growth", qLabel, quarterStart, quarterEnd, "emp_camille", "pipeline_value", 150_000, 400_000, "€", {
+      description: "Valeur brute des opportunités ouvertes.",
+    }),
     goal("goal_satisfaction", "Satisfaction client ≥ 4,5 / 5", "customer", qLabel, quarterStart, quarterEnd, "emp_lea", "manual", 3.9, 4.5, "/ 5", {
       manualValue: 4.2,
       description: "Mesurée par l'enquête trimestrielle (saisie manuelle).",
@@ -1222,7 +975,6 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
         { id: "kr_sat_2", title: "Délai moyen de première réponse support", target: 4, current: 5, unit: "heures" },
       ],
     }),
-    goal("goal_leads", "Générer 15 nouveaux prospects", "commercial", qLabel, quarterStart, quarterEnd, "emp_camille", "new_leads", 0, 15, "prospects"),
   ];
 
   /* ---------- Missions (seed) ---------- */
@@ -1255,8 +1007,8 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
     entity: null,
     history: [
       { at: ts(start), text: "Mission planifiée." },
-      ...(status === "done" ? [{ at: ts(completed ?? due, 17), text: "Validée par Dirigeant BDO." }] : []),
-      ...(status === "cancelled" ? [{ at: ts(addDays(start, 3), 17), text: "Annulée par Dirigeant BDO — priorités revues." }] : []),
+      ...(status === "done" ? [{ at: ts(completed ?? due, 17), text: "Validée par Sacha Renard." }] : []),
+      ...(status === "cancelled" ? [{ at: ts(addDays(start, 3), 17), text: "Annulée par Sacha Renard — priorités revues." }] : []),
     ],
     source: "seed",
     autoKey: null,
@@ -1265,44 +1017,17 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   });
   const missions: Mission[] = [
     mission(
-      "mis_seed_01",
-      "Préparer le comité de direction trimestriel",
-      "Consolider les indicateurs et les décisions à arbitrer.",
-      "strategy",
-      "monthly",
-      "medium",
-      "high",
-      D(-5),
-      D(7),
-      50,
-      "in_progress",
-    ),
-    mission(
       "mis_seed_02",
       "Mettre à jour la grille tarifaire 2027",
-      "Revoir les prix du catalogue au regard des coûts réels.",
+      "Revoir les prix proposés aux prospects au regard des retours terrain.",
       "commercial",
       "strategic",
       "hard",
       "normal",
       D(-10),
       D(30),
-      120,
+      30,
       "todo",
-    ),
-    mission("mis_seed_03", "Former l'équipe au nouveau process support", "Session interne sur la qualification des tickets.", "team", "monthly", "medium", "normal", D(-3), D(14), 60, "todo"),
-    mission(
-      "mis_seed_04",
-      "Lire « Le pilotage par la trésorerie »",
-      "Développement personnel du dirigeant : un chapitre par semaine.",
-      "personal",
-      "custom",
-      "easy",
-      "low",
-      D(-7),
-      D(21),
-      20,
-      "in_progress",
     ),
     mission(
       "mis_seed_05",
@@ -1314,93 +1039,27 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
       "normal",
       D(-2),
       D(25),
-      60,
+      30,
       "todo",
     ),
-    mission("mis_seed_06", "Auditer les abonnements logiciels internes", "Identifier les licences inutilisées.", "finance", "monthly", "easy", "normal", D(-8), D(9), 40, "todo"),
-    mission("mis_seed_07", "Clôturer le mois précédent", "Rapprochement des encaissements, dépenses et factures.", "finance", "monthly", "medium", "high", M(-1, 1), M(-1, 10), 50, "done", M(-1, 8)),
-    mission("mis_seed_08", "Signer le contrat DataSpring", "Finaliser la négociation du data warehouse.", "commercial", "strategic", "hard", "high", M(-2, 20), M(-1, 15), 120, "done", M(-1, 14)),
-    mission("mis_seed_09", "Onboarder LuminaTech", "Kick-off, accès et premier comité de pilotage.", "operations", "weekly", "easy", "normal", D(-12), D(-5), 40, "done", D(-5)),
-    mission("mis_seed_10", "Participer au salon Tech&Co de printemps", "Stand partagé avec un partenaire.", "commercial", "strategic", "medium", "low", M(-5, 1), M(-4, 20), 60, "cancelled"),
-    mission("mis_seed_11", "Réduire le délai moyen de paiement", "Mettre en place le prélèvement pour les abonnements.", "finance", "strategic", "hard", "high", M(-1, 15), D(45), 150, "in_progress"),
-    mission("mis_seed_12", "Recruter un développeur senior", "Renforcer l'équipe de développement pour absorber la charge.", "team", "strategic", "epic", "high", M(-1, 1), D(60), 200, "todo"),
+    mission("mis_seed_08", "Signer le contrat DataSpring", "Finaliser la négociation du data warehouse.", "commercial", "strategic", "hard", "high", M(-2, 20), M(-1, 15), 30, "done", M(-1, 14)),
+    mission("mis_seed_10", "Participer au salon Tech&Co de printemps", "Stand partagé avec un partenaire.", "commercial", "strategic", "medium", "low", M(-5, 1), M(-4, 20), 30, "cancelled"),
   ];
 
-  /* ---------- Activités commerciales ---------- */
-  const salesActivities: SalesActivity[] = [];
-  const act = (
-    type: SalesActivity["type"],
-    date: ISODate,
-    subject: string,
-    link: { clientId?: string; leadId?: string; opportunityId?: string; invoiceId?: string },
-    done = true,
-    hour = 10,
-    owner = "emp_camille",
-  ) => {
-    if (done && date >= anchor) return;
-    salesActivities.push({
-      id: `sa_${String(salesActivities.length + 1).padStart(3, "0")}`,
-      type,
-      date: ts(date, hour),
-      subject,
-      notes: "",
-      clientId: link.clientId ?? null,
-      leadId: link.leadId ?? null,
-      opportunityId: link.opportunityId ?? null,
-      invoiceId: link.invoiceId ?? null,
-      ownerId: owner,
-      done,
-      createdAt: ts(done ? date : addDays(anchor, -1), hour),
-    });
-  };
-  for (const o of opportunities) {
-    const created = o.createdAt.slice(0, 10);
-    const last = o.lastInteractionAt.slice(0, 10);
-    const link = { clientId: o.clientId ?? undefined, leadId: o.leadId ?? undefined, opportunityId: o.id };
-    act("call", created, `Appel de découverte — ${o.name}`, link);
-    if (o.stage !== "new" && o.stage !== "contacted") act("meeting", addDays(created, 9), `Rendez-vous de qualification — ${o.name}`, link, true, 14);
-    if (["proposal", "negotiation", "won", "lost"].includes(o.stage)) act("email", addDays(created, 20), `Envoi de la proposition — ${o.name}`, link);
-    if (["negotiation", "won"].includes(o.stage)) act("demo", addDays(created, 26), `Démonstration — ${o.name}`, link, true, 15);
-    act(
-      o.stage === "won" ? "meeting" : o.stage === "lost" ? "call" : "followup",
-      last,
-      o.stage === "won" ? `Signature — ${o.name}` : o.stage === "lost" ? `Débrief de la perte — ${o.name}` : `Point d'avancement — ${o.name}`,
-      link,
-      true,
-      15,
-    );
-  }
-  act("followup", M(-1, 5), "Relance facture Medialink", { clientId: "cli_medialink", invoiceId: invoices.find((i) => i.clientId === "cli_medialink" && i.issueDate === M(-5, 18))?.id });
-  act("note", D(-11), "Compte rendu comité de pilotage GreenPulse", { clientId: "cli_greenpulse" });
-  act("call", D(-2), "Appel de qualification Kerys Santé", { leadId: "lead_kerys" });
-  act("meeting", D(2), "Démonstration BDO Flow — TransAlp", { leadId: "lead_transalp", opportunityId: "opp_transalp_tms" }, false, 14);
-  act("call", D(1), "Négociation tarifaire NovaRetail", { clientId: "cli_novaretail", opportunityId: "opp_nova_multisite" }, false, 11);
-  act("meeting", D(6), "Atelier de cadrage Helios Énergie", { leadId: "lead_helios" }, false, 9);
-  act("demo", D(9), "Démonstration BDO Analytics — Maison Solenne", { leadId: "lead_solenne", opportunityId: "opp_solenne_eshop" }, false, 16);
-  // Agenda du jour d'ancrage (heures UTC) : anime la salle de réunion des bureaux virtuels.
-  act("demo", D(0), "Démonstration BDO Flow — Kerys Santé", { leadId: "lead_kerys" }, false, 8);
-  act("meeting", D(0), "Comité de pilotage PRJ-006 — Orbis", { clientId: "cli_orbis" }, false, 9, "emp_thomas");
-  act("call", D(0), "Point paiement Medialink", { clientId: "cli_medialink" }, false, 12, "emp_nora");
-  act("call", D(0), "Suivi ticket prioritaire NovaRetail", { clientId: "cli_novaretail" }, false, 13, "emp_lea");
-  act("meeting", D(0), "Revue technique connecteur ERP — Orbis", { clientId: "cli_orbis" }, false, 14, "emp_hugo");
-
-  /* ---------- Notes ---------- */
+  /* ---------- Interactions, missions CRM et notes ---------- */
+  const journal = crmJournal(seedHelpers, crm, { medialinkInvoiceId: invoices.find((i) => i.clientId === "cli_medialink" && i.issueDate === M(-5, 18))?.id ?? null });
+  const salesActivities: SalesActivity[] = journal.salesActivities;
+  tasks.push(...journal.tasks);
   const notes: Note[] = [
-    {
-      id: "note_001",
-      title: "Négociation NovaRetail",
-      body: "Sophie Garnier souhaite un engagement de 24 mois en échange d'une remise de 8 %. À arbitrer au prochain comité.",
-      clientId: "cli_novaretail",
-      projectId: null,
-      createdAt: ts(D(-3), 17),
-      updatedAt: ts(D(-3), 17),
-    },
+    ...journal.notes,
     {
       id: "note_002",
       title: "Risques PRJ-006",
       body: "Le connecteur ERP a consommé 236 h pour 160 h prévues. Prévoir un avenant ou une revue du périmètre de l'assistant IA.",
       clientId: "cli_orbis",
       projectId: "prj_006",
+      contactId: null,
+      opportunityId: null,
       createdAt: ts(D(-8), 18),
       updatedAt: ts(D(-8), 18),
     },
@@ -1410,6 +1069,8 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
       body: "Packager BDO Flow + BDO Automation en offre « Opérations augmentées ». Étudier un programme partenaires intégrateurs.",
       clientId: null,
       projectId: null,
+      contactId: "con_nexus_thomas",
+      opportunityId: null,
       createdAt: ts(D(-15), 19),
       updatedAt: ts(D(-15), 19),
     },
@@ -1498,7 +1159,7 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   const ev = (at: ISODateTime, type: AppData["activity"][number]["type"], description: string, ref: AppData["activity"][number]["ref"]) =>
     activity.push({ id: `act_seed_${activity.length + 1}`, at, type, description, ref });
   const clientName = new Map(clients.map((c) => [c.id, c.name]));
-  for (const c of clients) ev(c.createdAt, "client_created", `Client ${c.name} ajouté`, { type: "client", id: c.id });
+  for (const c of clients) ev(c.createdAt, "client_created", `Entreprise ${c.name} ajoutée`, { type: "client", id: c.id });
   for (const i of invoices) if (i.baseStatus === "issued") ev(ts(i.issueDate, 8), "invoice_issued", `Facture ${i.number} émise · ${clientName.get(i.clientId)}`, { type: "invoice", id: i.id });
   for (const p of payments) {
     const i = invoices.find((x) => x.id === p.invoiceId)!;
@@ -1509,14 +1170,16 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
   for (const o of opportunities) if (o.stage === "won") ev(o.closedAt!, "opportunity_won", `Opportunité ${o.name} gagnée`, { type: "opportunity", id: o.id });
   for (const p of projects) if (p.completedAt) ev(p.completedAt, "project_completed", `Projet ${p.code} terminé`, { type: "project", id: p.id });
   for (const t of tasks) if (t.completedAt && t.completedAt >= ts(addDays(anchor, -21))) ev(t.completedAt, "task_completed", `Tâche « ${t.title} » terminée`, { type: "task", id: t.id });
-  for (const l of leads) if (l.createdAt >= ts(addDays(anchor, -30))) ev(l.createdAt, "lead_created", `Prospect ${l.company} ajouté`, { type: "lead", id: l.id });
+  for (const c of contacts) if (c.createdAt >= ts(addDays(anchor, -30))) ev(c.createdAt, "contact_created", `Contact ${c.firstName} ${c.lastName} ajouté`, { type: "contact", id: c.id });
+  for (const a of salesActivities)
+    if (a.type !== "stage_change" && a.date >= ts(addDays(anchor, -14))) ev(a.date, "interaction_logged", `${a.subject}`, a.contactId ? { type: "contact", id: a.contactId } : null);
   activity.sort((a, b) => a.at.localeCompare(b.at));
 
   const base: AppData = {
     settings,
     clients,
     contacts,
-    leads,
+    leads: [],
     opportunities,
     salesActivities,
     products,
@@ -1543,7 +1206,7 @@ export function createSeedData(anchor: ISODate, now: ISODateTime = `${anchor}T09
         key: "system:welcome",
         category: "systeme",
         severity: "info",
-        title: "Bienvenue dans BDO Software",
+        title: "Bienvenue dans BDO Software CRM",
         body: "Les données affichées sont fictives (mode démonstration). Elles sont stockées uniquement dans ce navigateur.",
         at: now,
         read: false,

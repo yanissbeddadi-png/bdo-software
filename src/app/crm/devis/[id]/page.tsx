@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { QuoteDetail } from "@/features/crm/leads-quotes-activities";
+import { QuoteDetail } from "@/features/crm/quotes";
 
 export const metadata: Metadata = { title: "Devis" };
 

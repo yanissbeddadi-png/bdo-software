@@ -2,10 +2,8 @@ import type { AppData, ISODate, ISODateTime, Mission, MissionCategory, MissionCo
 import { addDays, endOfMonthISO, isoWeekKey, monthKey, weekPeriod } from "@/lib/calculations/dates";
 import { summarizeData, type InvoiceSummary } from "@/lib/calculations/invoices";
 import { isStale } from "@/lib/calculations/pipeline";
-import { isTaskLate, isTaskOpen, projectFinancials } from "@/lib/calculations/projects";
+import { isTaskLate } from "@/lib/calculations/projects";
 import { computeMRR } from "@/lib/calculations/recurring";
-import { formatEUR, formatMonth } from "@/lib/formatters";
-import { nextPeriodToDeclare, vatPeriods } from "@/lib/calculations/vat";
 
 export const MISSION_CATEGORY_LABELS: Record<MissionCategory, string> = {
   finance: "Finance",
@@ -32,6 +30,7 @@ export const MISSION_DIFFICULTY_LABELS: Record<MissionDifficulty, string> = {
   epic: "Épique",
 };
 
+/** Les « missions » de gamification sont présentées comme des « défis » dans l'interface. */
 export const MISSION_STATUS_LABELS: Record<MissionStatus, string> = {
   todo: "À faire",
   in_progress: "En cours",
@@ -97,12 +96,28 @@ export function evaluateCondition(condition: MissionCondition, data: AppData, to
       return o.lastInteractionAt > condition.since || o.stage === "won" || o.stage === "lost" ? yes() : no();
     }
     case "leads_created": {
-      const n = data.leads.filter((l) => l.createdAt.slice(0, 10) >= condition.since).length;
+      // Prospects exploitables (rattachés à une entreprise, avec e-mail ou téléphone) créés depuis la date.
+      const n = data.contacts.filter((c) => c.createdAt.slice(0, 10) >= condition.since && c.clientId && (c.email || c.phone) && c.relation !== "archived").length;
       return n >= condition.count ? yes(n, condition.count) : no(n, condition.count);
     }
-    case "sales_activities_logged": {
-      const n = data.salesActivities.filter((a) => a.done && a.date.slice(0, 10) >= condition.since && a.date.slice(0, 10) <= today).length;
+    case "sales_activities_logged":
+    case "interactions_logged": {
+      const n = data.salesActivities.filter((a) => a.done && a.type !== "stage_change" && a.type !== "task_done" && a.date.slice(0, 10) >= condition.since && a.date.slice(0, 10) <= today).length;
       return n >= condition.count ? yes(n, condition.count) : no(n, condition.count);
+    }
+    case "prospects_qualified": {
+      const n = data.opportunities.filter((o) => o.qualifiedAt && o.qualifiedAt.slice(0, 10) >= condition.since).length;
+      return n >= condition.count ? yes(n, condition.count) : no(n, condition.count);
+    }
+    case "no_overdue_followups": {
+      const late = data.tasks.filter((t) => t.type !== "internal" && t.status !== "done" && t.status !== "cancelled" && t.dueDate && t.dueDate < today).length;
+      return late === 0 ? yes() : no(0, 1);
+    }
+    case "day_actions_done": {
+      const list = data.tasks.filter((t) => t.type !== "internal" && t.dueDate === condition.date && t.status !== "cancelled");
+      if (!list.length) return obsolete;
+      const done = list.filter((t) => t.status === "done").length;
+      return done === list.length ? yes(done, list.length) : no(done, list.length);
     }
     case "projects_done": {
       const list = data.projects.filter((p) => condition.projectIds.includes(p.id) && p.status !== "cancelled");
@@ -145,31 +160,32 @@ interface AutoMissionDraft {
  * Règles de génération des missions automatiques. Chaque mission porte une clé
  * `autoKey` déterministe : une même situation ne recrée jamais la même mission.
  */
-export function autoMissionDrafts(data: AppData, today: ISODate, summaries: InvoiceSummary[]): AutoMissionDraft[] {
+export function autoMissionDrafts(data: AppData, today: ISODate, _summaries: InvoiceSummary[]): AutoMissionDraft[] {
+  void _summaries;
   const g = data.settings.gamification;
   const daily = g.xpRewards.mission_daily;
-  const clients = new Map(data.clients.map((c) => [c.id, c.name]));
   const drafts: AutoMissionDraft[] = [];
   const week = weekPeriod(today);
   const weekKey = isoWeekKey(today);
   const month = monthKey(today);
+  const crmOpen = data.tasks.filter((t) => t.type !== "internal" && t.status !== "done" && t.status !== "cancelled");
 
-  for (const s of summaries) {
-    if (s.status !== "overdue") continue;
+  // Défi du jour : boucler toutes les actions prévues aujourd'hui.
+  const dueToday = crmOpen.filter((t) => t.dueDate === today);
+  if (dueToday.length)
     drafts.push({
-      autoKey: `relance:${s.invoice.id}`,
-      title: `Relancer ${clients.get(s.invoice.clientId) ?? "le client"} — ${s.invoice.number}`,
-      description: `La facture ${s.invoice.number} est échue depuis ${s.daysOverdue} j (solde ${formatEUR(s.balance)}). Consignez une relance ou enregistrez le paiement.`,
-      category: "finance",
+      autoKey: `journee:${today}`,
+      title: `Boucler les ${dueToday.length} action${dueToday.length > 1 ? "s" : ""} du jour`,
+      description: "Terminez toutes les missions CRM prévues aujourd'hui.",
+      category: "commercial",
       type: "daily",
-      difficulty: "easy",
-      priority: s.balance >= 500_000 ? "high" : "normal",
-      dueDate: addDays(today, 2),
+      difficulty: dueToday.length > 3 ? "medium" : "easy",
+      priority: "high",
+      dueDate: today,
       xpReward: daily,
-      condition: { kind: "invoice_followed_up", invoiceId: s.invoice.id },
-      entity: { type: "invoice", id: s.invoice.id },
+      condition: { kind: "day_actions_done", date: today },
+      entity: null,
     });
-  }
 
   for (const o of data.opportunities) {
     if (!isStale(o, today, g.staleOpportunityDays)) continue;
@@ -183,174 +199,68 @@ export function autoMissionDrafts(data: AppData, today: ISODate, summaries: Invo
       priority: o.amount >= 2_000_000 ? "high" : "normal",
       dueDate: addDays(today, 3),
       xpReward: daily,
-      condition: {
-        kind: "opportunity_touched",
-        opportunityId: o.id,
-        since: o.lastInteractionAt,
-      },
+      condition: { kind: "opportunity_touched", opportunityId: o.id, since: o.lastInteractionAt },
       entity: { type: "opportunity", id: o.id },
     });
   }
 
-  for (const t of data.tasks) {
-    if (!isTaskOpen(t) || !t.dueDate || t.priority !== "critical") continue;
-    if (t.dueDate > addDays(today, 2)) continue;
-    drafts.push({
-      autoKey: `tache-critique:${t.id}`,
-      title: `Terminer « ${t.title} »`,
-      description: `Tâche critique ${t.dueDate < today ? "en retard" : "à échéance imminente"}.`,
-      category: t.projectId ? "projects" : "operations",
-      type: "daily",
-      difficulty: t.complexity === "complex" ? "hard" : "medium",
-      priority: "critical",
-      dueDate: t.dueDate < today ? addDays(today, 1) : t.dueDate,
-      xpReward: daily,
-      condition: { kind: "task_done", taskId: t.id },
-      entity: { type: "task", id: t.id },
-    });
-  }
-
-  for (const p of data.projects) {
-    if (p.status === "done" || p.status === "cancelled") continue;
-    const f = projectFinancials(p, data, summaries);
-    if (f.budgetVariance <= 0) continue;
-    drafts.push({
-      autoKey: `budget:${p.id}`,
-      title: `Analyser le dépassement budgétaire de ${p.code}`,
-      description: `Coût réel ${formatEUR(f.actualCost)} pour un budget de ${formatEUR(f.budget)} (+${formatEUR(f.budgetVariance)}). Vérifiez la situation puis validez la mission.`,
-      category: "finance",
-      type: "daily",
-      difficulty: "medium",
-      priority: "high",
-      dueDate: addDays(today, 3),
-      xpReward: daily,
-      condition: { kind: "manual" },
-      entity: { type: "project", id: p.id },
-    });
-  }
-
-  // Déclaration de TVA : la plus ancienne période complète non déclarée.
-  const vatNext = nextPeriodToDeclare(vatPeriods(data, today));
-  if (vatNext) {
-    drafts.push({
-      autoKey: `tva:${vatNext.period}`,
-      title: `Déclarer la TVA de ${formatMonth(vatNext.period, false)}`,
-      description: `Vérifiez la TVA collectée (${formatEUR(vatNext.collected)}) et déductible (${formatEUR(vatNext.deductible)}) puis déclarez la période avant le ${vatNext.dueDate.split("-").reverse().join("/")}.`,
-      category: "finance",
-      type: "monthly",
-      difficulty: "medium",
-      priority: vatNext.dueDate <= addDays(today, 7) ? "high" : "normal",
-      dueDate: vatNext.dueDate < today ? addDays(today, 1) : vatNext.dueDate,
-      xpReward: daily * 2,
-      condition: { kind: "vat_declared", period: vatNext.period },
-      entity: null,
-    });
-  }
-
-  drafts.push({
-    autoKey: `revue-tresorerie:${weekKey}`,
-    title: "Mettre à jour les prévisions de trésorerie",
-    description: "Passez en revue les scénarios de trésorerie et validez la revue depuis la page Trésorerie.",
-    category: "finance",
-    type: "weekly",
-    difficulty: "easy",
-    priority: "normal",
-    dueDate: week.end,
-    xpReward: daily,
-    condition: { kind: "cash_review", since: `${week.start}T00:00:00.000Z` },
-    entity: null,
-  });
-
   drafts.push({
     autoKey: `prospection:${weekKey}`,
-    title: `Prospecter : ${g.weeklyProspectingTarget} nouveaux prospects`,
-    description: "Ajoutez de nouveaux prospects qualifiables dans le CRM cette semaine.",
+    title: `Prospecter : ${g.weeklyProspectingTarget} nouveaux prospects exploitables`,
+    description: "Ajoutez des prospects rattachés à une entreprise, avec au moins un moyen de contact.",
     category: "commercial",
     type: "weekly",
     difficulty: "medium",
     priority: "normal",
     dueDate: week.end,
     xpReward: daily * 2,
-    condition: {
-      kind: "leads_created",
-      count: g.weeklyProspectingTarget,
-      since: week.start,
-    },
+    condition: { kind: "leads_created", count: g.weeklyProspectingTarget, since: week.start },
     entity: null,
   });
 
   drafts.push({
-    autoKey: `activites:${weekKey}`,
-    title: "Réaliser 5 activités commerciales",
-    description: "Appels, rendez-vous, démonstrations ou relances consignés dans le CRM cette semaine.",
+    autoKey: `interactions:${weekKey}`,
+    title: "Consigner 5 interactions",
+    description: "Appels, e-mails, rendez-vous ou relances consignés dans le CRM cette semaine.",
     category: "commercial",
     type: "weekly",
     difficulty: "medium",
     priority: "normal",
     dueDate: week.end,
     xpReward: daily * 2,
-    condition: { kind: "sales_activities_logged", count: 5, since: week.start },
+    condition: { kind: "interactions_logged", count: 5, since: week.start },
     entity: null,
   });
 
-  // Missions mensuelles : générées uniquement si elles représentent un vrai défi
-  // (pas de MRR nul, pas de mission « zéro retard » déjà remplie à la création).
-  const mrr = computeMRR(data.subscriptions, today);
-  const target = Math.max(Math.ceil((mrr * 1.05) / 50_000) * 50_000, mrr + 50_000);
-  if (mrr > 0)
+  drafts.push({
+    autoKey: `qualification:${weekKey}`,
+    title: "Qualifier 2 opportunités",
+    description: "Faites passer deux opportunités à l'étape « En discussion » (besoin, budget, calendrier validés).",
+    category: "commercial",
+    type: "weekly",
+    difficulty: "hard",
+    priority: "normal",
+    dueDate: week.end,
+    xpReward: daily * 2,
+    condition: { kind: "prospects_qualified", count: 2, since: week.start },
+    entity: null,
+  });
+
+  // Défi mensuel généré uniquement s'il y a réellement des relances en retard.
+  if (crmOpen.some((t) => t.dueDate && t.dueDate < today))
     drafts.push({
-      autoKey: `mrr:${month}`,
-      title: `Atteindre ${formatEUR(target, { round: true })} de MRR`,
-      description: "Faites progresser le revenu mensuel récurrent d'environ 5 % ce mois-ci (nouveaux abonnements ou montées en gamme).",
-      category: "strategy",
+      autoKey: `zero-relance:${month}`,
+      title: "Zéro relance en retard",
+      description: "Rattrapez toutes les missions échues avant la fin du mois.",
+      category: "commercial",
       type: "monthly",
       difficulty: "hard",
       priority: "high",
-      dueDate: endOfMonthISO(today),
-      xpReward: daily * 4,
-      condition: { kind: "mrr_reached", target },
-      entity: null,
-    });
-
-  const lateNow = data.tasks.filter((t) => isTaskLate(t, today)).length;
-  if (lateNow > 0)
-    drafts.push({
-      autoKey: `zero-retard:${month}`,
-      title: "Zéro tâche en retard",
-      description: "Ramenez à zéro le nombre de tâches en retard avant la fin du mois.",
-      category: "operations",
-      type: "monthly",
-      difficulty: "hard",
-      priority: "normal",
       dueDate: endOfMonthISO(today),
       xpReward: daily * 3,
-      condition: { kind: "no_late_tasks" },
+      condition: { kind: "no_overdue_followups" },
       entity: null,
     });
-
-  const priorityProjects = data.projects.filter((p) => (p.priority === "high" || p.priority === "critical") && p.status !== "done" && p.status !== "cancelled");
-  if (priorityProjects.length) {
-    const quarter = `${today.slice(0, 4)}-T${Math.floor((Number(today.slice(5, 7)) - 1) / 3) + 1}`;
-    drafts.push({
-      autoKey: `projets-prioritaires:${quarter}`,
-      title: `Livrer les ${priorityProjects.length} projets prioritaires`,
-      description: priorityProjects.map((p) => p.code).join(", "),
-      category: "projects",
-      type: "strategic",
-      difficulty: "epic",
-      priority: "high",
-      dueDate: priorityProjects
-        .map((p) => p.dueDate)
-        .sort()
-        .at(-1)!,
-      xpReward: daily * 5,
-      condition: {
-        kind: "projects_done",
-        projectIds: priorityProjects.map((p) => p.id),
-      },
-      entity: null,
-    });
-  }
 
   return drafts;
 }
