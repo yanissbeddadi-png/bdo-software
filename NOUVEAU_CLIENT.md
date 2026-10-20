@@ -7,6 +7,49 @@ reliés au dépôt.
 
 Comptez environ 15 minutes par client.
 
+## Avant de commencer
+
+**Comptes et abonnements**
+
+- **Supabase** : l'offre gratuite limite en général le nombre de projets actifs (souvent
+  2). Au-delà, passez à l'offre payante ou mettez en pause un projet inutilisé.
+- **Vercel** : l'offre gratuite est en principe réservée à un usage non commercial ; pour
+  un site livré à un client, prévoyez l'offre Pro (vérifiez sur vercel.com/pricing).
+- **GitHub** : accès au dépôt `yanissbeddadi-png/bdo-software`.
+
+**Informations du client** : envoyez-lui `docs/Questionnaire-nouveau-client.docx`
+(3 pages, ~15 minutes). Il y renseigne :
+
+- entreprise : nom commercial, raison sociale, secteur, coordonnées ;
+- identité visuelle : **logo** (PNG, SVG, JPEG ou WebP, 300 Ko max, horizontal, fond
+  transparent) et **couleur principale** (`#RRGGBB`) ;
+- **directeur commercial** : prénom, nom, fonction, e-mail ;
+- **équipe** : prénom, nom, fonction, e-mail et rôle de chaque utilisateur ;
+- **cycle de vente** : libellés et probabilités des 7 étapes, sources de contacts,
+  délais de relance, jours travaillés ;
+- **modules** souhaités.
+
+## Procédure assistée (recommandée)
+
+Dans une session Claude Code sur ce dépôt, **avec les connecteurs Supabase et Vercel
+branchés** (claude.ai › Connecteurs, avant d'ouvrir la session), écrivez :
+
+> Crée le site pour le client « Martin Conseil »
+
+ou lancez `/nouveau-client`. Claude suit `.claude/skills/nouveau-client/SKILL.md` :
+
+1. **Claude** crée la base Supabase (Paris), installe les tables et vérifie qu'elles sont
+   identiques à la référence (empreinte du schéma) ;
+2. **Claude** crée le site Vercel `crm-<client>` relié au dépôt, avec 3 des 4 variables, et
+   génère le code d'installation ;
+3. **Vous (1 minute)** copiez la clé secrète Supabase dans Vercel — Claude vous donne les
+   deux liens directs ; aucun outil ne lui donne accès à cette clé ;
+4. **Claude** déploie et vous donne le lien `https://crm-<client>.vercel.app/installation` ;
+5. **Vous** faites l'installation (étape 3 ci-dessous) puis la configuration (étape 4) avec
+   les réponses du questionnaire.
+
+Sans assistant, suivez les étapes 1 à 5 ci-dessous.
+
 ## 1. Base de données (Supabase)
 
 1. Sur [supabase.com](https://supabase.com) : **New project**, au nom du client, région

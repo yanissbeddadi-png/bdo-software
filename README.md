@@ -254,7 +254,9 @@ clients.
 Une copie par client (site Vercel + base Supabase dédiés), installée **vide** ou avec les
 données de démonstration, puis configurée depuis **Paramètres** : identité visuelle (logo,
 couleur), étapes du pipeline et sources de contacts, modules activés, équipe et comptes.
-Pas à pas complet : [`NOUVEAU_CLIENT.md`](NOUVEAU_CLIENT.md).
+Pas à pas complet : [`NOUVEAU_CLIENT.md`](NOUVEAU_CLIENT.md) ; questionnaire à envoyer
+au client : [`docs/Questionnaire-nouveau-client.docx`](docs/Questionnaire-nouveau-client.docx) ;
+procédure assistée par Claude : `/nouveau-client` (`.claude/skills/nouveau-client/`).
 
 ## Tests
 
@@ -283,7 +285,9 @@ Pas à pas complet : [`NOUVEAU_CLIENT.md`](NOUVEAU_CLIENT.md).
   (`npm run test:e2e:cloud`) : installation, comptes de test, deux commerciaux aux
   portefeuilles séparés et directeur commercial qui voit tout, désactivation, nouveau
   client installé vide puis configuré (couleur, module, étape renommée, page de connexion).
-- **SQL** (`npm run test:sql`) : migrations + seed + RLS, et **reprise de données legacy**
+- **SQL** (`npm run test:sql`) : migrations + seed + RLS, **installation neuve**
+  (`supabase/fresh`, appliquée par le connecteur Supabase) identique aux migrations
+  complètes (empreinte du schéma affichée, comparable à une base distante), et **reprise de données legacy**
   par la migration CRM (prospects → entreprises/contacts, étapes, activités planifiées →
   missions) sur PostgreSQL 16 local.
 

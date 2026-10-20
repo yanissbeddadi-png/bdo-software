@@ -8,3 +8,6 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
   if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
 end $$;
+-- Comme sur Supabase : les tables créées dans public sont accessibles par défaut à ces rôles
+-- (seules les politiques RLS et les « revoke » des migrations restreignent l'accès).
+alter default privileges in schema public grant select, insert, update, delete on tables to anon, authenticated, service_role;

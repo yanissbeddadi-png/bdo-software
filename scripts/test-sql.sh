@@ -30,4 +30,16 @@ for f in supabase/tests/bootstrap.sql supabase/migrations/2026101500000[123]_*.s
   echo "→ (legacy) $f"
   $P -d bdo_legacy -f "$f" >/dev/null
 done
-echo "Migrations, seed, RLS et reprise CRM : OK"
+# Installation neuve via le connecteur Supabase (supabase/fresh) : même schéma que les migrations complètes.
+$P -c "create database bdo_ref"
+$P -c "create database bdo_fresh"
+for f in supabase/tests/bootstrap.sql supabase/migrations/*.sql; do $P -d bdo_ref -f "$f" >/dev/null; done
+for f in supabase/tests/bootstrap.sql supabase/migrations/2026101500000[123]_*.sql supabase/fresh/*.sql; do
+  echo "→ (neuve) $f"
+  $P -d bdo_fresh -f "$f" >/dev/null
+done
+REF=$($P -d bdo_ref -tA -f supabase/tests/fingerprint.sql)
+FRESH=$($P -d bdo_fresh -tA -f supabase/tests/fingerprint.sql)
+[ "$REF" = "$FRESH" ] || { echo "Installation neuve (supabase/fresh) différente des migrations : $FRESH ≠ $REF"; exit 1; }
+echo "Empreinte du schéma de référence : $REF"
+echo "Migrations, seed, RLS et reprise CRM, installation neuve : OK"
