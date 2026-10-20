@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import reset from "./reset";
+import { filledWorkbook } from "../e2e/import-fixture";
 
 const ADMIN = { email: "admin@bdo-test.fr", password: "MotDePasse-Test-2026" };
 let accounts: { head: string; email: string; password: string }[] = [];
@@ -143,7 +144,7 @@ test.describe.serial("mode multi-utilisateur", () => {
     await expect(admin).toHaveURL(/\/connexion/);
   });
 
-  test("nouveau client : espace vide, identité visuelle et modules configurés par le directeur commercial", async ({ browser, page }) => {
+  test("nouveau client : espace vide configuré par le classeur du client, comptes de l'équipe, modules", async ({ browser, page }) => {
     await reset();
     const owner = { email: "claire@martin-conseil.test", password: "Client-Test-2026" };
     await page.goto("/installation");
@@ -155,36 +156,41 @@ test.describe.serial("mode multi-utilisateur", () => {
     await page.getByLabel("Mot de passe (10 caractères minimum)").fill(owner.password);
     await page.getByLabel("Confirmer le mot de passe").fill(owner.password);
     await page.getByRole("button", { name: /Créer l'espace/ }).click();
-    await expect(page).toHaveURL(/parametres\?tab=entreprise/);
-    await expect(page.getByRole("heading", { name: "Identité visuelle" })).toBeVisible();
+    await expect(page).toHaveURL(/parametres\?tab=import/);
     // Aucune donnée fictive, aucun bandeau de démonstration.
     await expect(page.getByText(/données fictives/)).toHaveCount(0);
+    await page.goto("/entreprises");
+    await expect(page.getByText(/Aucune entreprise/).first()).toBeVisible();
 
-    // Identité visuelle : couleur de l'espace.
-    await page.getByLabel("Couleur principale").fill("#0A7F5A");
-    await page.getByRole("button", { name: "Enregistrer l'identité visuelle" }).click();
+    // Configuration par le classeur rempli par le client (rejoué et enregistré par le serveur).
+    await page.goto("/parametres?tab=import");
+    await page
+      .getByTestId("import-files")
+      .setInputFiles({ name: "Configuration-Martin.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: await filledWorkbook() });
+    await expect(page.getByTestId("import-preview")).toContainText("À créer : 2 collaborateurs, 2 entreprises, 2 contacts, 1 opportunité.");
+    await page.getByRole("button", { name: "Importer" }).click();
+    await expect(page.getByText("Import terminé", { exact: true })).toBeVisible();
     await expect(page.getByText("Enregistré", { exact: true })).toBeVisible();
     await expect(page.locator("div.flex.min-h-screen").first()).toHaveAttribute("style", /--accent:\s*#0A7F5A/);
+    await page.reload();
+    await page.goto("/pipeline");
+    await expect(page.getByText("Audit RH 2027").first()).toBeVisible();
+    await expect(page.getByText("Rendez-vous découverte").filter({ visible: true }).first()).toBeVisible();
+
+    // Comptes de l'équipe importée, avec le rôle indiqué dans le fichier.
+    await page.goto("/parametres?tab=roles");
+    await page.getByRole("button", { name: "Créer les comptes de l'équipe" }).click();
+    const list = page.getByTestId("credentials");
+    await expect(list).toContainText("paul@martin-conseil.test");
+    await expect(list).toContainText("Commercial");
+    await page.keyboard.press("Escape");
 
     // Modules : Finances désactivé.
-    await page.getByRole("tab", { name: "Modules" }).click();
+    await page.goto("/parametres?tab=modules");
     await page.getByRole("switch", { name: "Module Finances" }).click();
     await expect(page.getByText("Enregistré", { exact: true })).toBeVisible();
     await page.goto("/finances");
     await expect(page.getByText("Module « Finances » désactivé")).toBeVisible();
-
-    // Étapes du pipeline renommées.
-    await page.goto("/parametres?tab=crm");
-    await page.getByLabel("Libellé de l'étape En discussion").fill("Rendez-vous découverte");
-    await page.getByRole("button", { name: "Enregistrer les réglages CRM" }).click();
-    await expect(page.getByText("Enregistré", { exact: true })).toBeVisible();
-    await page.goto("/pipeline");
-    // Pipeline encore vide : le libellé apparaît dans le filtre des étapes.
-    await expect(page.locator("option", { hasText: "Rendez-vous découverte" }).first()).toBeAttached();
-
-    // Espace vide : aucune entreprise.
-    await page.goto("/entreprises");
-    await expect(page.getByText(/Aucune entreprise/).first()).toBeVisible();
 
     // La page de connexion affiche l'identité du client.
     const fresh = await (await browser.newContext()).newPage();

@@ -15,7 +15,8 @@
     "format": "prettier --write src e2e",
     "test:sql": "bash scripts/test-sql.sh",
     "test:e2e:cloud": "next build && playwright test -c playwright.cloud.config.ts",
-    "supabase:install-sql": "node scripts/bundle-install-sql.mjs"
+    "supabase:install-sql": "node scripts/bundle-install-sql.mjs",
+    "modeles": "tsx scripts/generate-templates.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -35,6 +36,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "^7.90.0",
+    "read-excel-file": "9.3.10",
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
@@ -52,6 +54,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.1",
+    "exceljs": "4.4.0",
     "prettier": "^3.9.10",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",

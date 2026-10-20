@@ -199,8 +199,8 @@ export function InstallPage() {
       return;
     }
     await browserClient().auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password });
-    // Espace vide : on commence par l'identité de l'entreprise ; démo : par les comptes de test.
-    hardNavigate(empty ? "/parametres?tab=entreprise" : "/parametres?tab=roles");
+    // Espace vide : configuration par les fichiers du client ; démo : comptes de test.
+    hardNavigate(empty ? "/parametres?tab=import" : "/parametres?tab=roles");
   };
 
   return (

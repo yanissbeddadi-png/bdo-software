@@ -211,7 +211,8 @@ export async function createTestAccounts(): Promise<{ ok: true; accounts: { name
       continue;
     }
     const name = `${e.firstName} ${e.lastName}`;
-    const role = defaultRoleFor(e.department);
+    // Rôle indiqué dans le fichier d'équipe importé, sinon rôle par défaut.
+    const role = e.accessRole ?? defaultRoleFor(e.department);
     const password = temporaryPassword();
     const res = await createAccount({ email, name, role, employeeId: e.id, password });
     if (res.ok) accounts.push({ name, email, role, password });

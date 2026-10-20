@@ -630,6 +630,8 @@ export interface Employee {
   monthlyCost: Cents;
   /** Niveau ludique de 1 à 5 par compétence. */
   skills: Partial<Record<SkillKey, number>>;
+  /** Rôle du compte de connexion à créer pour cette personne (import de l'équipe). */
+  accessRole?: "dirigeant" | "commercial" | "collaborateur";
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

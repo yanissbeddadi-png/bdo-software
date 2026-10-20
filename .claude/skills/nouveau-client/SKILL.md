@@ -96,9 +96,10 @@ Connecteurs) **avant** l'ouverture de la session.
 Donne :
 
 - le lien `https://crm-<slug>.vercel.app/installation` et le code d'installation ;
-- la marche à suivre : « Espace vide », puis Paramètres › Entreprise (logo, couleur), CRM
-  (étapes, sources), Modules, Équipe (fiches), Utilisateurs et rôles (« Créer les comptes
-  de l'équipe ») — avec les réponses du questionnaire `docs/Questionnaire-nouveau-client.docx` ;
+- la marche à suivre : « Espace vide », puis Paramètres › Import de fichiers : déposer le
+  classeur `Configuration-CRM.xlsx` rempli par le client (et son logo), vérifier l'aperçu,
+  Importer ; enfin Utilisateurs et rôles › « Créer les comptes de l'équipe ». Tout reste
+  modifiable à la main dans Paramètres ;
 - un rappel : le code ne sert qu'une fois ; les mots de passe temporaires ne s'affichent
   qu'une fois ; la vérification visuelle du site revient à l'utilisateur.
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAccess, useCommand, useData } from "@/lib/store/hooks";
 import { useAppStore, repositoryKind } from "@/lib/store/app-store";
 import { UsersAdmin } from "./users-admin";
+import { ImportTab } from "./import-tab";
 import { useParam, useSyncedState } from "@/lib/store/params";
 import { useUiStore } from "@/lib/store/ui-store";
 import * as C from "@/lib/domain/commands";
@@ -74,6 +75,7 @@ export function SettingsPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="crm">CRM</TabsTrigger>
+          <TabsTrigger value="import">Import de fichiers</TabsTrigger>
           <TabsTrigger value="entreprise">Entreprise</TabsTrigger>
           <TabsTrigger value="modules">Modules</TabsTrigger>
           <TabsTrigger value="preferences">Préférences</TabsTrigger>
@@ -87,6 +89,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="entreprise">
           <CompanyTab />
+        </TabsContent>
+        <TabsContent value="import">
+          <ImportTab />
         </TabsContent>
         <TabsContent value="modules">
           <ModulesTab />

@@ -17,8 +17,10 @@ Comptez environ 15 minutes par client.
   un site livré à un client, prévoyez l'offre Pro (vérifiez sur vercel.com/pricing).
 - **GitHub** : accès au dépôt `yanissbeddadi-png/bdo-software`.
 
-**Informations du client** : envoyez-lui `docs/Questionnaire-nouveau-client.docx`
-(3 pages, ~15 minutes). Il y renseigne :
+**Informations du client** : envoyez-lui le **classeur Excel**
+`public/modeles/Configuration-CRM.xlsx` (aussi téléchargeable dans l'application :
+Paramètres › Import de fichiers). Il le remplit et vous le renvoie avec son logo ; vous le
+déposez tel quel dans l'application, qui se configure seule. Un onglet par sujet :
 
 - entreprise : nom commercial, raison sociale, secteur, coordonnées ;
 - identité visuelle : **logo** (PNG, SVG, JPEG ou WebP, 300 Ko max, horizontal, fond
@@ -27,7 +29,14 @@ Comptez environ 15 minutes par client.
 - **équipe** : prénom, nom, fonction, e-mail et rôle de chaque utilisateur ;
 - **cycle de vente** : libellés et probabilités des 7 étapes, sources de contacts,
   délais de relance, jours travaillés ;
-- **modules** souhaités.
+- **modules** souhaités ;
+- ses **entreprises clientes**, **contacts** et **opportunités** en cours, s'il en a déjà
+  (facultatif).
+
+Un fichier par onglet existe aussi (`public/modeles/Modele-*.xlsx`), ainsi qu'un
+questionnaire Word plus classique (`docs/Questionnaire-nouveau-client.docx`), à saisir à la
+main. Après une modification de `src/lib/import/sheets.ts`, régénérez les modèles :
+`npm run modeles`.
 
 ## Procédure assistée (recommandée)
 
@@ -45,8 +54,8 @@ ou lancez `/nouveau-client`. Claude suit `.claude/skills/nouveau-client/SKILL.md
 3. **Vous (1 minute)** copiez la clé secrète Supabase dans Vercel — Claude vous donne les
    deux liens directs ; aucun outil ne lui donne accès à cette clé ;
 4. **Claude** déploie et vous donne le lien `https://crm-<client>.vercel.app/installation` ;
-5. **Vous** faites l'installation (étape 3 ci-dessous) puis la configuration (étape 4) avec
-   les réponses du questionnaire.
+5. **Vous** faites l'installation (étape 3 ci-dessous), puis déposez le classeur du client
+   dans Paramètres › Import de fichiers (étape 4).
 
 Sans assistant, suivez les étapes 1 à 5 ci-dessous.
 
@@ -91,7 +100,25 @@ Le compte créé est celui du **directeur commercial** : administrateur de l'esp
 toutes les données et règle tout. Vous pouvez faire l'installation vous-même puis lui
 transmettre l'accès, ou la faire avec lui.
 
-## 4. Configuration (Paramètres)
+## 4. Configuration
+
+### Par fichiers (recommandé)
+
+Après l'installation d'un espace vide, l'application ouvre **Paramètres › Import de
+fichiers** :
+
+1. déposez le classeur complété par le client (et son logo, et éventuellement des fichiers
+   CSV) — glisser-déposer ou « choisir » ;
+2. l'**aperçu** indique ce qui sera créé ou mis à jour, et les lignes refusées avec leur
+   numéro (e-mail invalide, nom manquant…) ; rien n'est encore enregistré ;
+3. cliquez sur **Importer** : réglages, équipe, entreprises, contacts et opportunités sont
+   remplis en une fois. Les lignes refusées sont ignorées : corrigez-les dans le fichier et
+   déposez-le à nouveau (un même fichier peut être réimporté sans créer de doublons :
+   équipe et contacts reconnus par leur e-mail, entreprises par leur nom) ;
+4. **Paramètres › Utilisateurs et rôles › Créer les comptes de l'équipe** : un compte par
+   personne de l'onglet Équipe, avec le rôle indiqué dans le fichier.
+
+### À la main (Paramètres)
 
 | Onglet                    | Ce que vous réglez                                                                                                                            |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -129,3 +156,7 @@ il est responsable. Pour lui confier des contacts : Contacts › cocher › « A
 - Pas d'envoi d'e-mails (invitations, mots de passe oubliés) : les accès se transmettent à la main.
 - Une installation = un client. Il n'y a pas de console centrale listant tous vos clients.
 - Les étapes du pipeline sont toujours au nombre de 7 (renommables, pas supprimables).
+- L'import de fichiers crée et met à jour, il ne supprime jamais rien. Pour repartir de
+  zéro : Paramètres › Données › « Vider l'espace », puis importez à nouveau.
+- Fichiers acceptés : `.xlsx` (Excel récent), `.csv` et images ; l'ancien format `.xls`
+  doit être réenregistré en `.xlsx`. 4 Mo maximum par import en mode multi-utilisateur.

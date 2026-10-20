@@ -252,8 +252,12 @@ clients.
 ## Livrer à un nouveau client
 
 Une copie par client (site Vercel + base Supabase dédiés), installée **vide** ou avec les
-données de démonstration, puis configurée depuis **Paramètres** : identité visuelle (logo,
-couleur), étapes du pipeline et sources de contacts, modules activés, équipe et comptes.
+données de démonstration, puis configurée **par fichiers** : le client remplit le classeur
+Excel `public/modeles/Configuration-CRM.xlsx` (entreprise, logo, équipe, pipeline, sources,
+règles, modules, entreprises clientes, contacts, opportunités) et vous le déposez dans
+**Paramètres › Import de fichiers** — aperçu, lignes refusées numérotées, puis import en une
+fois. Tout reste réglable à la main dans Paramètres (identité visuelle, étapes du pipeline,
+sources, modules, équipe et comptes).
 Pas à pas complet : [`NOUVEAU_CLIENT.md`](NOUVEAU_CLIENT.md) ; questionnaire à envoyer
 au client : [`docs/Questionnaire-nouveau-client.docx`](docs/Questionnaire-nouveau-client.docx) ;
 procédure assistée par Claude : `/nouveau-client` (`.claude/skills/nouveau-client/`).
@@ -276,6 +280,11 @@ procédure assistée par Claude : `/nouveau-client` (`.claude/skills/nouveau-cli
   clôture), statistiques filtrées, entreprise + validation, modules historiques (factures,
   avoirs, TVA, devis, tâche, objectif, permissions), bureaux 3D, absence de débordement
   horizontal sur 9 pages CRM en mobile.
+- **Import de fichiers** : 8 tests Vitest (`src/lib/import/*.test.ts` : valeurs françaises
+  — montants, dates, jours, CSV —, onglets reconnus par nom ou en-têtes, lignes refusées
+  numérotées, import complet dans un espace vide, réimport sans doublon, réservé au
+  directeur commercial, aller-retour avec les modèles générés) et un parcours Playwright par
+  mode (démonstration et Supabase : classeur rempli déposé, aperçu, import, comptes créés).
 - **Espace configurable** : 9 tests Vitest (`src/lib/database/workspace.test.ts` : espace
   vide, vider / recharger la démo en gardant l'identité, migration v4, étapes et sources,
   identité visuelle validée, modules) et un parcours Playwright (`e2e/workspace.spec.ts`).

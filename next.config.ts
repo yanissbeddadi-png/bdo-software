@@ -7,6 +7,12 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   cacheComponents: false,
+  experimental: {
+    serverActions: {
+      // Import de fichiers (contacts, logo) et sauvegardes : 4 Mo, sous la limite des fonctions Vercel (4,5 Mo).
+      bodySizeLimit: "4mb",
+    },
+  },
   /** Anciennes routes CRM réorientées vers les nouveaux modules (liens et favoris existants). */
   async redirects() {
     return [
