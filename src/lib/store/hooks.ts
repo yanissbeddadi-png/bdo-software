@@ -8,12 +8,23 @@ import { clock, useAppStore } from "./app-store";
 import { useUiStore } from "./ui-store";
 import { presetPeriod, previousPeriod, PERIOD_PRESET_LABELS } from "@/lib/calculations/dates";
 import { announceRewards } from "@/components/gamification/reward-toasts";
+import { hasFullAccess } from "@/lib/cloud/scope";
 
 /** Données de l'application (le composant doit être rendu sous `<DataGate>`). */
 export function useData(): AppData {
   const data = useAppStore((s) => s.data);
   if (!data) throw new Error("useData() appelé avant le chargement des données");
   return data;
+}
+
+/**
+ * Périmètre de l'utilisateur. En mode multi-utilisateur, seul le directeur commercial voit
+ * toute l'équipe ; les autres comptes ne reçoivent que leur portefeuille (filtré par le serveur).
+ */
+export function useAccess() {
+  const mode = useAppStore((s) => s.mode);
+  const user = useAppStore((s) => s.data?.settings.user ?? null);
+  return useMemo(() => ({ restricted: mode === "cloud" && !!user && !hasFullAccess(user.role), employeeId: user?.employeeId ?? null }), [mode, user]);
 }
 
 export function useClock() {

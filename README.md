@@ -188,25 +188,35 @@ Dès que Supabase est configuré, l'application passe en **mode multi-utilisateu
 
 - chaque collaborateur se connecte avec **son e-mail et son mot de passe** (`/connexion`) ;
   sans session, toutes les pages redirigent vers la connexion ;
-- toute l'équipe travaille sur **les mêmes données**, rafraîchies automatiquement
-  (toutes les 20 s et au retour sur l'onglet) ; l'indicateur « Enregistré » de la barre
-  supérieure confirme chaque enregistrement ;
-- le **rôle** de chacun est attribué par l'administrateur et **vérifié par le serveur** à
-  chaque action (un collaborateur ne peut pas créer d'entreprise, etc.) ;
-- « Mes actions » sur la vue d'ensemble, « Mes prospects » dans le pipeline : filtrés sur la
-  fiche collaborateur associée au compte ;
-- Paramètres › Utilisateurs et rôles : créer un compte (mot de passe temporaire affiché une
-  seule fois), changer le rôle, réinitialiser un mot de passe, désactiver un compte, créer
-  d'un clic les **comptes de test** de tous les collaborateurs ; menu du profil : changer
-  son mot de passe, se déconnecter.
+- **chaque collaborateur ne voit que son portefeuille** : les contacts dont il est
+  responsable, leurs entreprises et opportunités, les missions qui lui sont attribuées, les
+  interactions, notes, propositions, notifications et XP liées. Le filtrage est fait **par
+  le serveur** : les données des autres ne sont jamais envoyées à son navigateur (un lien
+  direct vers le contact d'un collègue affiche « Contact introuvable ») ;
+- un collaborateur ne modifie que son portefeuille : modifier, supprimer ou réaffecter
+  l'élément d'un collègue est refusé par le serveur, et ce qu'il crée lui est attribué ;
+- le **directeur commercial** (rôle `dirigeant`) est l'**administrateur** : il voit et
+  modifie toutes les données de l'équipe, réaffecte les portefeuilles, accède aux modules
+  historiques (finances, équipe, projets, objectifs…, refusés aux autres comptes) et gère
+  les comptes ;
+- les données sont rafraîchies automatiquement (toutes les 20 s et au retour sur
+  l'onglet) ; l'indicateur « Enregistré » de la barre supérieure confirme chaque
+  enregistrement ;
+- Paramètres › Utilisateurs et rôles (directeur commercial) : créer un compte (mot de passe
+  temporaire affiché une seule fois), changer le rôle, réinitialiser un mot de passe,
+  désactiver un compte, créer d'un clic les **comptes de test** de tous les collaborateurs ;
+  menu du profil : changer son mot de passe, se déconnecter.
 
 **Fonctionnement** (`src/lib/cloud/`) : l'état de l'organisation est un document versionné
 (`app_state`). Une action s'exécute immédiatement dans le navigateur, puis la même
 commande métier est **rejouée par une Server Action** qui authentifie l'utilisateur (cookies
-Supabase), lit son rôle en base, réutilise la même graine d'identifiants et enregistre avec
-un contrôle de concurrence optimiste (rejeu automatique en cas d'écriture simultanée). En
-cas de refus, l'écran revient à l'état du serveur avec un message. Les navigateurs n'ont
-qu'un accès en lecture à la base (RLS) ; la clé de service ne quitte jamais le serveur.
+Supabase), lit son rôle en base, réutilise la même graine d'identifiants, **vérifie que
+l'action ne touche que le portefeuille de l'utilisateur** (`scope.ts`) et enregistre avec
+un contrôle de concurrence optimiste (rejeu automatique en cas d'écriture simultanée). Le
+serveur ne renvoie à chaque utilisateur que la **projection** de ses données. En cas de
+refus, l'écran revient à l'état du serveur avec un message. La lecture directe de
+`app_state` est fermée aux navigateurs (seules les Server Actions y accèdent, avec la clé
+de service qui ne quitte jamais le serveur).
 
 ### Mise en place (une fois, ~15 minutes)
 
@@ -221,18 +231,22 @@ qu'un accès en lecture à la base (RLS) ; la clé de service ne quitte jamais l
    (secrète) et `BDO_SETUP_CODE` (un code que vous inventez). Puis _Deployments › Redeploy_.
    Ne collez jamais ces clés dans une conversation ni dans le dépôt.
 4. **Installation** — ouvrir `https://<votre-app>/installation`, saisir le code, votre nom,
-   votre e-mail et un mot de passe : l'espace est créé avec les données de démonstration et
-   vous êtes connecté en administrateur.
+   votre e-mail et un mot de passe : l'espace est créé et vous êtes connecté en
+   **directeur commercial** (administrateur). Les données de démonstration sont réparties
+   entre les autres collaborateurs, entreprise par entreprise.
 5. **Comptes de test** — _Paramètres › Utilisateurs et rôles › Créer les comptes de test_ :
-   un compte par collaborateur de démonstration (commercial, finance, collaborateurs…) avec
-   son mot de passe temporaire, à copier immédiatement.
+   un compte « Commercial » par collaborateur de démonstration, chacun avec son propre
+   portefeuille et son mot de passe temporaire, à copier immédiatement.
 
 Sans ces variables, l'application reste en **mode démonstration** (données dans le
 navigateur, sans connexion).
 
-**Limites de la version de test** : pas d'e-mail de réinitialisation (l'administrateur
-génère un nouveau mot de passe), progression XP commune à l'équipe, données de
-démonstration fictives — ne pas y saisir de vraies données clients.
+**Limites de la version de test** : pas d'e-mail de réinitialisation (le directeur
+commercial génère un nouveau mot de passe), niveau et succès communs à l'équipe (l'XP
+affichée à un collaborateur ne porte que sur son portefeuille), détection de doublons
+faite sur toute la base (un collaborateur peut être averti qu'un contact existe déjà chez
+un collègue), données de démonstration fictives — ne pas y saisir de vraies données
+clients.
 
 ## Tests
 
@@ -252,6 +266,11 @@ démonstration fictives — ne pas y saisir de vraies données clients.
   clôture), statistiques filtrées, entreprise + validation, modules historiques (factures,
   avoirs, TVA, devis, tâche, objectif, permissions), bureaux 3D, absence de débordement
   horizontal sur 9 pages CRM en mobile.
+- **Mode multi-utilisateur** : 14 tests Vitest (`src/lib/cloud/*.test.ts` : rejeu serveur,
+  rôles, concurrence, portefeuilles disjoints, refus de modifier ou réaffecter l'élément
+  d'un collègue, modules réservés) et 4 parcours Playwright contre un Supabase local
+  (`npm run test:e2e:cloud`) : installation, comptes de test, deux commerciaux aux
+  portefeuilles séparés et directeur commercial qui voit tout, désactivation.
 - **SQL** (`npm run test:sql`) : migrations + seed + RLS, et **reprise de données legacy**
   par la migration CRM (prospects → entreprises/contacts, étapes, activités planifiées →
   missions) sur PostgreSQL 16 local.

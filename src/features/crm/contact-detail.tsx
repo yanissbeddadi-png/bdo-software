@@ -38,7 +38,8 @@ export function ContactDetail({ id }: { id: string }) {
   const [editing, setEditing] = React.useState(false);
   const [deal, setDeal] = React.useState<string | null>(null);
   const view = crm.contactById.get(id);
-  if (!view) return <ErrorState title="Contact introuvable" description="Il a peut-être été supprimé." action={<Link href="/contacts">Retour aux contacts</Link>} />;
+  if (!view)
+    return <ErrorState title="Contact introuvable" description="Il a peut-être été supprimé ou attribué à un autre collaborateur." action={<Link href="/contacts">Retour aux contacts</Link>} />;
   const c = view.contact;
   const refs = { contactId: id, clientId: c.clientId, opportunityId: view.mainOpportunity && isOpen(view.mainOpportunity) ? view.mainOpportunity.id : null };
   const missions = data.tasks.filter((t) => t.contactId === id && t.type !== "internal");

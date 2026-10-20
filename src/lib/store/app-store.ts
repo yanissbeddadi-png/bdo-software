@@ -11,6 +11,7 @@ import type { Command, CommandContext } from "@/lib/domain/commands/core";
 import { commandName } from "@/lib/domain/commands/registry";
 import { newIdSeed, withIdSeed } from "@/lib/domain/ids";
 import { isCloudMode } from "@/lib/cloud/config";
+import { scopeViolation } from "@/lib/cloud/scope";
 import { loadSession, pullRemote, replaceRemote, resetRemote, runRemote } from "@/lib/cloud/actions";
 import { hardNavigate } from "@/lib/cloud/session";
 
@@ -129,6 +130,9 @@ export const useAppStore = create<AppStore>((set, get) => {
       const seed = newIdSeed();
       const res = withIdSeed(seed, () => execute(data, command, input, ctx));
       if (!res.ok) return res;
+      // Même contrôle que le serveur, pour un refus immédiat plutôt qu'une annulation différée.
+      const violation = scopeViolation(data, res.data, ctx.user);
+      if (violation) return { ok: false, error: violation, fieldErrors: {} };
       set((s) => ({ data: res.data, updatedAt: now, pending: s.pending + 1 }));
       queue = queue.then(async () => {
         try {

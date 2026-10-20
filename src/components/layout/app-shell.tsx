@@ -1,12 +1,16 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
+import { LockKeyhole } from "lucide-react";
 import { Toaster } from "sonner";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/misc";
-import { ErrorState } from "@/components/shared/empty-state";
+import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store/app-store";
+import { useAccess } from "@/lib/store/hooks";
+import { isDirectorOnlyPath } from "@/lib/cloud/scope";
 import { useUiStore } from "@/lib/store/ui-store";
 import { themeColor } from "@/lib/gamification/rewards";
 import { Sidebar, Logo, NavLinks, ProfileCard } from "./sidebar";
@@ -88,6 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const g = useAppStore((s) => s.data?.settings.gamification);
   const pathname = usePathname();
   const bare = PUBLIC_PATHS.includes(pathname);
+  const access = useAccess();
   const mounted = React.useSyncExternalStore(
     noopSubscribe,
     () => true,
@@ -128,7 +133,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     );
 
-  const fullBleed = FULL_BLEED.has(pathname);
+  // Modules historiques (finances, équipe…) : réservés au directeur commercial en mode multi-utilisateur.
+  const blocked = access.restricted && isDirectorOnlyPath(pathname);
+  const fullBleed = FULL_BLEED.has(pathname) && !blocked;
   const style = { "--accent": themeColor(g?.equippedTheme ?? "theme-default") } as React.CSSProperties;
   return (
     <TooltipProvider>
@@ -138,7 +145,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Topbar />
           <DemoBanner />
           <main id="contenu" className={fullBleed ? "relative min-h-0 w-full flex-1" : "mx-auto w-full max-w-[1500px] flex-1 px-4 py-6 md:px-6 lg:px-8"}>
-            <PageTransition fill={fullBleed}>{children}</PageTransition>
+            {blocked ? (
+              <EmptyState
+                icon={<LockKeyhole />}
+                title="Réservé au directeur commercial"
+                description="Ce module contient des données de toute l'équipe. Votre espace affiche uniquement votre portefeuille : vos contacts, entreprises, opportunités et missions."
+                action={
+                  <Button asChild variant="primary">
+                    <Link href="/">Retour à mon tableau de bord</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <PageTransition fill={fullBleed}>{children}</PageTransition>
+            )}
           </main>
         </div>
       </div>

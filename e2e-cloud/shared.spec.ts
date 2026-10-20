@@ -15,7 +15,7 @@ async function login(browser: Browser, email: string, password: string, path = "
 }
 
 test.describe.serial("mode multi-utilisateur", () => {
-  test("installation : code requis, espace et compte administrateur créés", async ({ page }) => {
+  test("installation : code requis, espace et compte du directeur commercial créés", async ({ page }) => {
     await page.goto("/pipeline");
     await expect(page).toHaveURL(/\/connexion\?suite=%2Fpipeline/);
     await page.goto("/installation");
@@ -30,6 +30,7 @@ test.describe.serial("mode multi-utilisateur", () => {
     await page.getByRole("button", { name: /Créer l'espace/ }).click();
     await expect(page).toHaveURL(/parametres\?tab=roles/);
     await expect(page.getByRole("heading", { name: "Utilisateurs de l'équipe" })).toBeVisible();
+    await expect(page.getByText(/Connecté : Admin Test \(Directeur commercial\)/)).toBeVisible();
     // Une seconde installation est impossible.
     await page.goto("/installation");
     await expect(page.getByText("L'installation est déjà terminée.")).toBeVisible();
@@ -56,43 +57,72 @@ test.describe.serial("mode multi-utilisateur", () => {
     await expect(page.getByText("E-mail ou mot de passe incorrect.")).toBeVisible();
   });
 
-  test("données partagées entre deux sessions, rôle imposé par le serveur", async ({ browser }) => {
-    const admin = await login(browser, ADMIN.email, ADMIN.password, "/contacts");
-    await admin.getByRole("button", { name: "Nouveau contact" }).click();
-    const dialog = admin.getByRole("dialog");
+  test("chaque collaborateur ne voit que son portefeuille, le directeur commercial voit tout", async ({ browser }) => {
+    const camille = accounts.find((a) => /Camille/.test(a.head))!;
+    const hugo = accounts.find((a) => /Hugo/.test(a.head))!;
+    expect(camille.head).toMatch(/Commercial/);
+
+    // Le directeur commercial crée un contact et l'attribue à Camille.
+    const director = await login(browser, ADMIN.email, ADMIN.password, "/contacts");
+    await director.getByRole("button", { name: "Nouveau contact" }).click();
+    const dialog = director.getByRole("dialog");
     await dialog.getByLabel("Prénom").fill("Partage");
     await dialog.getByLabel("Nom", { exact: true }).fill("Synchro");
     await dialog.getByLabel("ou nouvelle entreprise").fill("SyncCorp");
+    await dialog.getByLabel("Responsable").selectOption({ label: "Camille Laurent" });
     await dialog.getByRole("button", { name: "Créer le contact" }).click();
-    await expect(admin).toHaveURL(/\/contacts\/con_/);
-    await expect(admin.getByText("Enregistré", { exact: true })).toBeVisible();
-    const contactPath = new URL(admin.url()).pathname;
+    await expect(director).toHaveURL(/\/contacts\/con_/);
+    await expect(director.getByText("Enregistré", { exact: true })).toBeVisible();
+    const contactPath = new URL(director.url()).pathname;
 
-    const commercial = accounts.find((a) => /Commercial/.test(a.head))!;
-    const c = await login(browser, commercial.email, commercial.password, contactPath);
+    // Camille le retrouve dans sa session et y consigne un appel.
+    const c = await login(browser, camille.email, camille.password, contactPath);
     await expect(c.locator("main h1")).toHaveText("Partage Synchro");
     await c.getByRole("button", { name: "Appel", exact: true }).click();
     await c.getByRole("dialog").getByLabel("Résumé").fill("Appel de synchronisation");
     await c.getByRole("dialog").getByRole("button", { name: "Consigner l'interaction" }).click();
     await expect(c.getByText("Enregistré", { exact: true })).toBeVisible();
+    await expect(c.getByText(/vous voyez uniquement votre portefeuille/)).toBeVisible();
 
-    await admin.reload();
-    await admin.getByRole("tab", { name: /Activités/ }).click();
-    await expect(admin.getByText("Appel de synchronisation").first()).toBeVisible();
+    // Hugo ne le voit pas, même avec le lien direct, et n'accède pas aux modules de l'équipe.
+    const h = await login(browser, hugo.email, hugo.password, contactPath);
+    await expect(h.getByText("Contact introuvable")).toBeVisible();
+    await h.goto("/contacts");
+    await expect(h.locator("main h1").first()).toBeVisible();
+    await expect(h.getByText("Partage Synchro")).toHaveCount(0);
+    await h.goto("/finances");
+    await expect(h.getByText("Réservé au directeur commercial")).toBeVisible();
+    await h.goto("/parametres?tab=roles");
+    await expect(h.getByRole("heading", { name: "Mon compte" })).toBeVisible();
+    await expect(h.getByText("Utilisateurs de l'équipe")).toHaveCount(0);
+    // Toutes les pages du CRM s'affichent avec son seul portefeuille.
+    for (const path of ["/", "/pipeline", "/missions", "/calendrier", "/activites", "/statistiques", "/progression", "/notifications", "/crm/devis"]) {
+      await h.goto(path);
+      await expect(h.locator("main h1").first(), path).toBeVisible();
+      await expect(h.getByText("Une erreur est survenue"), path).toHaveCount(0);
+    }
+    // Il crée une entreprise : elle lui est attribuée automatiquement.
+    await h.goto("/entreprises");
+    await h.getByRole("button", { name: "Nouvelle entreprise" }).click();
+    await h.getByRole("dialog").getByLabel("Raison sociale").fill("Hugo Conseil SA");
+    await h.getByRole("dialog").getByRole("button", { name: "Créer l'entreprise" }).click();
+    await expect(h.getByText("Enregistré", { exact: true })).toBeVisible();
 
-    const collab = accounts.find((a) => /Collaborateur/.test(a.head))!;
-    const u = await login(browser, collab.email, collab.password, "/entreprises");
-    await u.getByRole("button", { name: "Nouvelle entreprise" }).click();
-    await u.getByRole("dialog").getByLabel("Raison sociale").fill("Interdite SA");
-    await u.getByRole("dialog").getByRole("button", { name: "Créer l'entreprise" }).click();
-    await expect(u.getByText(/Action non autorisée/).first()).toBeVisible();
-    await u.goto("/parametres?tab=roles");
-    await expect(u.getByRole("heading", { name: "Mon compte" })).toBeVisible();
-    await expect(u.getByText("Utilisateurs de l'équipe")).toHaveCount(0);
+    // Camille ne voit pas l'entreprise de Hugo ; le directeur commercial voit tout.
+    await c.goto("/entreprises");
+    await expect(c.locator("main h1").first()).toBeVisible();
+    await expect(c.getByText("Hugo Conseil SA")).toHaveCount(0);
+    await director.goto("/entreprises");
+    await expect(director.getByText("Hugo Conseil SA").first()).toBeVisible();
+    await director.goto(contactPath);
+    await director.getByRole("tab", { name: /Activités/ }).click();
+    await expect(director.getByText("Appel de synchronisation").first()).toBeVisible();
+    await director.goto("/finances");
+    await expect(director.getByText("Réservé au directeur commercial")).toHaveCount(0);
   });
 
   test("désactivation d'un compte et déconnexion", async ({ browser }) => {
-    const target = accounts.find((a) => /Finance/.test(a.head))!;
+    const target = accounts.find((a) => /Nora/.test(a.head))!;
     const admin = await login(browser, ADMIN.email, ADMIN.password, "/parametres?tab=roles");
     const row = admin.locator(`[data-member="${target.email}"]`);
     await row.getByRole("button", { name: "Désactiver" }).click();

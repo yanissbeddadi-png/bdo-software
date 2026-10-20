@@ -7,6 +7,7 @@ import { clock } from "@/lib/store/clock";
 import { canMigrate, migrateData } from "@/lib/database/migrations";
 import { SEED_VERSION } from "@/lib/database/seed";
 import { isAppData } from "@/lib/database/repository";
+import { projectForUser, scopeViolation } from "./scope";
 
 /**
  * Cœur du mode multi-utilisateur, indépendant de Supabase (testé avec un stockage en
@@ -69,7 +70,7 @@ export async function runSharedCommand(store: StateStore, member: Member, req: R
   if (!member.active) return { ok: false, error: "Compte désactivé.", fieldErrors: {} };
   const command = Object.prototype.hasOwnProperty.call(COMMANDS, req.name) ? COMMANDS[req.name] : undefined;
   if (!command) return { ok: false, error: "Action inconnue.", fieldErrors: {} };
-  if (SHARED_MODE_FORBIDDEN.has(req.name)) return { ok: false, error: "Le rôle est attribué par l'administrateur et ne peut pas être changé ici.", fieldErrors: {} };
+  if (SHARED_MODE_FORBIDDEN.has(req.name)) return { ok: false, error: "Le rôle est attribué par le directeur commercial et ne peut pas être changé ici.", fieldErrors: {} };
   if (SHARED_MODE_SETTINGS_ONLY.has(req.name) && !can(member.role, "settings.write"))
     return { ok: false, error: "Ce réglage s'applique à toute l'équipe : il est réservé aux rôles autorisés à modifier les paramètres.", fieldErrors: {} };
   const user = sessionUser(member);
@@ -87,9 +88,12 @@ export async function runSharedCommand(store: StateStore, member: Member, req: R
     } catch {
       return { ok: false, error: "Requête invalide.", fieldErrors: {} };
     }
-    if (!res.ok) return { ok: false, error: res.error, fieldErrors: res.fieldErrors, version: stored.version, data };
+    if (!res.ok) return { ok: false, error: res.error, fieldErrors: res.fieldErrors, version: stored.version, data: projectForUser(data, user) };
+    // Cloisonnement : un collaborateur ne modifie que son propre portefeuille.
+    const violation = scopeViolation(data, res.data, user);
+    if (violation) return { ok: false, error: violation, fieldErrors: {}, version: stored.version, data: projectForUser(data, user) };
     if (await store.save(member.organizationId, res.data, stored.version, member.userId)) {
-      return { ok: true, version: stored.version + 1, data: res.data, message: res.message };
+      return { ok: true, version: stored.version + 1, data: projectForUser(res.data, user), message: res.message };
     }
     // Conflit : un autre utilisateur a enregistré entre-temps, on rejoue sur la version à jour.
   }
@@ -98,7 +102,7 @@ export async function runSharedCommand(store: StateStore, member: Member, req: R
 
 /** Remplacement complet (import ou réinitialisation), réservé à `data.admin`. */
 export async function replaceSharedState(store: StateStore, member: Member, incoming: unknown, serverNow: Date = new Date()): Promise<RunResponse> {
-  if (!member.active || !can(member.role, "data.admin")) return { ok: false, error: "Action réservée aux administrateurs des données.", fieldErrors: {} };
+  if (!member.active || !can(member.role, "data.admin")) return { ok: false, error: "Action réservée au directeur commercial.", fieldErrors: {} };
   if (!isAppData(incoming)) return { ok: false, error: "Fichier non reconnu : ce n'est pas un export BDO Software.", fieldErrors: {} };
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const stored = await store.load(member.organizationId);
@@ -121,14 +125,7 @@ export function temporaryPassword(): string {
 
 /** Rôle proposé par défaut pour un compte de test, selon le service du collaborateur. */
 export function defaultRoleFor(department: string): Role {
-  switch (department) {
-    case "direction":
-      return "dirigeant";
-    case "sales":
-      return "commercial";
-    case "finance":
-      return "finance";
-    default:
-      return "collaborateur";
-  }
+  // Comptes de test : chaque collaborateur gère son propre portefeuille commercial.
+  void department;
+  return "commercial";
 }

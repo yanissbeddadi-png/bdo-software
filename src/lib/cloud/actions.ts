@@ -7,6 +7,7 @@ import { ORGANIZATION_ID } from "./config";
 import { adminClient, authUser, cloudReady, listMemberRows, memberFor, supabaseStore } from "./server";
 import { defaultRoleFor, replaceSharedState, runSharedCommand, sessionUser, temporaryPassword, upgrade, withUser, type Member, type RunRequest, type RunResponse } from "./engine";
 import { clock } from "@/lib/store/clock";
+import { distributePortfolio, projectForUser } from "./scope";
 
 /**
  * Server Actions du mode multi-utilisateur. Chaque action authentifie l'appelant à partir
@@ -15,7 +16,8 @@ import { clock } from "@/lib/store/clock";
  * le rôle n'est pris en compte.
  */
 
-const ROLES: Role[] = ["admin", "dirigeant", "finance", "commercial", "chef_projet", "collaborateur"];
+/** Rôles attribuables : le directeur commercial administre l'espace et voit tout. */
+const ROLES: Role[] = ["dirigeant", "commercial", "collaborateur"];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Fail = { ok: false; error: string };
@@ -27,14 +29,14 @@ async function caller(): Promise<{ ok: true; member: Member } | Fail> {
   if (!user) return { ok: false, error: "Session expirée : reconnectez-vous." };
   const member = await memberFor(user.id);
   if (!member) return { ok: false, error: "Ce compte n'a pas accès à l'organisation." };
-  if (!member.active) return { ok: false, error: "Ce compte est désactivé. Contactez votre administrateur." };
+  if (!member.active) return { ok: false, error: "Ce compte est désactivé. Contactez le directeur commercial." };
   return { ok: true, member };
 }
 
 async function admin(): Promise<{ ok: true; member: Member } | Fail> {
   const c = await caller();
   if (!c.ok) return c;
-  if (!can(c.member.role, "settings.write")) return { ok: false, error: "Action réservée aux administrateurs." };
+  if (!can(c.member.role, "settings.write")) return { ok: false, error: "Action réservée au directeur commercial." };
   return c;
 }
 
@@ -52,15 +54,14 @@ export async function loadSession(): Promise<SessionState> {
   const stored = await supabaseStore.load(ORGANIZATION_ID);
   if (!stored) return { status: "error", error: "Les données de l'organisation sont introuvables. Terminez l'installation." };
   const u = sessionUser(c.member);
-  return { status: "ok", data: withUser(upgrade(stored.data, clock(stored.data).today), u), version: stored.version, user: u };
+  return { status: "ok", data: projectForUser(withUser(upgrade(stored.data, clock(stored.data).today), u), u), version: stored.version, user: u };
 }
 
 export async function runRemote(req: RunRequest): Promise<RunResponse> {
   if (!req || typeof req.name !== "string" || typeof req.seed !== "string" || typeof req.now !== "string") return { ok: false, error: "Requête invalide.", fieldErrors: {} };
   const c = await caller();
   if (!c.ok) return { ok: false, error: c.error, fieldErrors: {} };
-  const res = await runSharedCommand(supabaseStore, c.member, req);
-  return res.ok || !res.data ? res : { ...res, data: withUser(res.data, sessionUser(c.member)) };
+  return runSharedCommand(supabaseStore, c.member, req);
 }
 
 export async function pullRemote(knownVersion: number): Promise<{ changed: false } | { changed: true; data: AppData; version: number } | Fail> {
@@ -68,7 +69,8 @@ export async function pullRemote(knownVersion: number): Promise<{ changed: false
   if (!c.ok) return c;
   const stored = await supabaseStore.load(ORGANIZATION_ID);
   if (!stored || stored.version === knownVersion) return { changed: false };
-  return { changed: true, data: withUser(upgrade(stored.data, clock(stored.data).today), sessionUser(c.member)), version: stored.version };
+  const u = sessionUser(c.member);
+  return { changed: true, data: projectForUser(withUser(upgrade(stored.data, clock(stored.data).today), u), u), version: stored.version };
 }
 
 export async function replaceRemote(incoming: unknown): Promise<RunResponse> {
@@ -81,7 +83,7 @@ export async function resetRemote(): Promise<RunResponse> {
   const c = await caller();
   if (!c.ok) return { ok: false, error: c.error, fieldErrors: {} };
   const { today, now } = clock(null);
-  return replaceSharedState(supabaseStore, c.member, createSeedData(today, now));
+  return replaceSharedState(supabaseStore, c.member, distributePortfolio(createSeedData(today, now), c.member.employeeId));
 }
 
 /* ----------------------------- Comptes ----------------------------- */
@@ -147,13 +149,12 @@ function validAccount(input: { email: string; name: string; role: string }): str
   return null;
 }
 
-/** Crée un compte avec un mot de passe temporaire, affiché une seule fois à l'administrateur. */
+/** Crée un compte avec un mot de passe temporaire, affiché une seule fois au directeur commercial. */
 export async function createMember(input: { email: string; name: string; role: Role; employeeId: string | null }): Promise<{ ok: true; email: string; password: string } | Fail> {
   const a = await admin();
   if (!a.ok) return a;
   const invalid = validAccount(input);
   if (invalid) return { ok: false, error: invalid };
-  if (input.role === "admin" && a.member.role !== "admin") return { ok: false, error: "Seul un administrateur peut créer un autre administrateur." };
   const password = temporaryPassword();
   const res = await createAccount({ email: input.email.trim().toLowerCase(), name: input.name.trim(), role: input.role, employeeId: input.employeeId, password });
   return res.ok ? { ok: true, email: input.email.trim().toLowerCase(), password } : res;
@@ -162,9 +163,8 @@ export async function createMember(input: { email: string; name: string; role: R
 export async function updateMember(input: { userId: string; role: Role; employeeId: string | null; active: boolean }): Promise<{ ok: true } | Fail> {
   const a = await admin();
   if (!a.ok) return a;
-  if (!ROLES.includes(input.role)) return { ok: false, error: "Rôle inconnu." };
+  if (!ROLES.includes(input.role) && input.role !== "admin") return { ok: false, error: "Rôle inconnu." };
   if (input.userId === a.member.userId && (!input.active || !can(input.role, "settings.write"))) return { ok: false, error: "Vous ne pouvez pas retirer vos propres droits d'administration." };
-  if (input.role === "admin" && a.member.role !== "admin") return { ok: false, error: "Seul un administrateur peut nommer un administrateur." };
   const { error } = await adminClient()
     .from("organization_members")
     .update({ role: input.role, employee_id: input.employeeId, active: input.active, updated_at: new Date().toISOString() })
@@ -225,8 +225,8 @@ export async function setupStatus(): Promise<{ cloud: boolean; ready: boolean; r
 
 /**
  * Première installation : crée l'organisation, le jeu de démonstration partagé et le
- * compte administrateur. Possible uniquement tant qu'aucun compte n'existe, et protégée
- * par le code BDO_SETUP_CODE (variable serveur) s'il est défini.
+ * compte du directeur commercial (administrateur de l'espace). Possible uniquement tant
+ * qu'aucun compte n'existe, et protégée par le code BDO_SETUP_CODE (variable serveur obligatoire).
  */
 export async function installOrganization(input: { code: string; companyName: string; name: string; email: string; password: string; employeeId: string | null }): Promise<{ ok: true } | Fail> {
   const status = await setupStatus();
@@ -234,19 +234,21 @@ export async function installOrganization(input: { code: string; companyName: st
   if (!status.needsSetup) return { ok: false, error: "L'installation est déjà faite : connectez-vous." };
   if (!status.codeRequired) return { ok: false, error: "Définissez d'abord la variable BDO_SETUP_CODE dans la configuration du déploiement, puis redéployez." };
   if (input.code !== process.env.BDO_SETUP_CODE) return { ok: false, error: "Code d'installation incorrect." };
-  const invalid = validAccount({ email: input.email, name: input.name, role: "admin" });
+  const invalid = validAccount({ email: input.email, name: input.name, role: "dirigeant" });
   if (invalid) return { ok: false, error: invalid };
   if (input.password.length < 10) return { ok: false, error: "Mot de passe : 10 caractères minimum." };
 
   const today = realTodayISO();
   const seed = createSeedData(today, `${today}T08:00:00.000Z`);
   const company = input.companyName.trim() || seed.settings.company.name;
-  const data: AppData = { ...seed, settings: { ...seed.settings, company: { ...seed.settings.company, name: company } } };
+  // Portefeuille de démonstration réparti entre les collaborateurs : chacun a ses propres données à tester.
+  const data: AppData = distributePortfolio({ ...seed, settings: { ...seed.settings, company: { ...seed.settings.company, name: company } } }, input.employeeId);
   const db = adminClient();
   const { error: e1 } = await db.from("organizations").upsert({ id: ORGANIZATION_ID, name: company, is_demo: true });
   if (e1) return { ok: false, error: e1.message };
   const { error: e2 } = await db.from("app_state").upsert({ organization_id: ORGANIZATION_ID, data, version: 1 });
   if (e2) return { ok: false, error: e2.message };
-  const res = await createAccount({ email: input.email.trim().toLowerCase(), name: input.name.trim(), role: "admin", employeeId: input.employeeId, password: input.password });
+  // Le directeur commercial est l'administrateur de l'espace.
+  const res = await createAccount({ email: input.email.trim().toLowerCase(), name: input.name.trim(), role: "dirigeant", employeeId: input.employeeId, password: input.password });
   return res.ok ? { ok: true } : res;
 }

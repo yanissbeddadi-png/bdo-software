@@ -207,7 +207,14 @@ export function CompanyDetail({ id }: { id: string }) {
   const [editing, setEditing] = React.useState(false);
   const [deal, setDeal] = React.useState<string | null>(null);
   const view = crm.companyById.get(id);
-  if (!view) return <ErrorState title="Entreprise introuvable" description="Elle a peut-être été supprimée." action={<Link href="/entreprises">Retour aux entreprises</Link>} />;
+  if (!view)
+    return (
+      <ErrorState
+        title="Entreprise introuvable"
+        description="Elle a peut-être été supprimée ou ne fait pas partie de votre portefeuille."
+        action={<Link href="/entreprises">Retour aux entreprises</Link>}
+      />
+    );
   const co = view.company;
   const refs = { clientId: id, contactId: view.contacts.find((c) => c.isPrimary)?.id ?? null, opportunityId: null };
   const activities = data.salesActivities.filter((a) => a.clientId === id);

@@ -5,7 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import type { CrmTaskType, Opportunity, OpportunityStage, Task } from "@/lib/domain/types";
 import * as C from "@/lib/domain/commands";
 import { EntityForm, type FieldConfig } from "./entity-form";
-import { useCommand, useData, useToday } from "@/lib/store/hooks";
+import { useAccess, useCommand, useData, useToday } from "@/lib/store/hooks";
 import { addDays } from "@/lib/calculations/dates";
 import { STAGES } from "@/lib/calculations/pipeline";
 import { RELATION, SOURCES, TASK_TYPE, TASK_TYPE_LABEL, LOGGABLE_ACTIVITY_TYPES, ACTIVITY_TYPE } from "@/lib/crm/model";
@@ -35,6 +35,7 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide");
 
 export function useCrmOptions() {
   const data = useData();
+  const access = useAccess();
   return React.useMemo(() => {
     const companies = new Map(data.clients.map((c) => [c.id, c.name]));
     return {
@@ -47,9 +48,10 @@ export function useCrmOptions() {
         .sort((a, b) => a.lastName.localeCompare(b.lastName, "fr"))
         .map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}${c.clientId ? ` — ${companies.get(c.clientId) ?? ""}` : ""}` })),
       opportunities: data.opportunities.filter((o) => !o.archivedAt).map((o) => ({ value: o.id, label: `${o.name}${o.clientId ? ` — ${companies.get(o.clientId) ?? ""}` : ""}` })),
-      employees: data.employees.filter((e) => e.status !== "left").map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })),
+      // Un collaborateur ne peut attribuer qu'à lui-même : la réaffectation est réservée au directeur commercial.
+      employees: data.employees.filter((e) => e.status !== "left" && (!access.restricted || e.id === access.employeeId)).map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })),
     };
-  }, [data]);
+  }, [data, access]);
 }
 
 /** Bloc « prochaine action » commun (mission planifiée à la suite). */

@@ -20,8 +20,8 @@ export type Permission =
   | "data.admin";
 
 export const ROLE_LABELS: Record<Role, string> = {
-  admin: "Administrateur",
-  dirigeant: "Dirigeant",
+  admin: "Administrateur technique",
+  dirigeant: "Directeur commercial",
   finance: "Finance",
   commercial: "Commercial",
   chef_projet: "Chef de projet",
@@ -49,8 +49,9 @@ const ALL: Permission[] = [
 ];
 
 /**
- * Matrice des permissions d'écriture. La lecture est ouverte à tous les rôles
- * de l'organisation. En mode Supabase, cette matrice est dupliquée dans les
+ * Matrice des permissions d'écriture. La lecture est ouverte à tous les rôles de
+ * l'organisation (en mode multi-utilisateur, un collaborateur ne lit que son portefeuille :
+ * voir lib/cloud/scope.ts). En mode Supabase, cette matrice est dupliquée dans les
  * politiques RLS (voir supabase/migrations) afin d'être appliquée côté serveur.
  */
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {

@@ -94,7 +94,7 @@ export function LoginPage() {
     const { error: err } = await browserClient().auth.signInWithPassword({ email: email.trim(), password });
     if (err) {
       setPending(false);
-      setError(/banned/i.test(err.message) ? "Ce compte est désactivé. Contactez votre administrateur." : "E-mail ou mot de passe incorrect.");
+      setError(/banned/i.test(err.message) ? "Ce compte est désactivé. Contactez le directeur commercial." : "E-mail ou mot de passe incorrect.");
       return;
     }
     const next = params.get("suite");
@@ -126,7 +126,7 @@ export function LoginPage() {
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={pending || !email || !password}>
           {pending ? <Loader2 className="animate-spin" /> : <LockKeyhole />} Se connecter
         </Button>
-        <p className="text-xs text-subtle">Mot de passe oublié ? Demandez à votre administrateur de le réinitialiser (Paramètres › Utilisateurs).</p>
+        <p className="text-xs text-subtle">Mot de passe oublié ? Demandez au directeur commercial de le réinitialiser (Paramètres › Utilisateurs).</p>
       </form>
     </AuthLayout>
   );
@@ -173,7 +173,7 @@ export function InstallPage() {
   };
 
   return (
-    <AuthLayout title="Installation" subtitle="Création de l'espace de votre équipe et du compte administrateur.">
+    <AuthLayout title="Installation" subtitle="Création de l'espace de votre équipe et du compte du directeur commercial, administrateur de l'espace.">
       {!status ? (
         <Loader2 className="size-5 animate-spin text-muted" aria-label="Chargement" />
       ) : !status.ready ? (
@@ -198,7 +198,7 @@ export function InstallPage() {
           <Field label="Votre nom" htmlFor="setup-name">
             <Input id="setup-name" autoComplete="name" value={form.name} onChange={set("name")} required />
           </Field>
-          <Field label="Votre fiche collaborateur" htmlFor="setup-employee" help="Sert aux vues « Mes prospects » et « Mes missions ».">
+          <Field label="Votre fiche collaborateur" htmlFor="setup-employee" help="Le portefeuille de démonstration est réparti entre les autres collaborateurs ; vous voyez l'ensemble.">
             <NativeSelect id="setup-employee" value={form.employeeId} onChange={set("employeeId")}>
               <option value="">— Aucune —</option>
               {employees.map((e) => (
@@ -223,9 +223,11 @@ export function InstallPage() {
             </p>
           ) : null}
           <Button type="submit" variant="primary" size="lg" className="w-full" disabled={pending}>
-            {pending ? <Loader2 className="animate-spin" /> : null} Créer l&apos;espace et le compte administrateur
+            {pending ? <Loader2 className="animate-spin" /> : null} Créer l&apos;espace et mon compte directeur commercial
           </Button>
-          <p className="text-xs text-subtle">Les données de démonstration (entreprises, contacts, pipeline…) sont chargées pour que toute l&apos;équipe puisse tester.</p>
+          <p className="text-xs text-subtle">
+            Les données de démonstration (entreprises, contacts, pipeline…) sont chargées et réparties entre les collaborateurs : chacun retrouvera son propre portefeuille.
+          </p>
         </form>
       )}
     </AuthLayout>

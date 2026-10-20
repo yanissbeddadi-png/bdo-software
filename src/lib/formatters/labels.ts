@@ -161,8 +161,8 @@ export const NOTIFICATION_CATEGORY: Record<NotificationCategory, string> = {
 };
 
 export const ROLE: Record<Role, string> = {
-  admin: "Administrateur",
-  dirigeant: "Dirigeant",
+  admin: "Administrateur technique",
+  dirigeant: "Directeur commercial",
   finance: "Finance",
   commercial: "Commercial",
   chef_projet: "Chef de projet",

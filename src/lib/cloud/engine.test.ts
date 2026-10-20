@@ -49,12 +49,14 @@ const member = (p: Partial<Member> = {}): Member => ({
   ...p,
 });
 const serverNow = new Date(NOW);
+/** Un commercial ne crée que des éléments dont il est responsable. */
+const MY_CLIENT = { ...CLIENT_INPUT, ownerId: "emp_camille" };
 const seedData = () => createSeedData(TODAY, NOW);
 
 describe("mode multi-utilisateur : exécution côté serveur", () => {
   it("rejoue la commande avec les mêmes identifiants que le navigateur et enregistre une nouvelle version", async () => {
     const { store, state } = memoryStore(seedData());
-    const input = { ...CLIENT_INPUT, name: "Synchro SA" };
+    const input = { ...MY_CLIENT, name: "Synchro SA" };
     const local = withIdSeed("abc123def456", () => execute(withUser(state.data, sessionUser(member())), C.createClient, input, { today: TODAY, now: NOW, user: sessionUser(member()) }));
     expect(local.ok).toBe(true);
     const res = await runSharedCommand(store, member(), { name: "createClient", input, now: NOW, seed: "abc123def456" }, serverNow);
@@ -93,7 +95,7 @@ describe("mode multi-utilisateur : exécution côté serveur", () => {
   it("rejoue sur la version à jour en cas d'écriture concurrente, sans perdre la modification de l'autre", async () => {
     const { store, state } = memoryStore(seedData());
     state.conflicts = 1;
-    const res = await runSharedCommand(store, member(), { name: "createClient", input: { ...CLIENT_INPUT, name: "Concurrente" }, now: NOW, seed: "abc123def456" }, serverNow);
+    const res = await runSharedCommand(store, member(), { name: "createClient", input: { ...MY_CLIENT, name: "Concurrente" }, now: NOW, seed: "abc123def456" }, serverNow);
     expect(res.ok).toBe(true);
     expect(state.data.notes.some((n) => n.id === "note_autre")).toBe(true);
     expect(state.data.clients.some((c) => c.name === "Concurrente")).toBe(true);
@@ -102,7 +104,7 @@ describe("mode multi-utilisateur : exécution côté serveur", () => {
 
   it("ignore une horloge de navigateur trop décalée", async () => {
     const { store, state } = memoryStore(seedData());
-    await runSharedCommand(store, member(), { name: "createClient", input: { ...CLIENT_INPUT, name: "Horloge" }, now: "2030-01-01T00:00:00.000Z", seed: "abc123def456" }, serverNow);
+    await runSharedCommand(store, member(), { name: "createClient", input: { ...MY_CLIENT, name: "Horloge" }, now: "2030-01-01T00:00:00.000Z", seed: "abc123def456" }, serverNow);
     expect(state.data.clients.find((c) => c.name === "Horloge")?.createdAt).toBe(serverNow.toISOString());
   });
 
@@ -115,12 +117,12 @@ describe("mode multi-utilisateur : exécution côté serveur", () => {
     expect(state.saves).toBe(1);
   });
 
-  it("mots de passe temporaires robustes et rôles par défaut des comptes de test", () => {
+  it("mots de passe temporaires robustes et rôle par défaut des comptes de test", () => {
     const a = temporaryPassword();
     expect(a).toMatch(/^[A-Za-z2-9]{4}-[A-Za-z2-9]{5}-[A-Za-z2-9]{5}$/);
     expect(temporaryPassword()).not.toBe(a);
+    // Chaque compte de test gère son propre portefeuille ; le directeur commercial est l'installateur.
     expect(defaultRoleFor("sales")).toBe("commercial");
-    expect(defaultRoleFor("direction")).toBe("dirigeant");
-    expect(defaultRoleFor("development")).toBe("collaborateur");
+    expect(defaultRoleFor("development")).toBe("commercial");
   });
 });

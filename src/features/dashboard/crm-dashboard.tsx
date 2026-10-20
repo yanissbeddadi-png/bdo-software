@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, BellRing, CalendarClock, CircleAlert, Flame, Gauge, ListChecks, ListPlus, Send, Sparkles, Target, Trophy, UserPlus, Users } from "lucide-react";
-import { useData, useToday } from "@/lib/store/hooks";
+import { useAccess, useData, useToday } from "@/lib/store/hooks";
 import { useCrm } from "@/lib/store/crm";
 import { useProgression } from "@/lib/store/progression";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -42,7 +42,9 @@ export function CrmDashboard() {
   const p = useProgression();
   const openCreate = useUiStore((s) => s.openCreate);
   const [kind, setKind] = React.useState<ActionKind | "all">("all");
-  const me = data.settings.user.employeeId ?? null;
+  const { restricted } = useAccess();
+  // En mode multi-utilisateur, un collaborateur ne reçoit que son portefeuille : pas de bascule « équipe ».
+  const me = restricted ? null : (data.settings.user.employeeId ?? null);
   // Chaque collaborateur voit d'abord ses propres actions (missions attribuées, contacts suivis).
   const [scope, setScope] = React.useState<"mine" | "team">(me && data.settings.user.role !== "dirigeant" && data.settings.user.role !== "admin" ? "mine" : "team");
   const [expanded, setExpanded] = React.useState(false);

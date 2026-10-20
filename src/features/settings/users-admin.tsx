@@ -15,7 +15,9 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { Field } from "@/components/forms/entity-form";
 import { FormDialog } from "@/components/forms/quick-create";
 
-const ROLES: Role[] = ["admin", "dirigeant", "finance", "commercial", "chef_projet", "collaborateur"];
+/** Rôles proposés : le directeur commercial administre l'espace et voit toutes les données ; les autres comptes ne voient que leur portefeuille. */
+const ROLES: Role[] = ["dirigeant", "commercial", "collaborateur"];
+const roleOptions = (current?: Role) => (current && !ROLES.includes(current) ? [current, ...ROLES] : ROLES);
 
 interface Credential {
   name: string;
@@ -76,7 +78,7 @@ export function UsersAdmin() {
       <CardHeader>
         <div>
           <CardTitle>Mon compte</CardTitle>
-          <CardDescription>Votre rôle est attribué par l&apos;administrateur et vérifié par le serveur à chaque action.</CardDescription>
+          <CardDescription>Votre rôle est attribué par le directeur commercial et vérifié par le serveur à chaque action.</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -109,7 +111,10 @@ export function UsersAdmin() {
         <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Utilisateurs de l&apos;équipe</CardTitle>
-            <CardDescription>Chaque collaborateur se connecte avec son e-mail et son mot de passe. Les mots de passe temporaires ne sont affichés qu&apos;une fois.</CardDescription>
+            <CardDescription>
+              Chaque collaborateur se connecte avec son e-mail et son mot de passe et ne voit que son portefeuille (contacts, entreprises, opportunités et missions dont il est responsable). Le
+              directeur commercial voit tout et gère les comptes. Les mots de passe temporaires ne sont affichés qu&apos;une fois.
+            </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -159,7 +164,7 @@ export function UsersAdmin() {
                     </td>
                     <td className="py-2 pr-3">
                       <NativeSelect aria-label={`Rôle de ${m.name}`} value={m.role} onChange={(e) => void update(m, { role: e.target.value as Role })} className="h-8 w-auto text-xs">
-                        {ROLES.map((r) => (
+                        {roleOptions(m.role).map((r) => (
                           <option key={r} value={r}>
                             {ROLE[r]}
                           </option>

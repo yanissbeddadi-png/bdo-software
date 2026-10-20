@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Archive, ArchiveRestore, Download, UserPlus } from "lucide-react";
 import type { Priority, RelationType } from "@/lib/domain/types";
-import { useCommand, useData, useToday } from "@/lib/store/hooks";
+import { useAccess, useCommand, useData, useToday } from "@/lib/store/hooks";
 import { useCrm } from "@/lib/store/crm";
 import { useParam, useSyncedState } from "@/lib/store/params";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -74,6 +74,8 @@ function csvRow(c: ContactView): (string | number)[] {
 
 export function ContactsPage() {
   const data = useData();
+  // Réaffecter un portefeuille est réservé au directeur commercial.
+  const { restricted } = useAccess();
   const today = useToday();
   const crm = useCrm();
   const run = useCommand();
@@ -254,26 +256,28 @@ export function ContactsPage() {
         onSelectedChange={setSelected}
         bulkActions={(ids) => (
           <>
-            <NativeSelect
-              aria-label="Attribuer un responsable"
-              className="h-8 w-auto text-xs"
-              value=""
-              onChange={(e) => {
-                if (!e.target.value) return;
-                const r = run(C.bulkUpdateContacts, { ids, ownerId: e.target.value === "none" ? null : e.target.value });
-                if (r.ok) done();
-              }}
-            >
-              <option value="">Attribuer à…</option>
-              {data.employees
-                .filter((e) => e.status !== "left")
-                .map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.firstName} {e.lastName}
-                  </option>
-                ))}
-              <option value="none">Retirer le responsable</option>
-            </NativeSelect>
+            {restricted ? null : (
+              <NativeSelect
+                aria-label="Attribuer un responsable"
+                className="h-8 w-auto text-xs"
+                value=""
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  const r = run(C.bulkUpdateContacts, { ids, ownerId: e.target.value === "none" ? null : e.target.value });
+                  if (r.ok) done();
+                }}
+              >
+                <option value="">Attribuer à…</option>
+                {data.employees
+                  .filter((e) => e.status !== "left")
+                  .map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.firstName} {e.lastName}
+                    </option>
+                  ))}
+                <option value="none">Retirer le responsable</option>
+              </NativeSelect>
+            )}
             <NativeSelect
               aria-label="Changer la priorité"
               className="h-8 w-auto text-xs"

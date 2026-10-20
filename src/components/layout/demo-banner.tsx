@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { FlaskConical } from "lucide-react";
-import { useData } from "@/lib/store/hooks";
+import { useAccess, useData } from "@/lib/store/hooks";
 import { useAppStore } from "@/lib/store/app-store";
 import { ROLE } from "@/lib/formatters/labels";
 
@@ -9,13 +9,14 @@ import { ROLE } from "@/lib/formatters/labels";
 export function DemoBanner() {
   const data = useData();
   const mode = useAppStore((s) => s.mode);
+  const { restricted } = useAccess();
   const user = data.settings.user;
   return (
     <div className="no-print flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gold/20 bg-gold/5 px-4 py-1.5 text-[11px] text-gold/90 md:px-6">
       <FlaskConical className="size-3.5" />
       {mode === "cloud" ? (
         <>
-          <span>Version de test : données fictives partagées par toute l&apos;équipe.</span>
+          <span>Version de test (données fictives) : {restricted ? "vous voyez uniquement votre portefeuille." : "en tant que directeur commercial, vous voyez les données de toute l'équipe."}</span>
           <span className="text-gold/70">
             Connecté : {user.name} ({ROLE[user.role]}).
           </span>

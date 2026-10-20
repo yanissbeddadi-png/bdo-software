@@ -3,7 +3,7 @@ import * as React from "react";
 import { Database, Download, FileJson, Plus, RotateCcw, Save, ShieldAlert, Trash2, Upload } from "lucide-react";
 import type { CompanySettings, CrmSettings, Role, RuleSettings, XpRuleKey } from "@/lib/domain/types";
 import Link from "next/link";
-import { useCommand, useData } from "@/lib/store/hooks";
+import { useAccess, useCommand, useData } from "@/lib/store/hooks";
 import { useAppStore, repositoryKind } from "@/lib/store/app-store";
 import { UsersAdmin } from "./users-admin";
 import { useParam, useSyncedState } from "@/lib/store/params";
@@ -56,6 +56,14 @@ const XP_LABELS: Record<XpRuleKey, string> = {
 export function SettingsPage() {
   const tabParam = useParam("tab");
   const [tab, setTab] = useSyncedState(tabParam ?? "crm");
+  const { restricted } = useAccess();
+  if (restricted)
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Paramètres" description="Votre compte. Les règles et réglages de l'équipe sont gérés par le directeur commercial." />
+        <UsersAdmin />
+      </div>
+    );
   return (
     <div className="space-y-6">
       <PageHeader title="Paramètres" description="Règles du CRM, entreprise, préférences, gamification, données, rôles et accès aux modules historiques." />

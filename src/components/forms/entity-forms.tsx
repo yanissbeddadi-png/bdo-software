@@ -4,7 +4,7 @@ import type { Client, Contact, Employee, Expense, Goal, Invoice, Note, Opportuni
 import * as C from "@/lib/domain/commands";
 import * as S from "@/lib/validation/schemas";
 import { EntityForm, type FieldConfig } from "./entity-form";
-import { useCommand, useData, useSummaries, useToday } from "@/lib/store/hooks";
+import { useAccess, useCommand, useData, useSummaries, useToday } from "@/lib/store/hooks";
 import { addDays } from "@/lib/calculations/dates";
 import { STAGES } from "@/lib/calculations/pipeline";
 import { EXPENSE_CATEGORY_LABELS, PRODUCT_TYPE_LABELS } from "@/lib/calculations/finance";
@@ -28,6 +28,7 @@ interface FormProps<E, R = E> {
 
 function useOptions() {
   const data = useData();
+  const access = useAccess();
   return React.useMemo(
     () => ({
       clients: [...data.clients].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((c) => ({ value: c.id, label: c.name })),
@@ -35,7 +36,7 @@ function useOptions() {
         .filter((c) => c.status !== "churned")
         .sort((a, b) => a.name.localeCompare(b.name, "fr"))
         .map((c) => ({ value: c.id, label: c.name })),
-      employees: data.employees.filter((e) => e.status !== "left").map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })),
+      employees: data.employees.filter((e) => e.status !== "left" && (!access.restricted || e.id === access.employeeId)).map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })),
       projects: data.projects.filter((p) => p.status !== "cancelled").map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` })),
       contacts: data.contacts.filter((c) => !c.archivedAt).map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` })),
       opportunities: data.opportunities.map((o) => ({ value: o.id, label: o.name })),
@@ -43,7 +44,7 @@ function useOptions() {
       goals: data.goals.filter((g) => !g.archived).map((g) => ({ value: g.id, label: g.title })),
       vat: data.settings.company.vatRates.map((r) => ({ value: String(r.rate), label: `${r.label} (${r.rate / 100} %)` })),
     }),
-    [data],
+    [data, access],
   );
 }
 
@@ -54,6 +55,7 @@ function pick<T>(defaults: Record<string, unknown> | undefined, key: string, fal
 /* ----------------------------- Client ----------------------------- */
 
 export function ClientForm({ entity, defaults, onDone, onCancel }: FormProps<Client>) {
+  const access = useAccess();
   const run = useCommand();
   const o = useOptions();
   const fields: FieldConfig<S.ClientInput>[] = [
@@ -98,7 +100,8 @@ export function ClientForm({ entity, defaults, onDone, onCancel }: FormProps<Cli
               city: "",
               country: "France",
               website: "",
-              ownerId: null,
+              // Un collaborateur crée les éléments de son propre portefeuille.
+              ownerId: access.restricted ? access.employeeId : null,
               source: "Site web",
               satisfaction: null,
               notes: "",
@@ -120,6 +123,7 @@ export function ClientForm({ entity, defaults, onDone, onCancel }: FormProps<Cli
 
 /** Modification d'un contact (la création passe par `ProspectForm`, avec détection des doublons). */
 export function ContactForm({ entity, defaults, onDone, onCancel }: FormProps<Contact>) {
+  const access = useAccess();
   const run = useCommand();
   const o = useOptions();
   const [duplicate, setDuplicate] = React.useState<string | null>(null);
@@ -168,7 +172,7 @@ export function ContactForm({ entity, defaults, onDone, onCancel }: FormProps<Co
               relation: pick(defaults, "relation", "prospect"),
               priority: "normal",
               source: "Site web",
-              ownerId: null,
+              ownerId: access.restricted ? access.employeeId : null,
               isPrimary: false,
               notes: "",
               confirmDuplicate: false,
@@ -684,6 +688,7 @@ export function ProjectForm({ entity, defaults, onDone, onCancel }: FormProps<Pr
 /* ----------------------------- Tâche ----------------------------- */
 
 export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>) {
+  const access = useAccess();
   const run = useCommand();
   const o = useOptions();
   const data = useData();
@@ -753,7 +758,7 @@ export function TaskForm({ entity, defaults, onDone, onCancel }: FormProps<Task>
           : {
               title: "",
               description: "",
-              assigneeId: pick(defaults, "assigneeId", null),
+              assigneeId: pick(defaults, "assigneeId", access.restricted ? access.employeeId : null),
               priority: "normal",
               status: "todo",
               complexity: "standard",

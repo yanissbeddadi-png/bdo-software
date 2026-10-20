@@ -102,9 +102,10 @@ end $$;
 reset role;
 select 'RLS OK' as resultat;
 
--- Mode multi-utilisateur : le document partagé n'est lisible que par les membres actifs
--- et n'est jamais modifiable par un utilisateur connecté (aucune politique d'écriture ;
--- la migration retire en plus les droits d'écriture, ré-accordés ci-dessus pour le test).
+-- Mode multi-utilisateur : le document partagé (données de toute l'équipe) n'est ni lisible
+-- ni modifiable par un utilisateur connecté, même membre actif : chacun reçoit sa projection
+-- via les Server Actions. Aucune politique RLS ; les migrations retirent en plus les droits,
+-- ré-accordés ci-dessus pour le test.
 reset role;
 insert into public.organizations (id, name) values ('org_shared', 'Partagée') on conflict do nothing;
 insert into auth.users (id) values ('00000000-0000-0000-0000-0000000000a1'), ('00000000-0000-0000-0000-0000000000a2') on conflict do nothing;
@@ -115,7 +116,7 @@ insert into public.app_state (organization_id, data) values ('org_shared', '{"k"
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', false);
 do $$ begin
-  if (select count(*) from public.app_state where organization_id = 'org_shared') <> 1 then raise exception 'Un membre actif doit lire le document partagé'; end if;
+  if (select count(*) from public.app_state where organization_id = 'org_shared') <> 0 then raise exception 'Un membre ne doit pas lire le document complet de l''équipe'; end if;
   update public.app_state set data = '{"k": 2}' where organization_id = 'org_shared';
   delete from public.app_state where organization_id = 'org_shared';
 end $$;
