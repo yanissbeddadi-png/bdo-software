@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import reset from "./reset";
 
 const ADMIN = { email: "admin@bdo-test.fr", password: "MotDePasse-Test-2026" };
 let accounts: { head: string; email: string; password: string }[] = [];
@@ -20,6 +21,7 @@ test.describe.serial("mode multi-utilisateur", () => {
     await expect(page).toHaveURL(/\/connexion\?suite=%2Fpipeline/);
     await page.goto("/installation");
     await page.getByLabel("Code d'installation").fill("mauvais-code");
+    await page.getByRole("radio", { name: /Données de démonstration/ }).check();
     await page.getByLabel("Votre nom").fill("Admin Test");
     await page.getByLabel("E-mail (identifiant)").fill(ADMIN.email);
     await page.getByLabel("Mot de passe (10 caractères minimum)").fill(ADMIN.password);
@@ -139,5 +141,55 @@ test.describe.serial("mode multi-utilisateur", () => {
     await expect(admin).toHaveURL(/\/connexion/);
     await admin.goto("/pipeline");
     await expect(admin).toHaveURL(/\/connexion/);
+  });
+
+  test("nouveau client : espace vide, identité visuelle et modules configurés par le directeur commercial", async ({ browser, page }) => {
+    await reset();
+    const owner = { email: "claire@martin-conseil.test", password: "Client-Test-2026" };
+    await page.goto("/installation");
+    await page.getByLabel("Code d'installation").fill(process.env.BDO_SETUP_CODE ?? "");
+    await expect(page.getByRole("radio", { name: /Espace vide/ })).toBeChecked();
+    await page.getByLabel("Nom de l'entreprise cliente").fill("Martin Conseil");
+    await page.getByLabel("Votre nom").fill("Claire Martin");
+    await page.getByLabel("E-mail (identifiant)").fill(owner.email);
+    await page.getByLabel("Mot de passe (10 caractères minimum)").fill(owner.password);
+    await page.getByLabel("Confirmer le mot de passe").fill(owner.password);
+    await page.getByRole("button", { name: /Créer l'espace/ }).click();
+    await expect(page).toHaveURL(/parametres\?tab=entreprise/);
+    await expect(page.getByRole("heading", { name: "Identité visuelle" })).toBeVisible();
+    // Aucune donnée fictive, aucun bandeau de démonstration.
+    await expect(page.getByText(/données fictives/)).toHaveCount(0);
+
+    // Identité visuelle : couleur de l'espace.
+    await page.getByLabel("Couleur principale").fill("#0A7F5A");
+    await page.getByRole("button", { name: "Enregistrer l'identité visuelle" }).click();
+    await expect(page.getByText("Enregistré", { exact: true })).toBeVisible();
+    await expect(page.locator("div.flex.min-h-screen").first()).toHaveAttribute("style", /--accent:\s*#0A7F5A/);
+
+    // Modules : Finances désactivé.
+    await page.getByRole("tab", { name: "Modules" }).click();
+    await page.getByRole("switch", { name: "Module Finances" }).click();
+    await expect(page.getByText("Enregistré", { exact: true })).toBeVisible();
+    await page.goto("/finances");
+    await expect(page.getByText("Module « Finances » désactivé")).toBeVisible();
+
+    // Étapes du pipeline renommées.
+    await page.goto("/parametres?tab=crm");
+    await page.getByLabel("Libellé de l'étape En discussion").fill("Rendez-vous découverte");
+    await page.getByRole("button", { name: "Enregistrer les réglages CRM" }).click();
+    await expect(page.getByText("Enregistré", { exact: true })).toBeVisible();
+    await page.goto("/pipeline");
+    // Pipeline encore vide : le libellé apparaît dans le filtre des étapes.
+    await expect(page.locator("option", { hasText: "Rendez-vous découverte" }).first()).toBeAttached();
+
+    // Espace vide : aucune entreprise.
+    await page.goto("/entreprises");
+    await expect(page.getByText(/Aucune entreprise/).first()).toBeVisible();
+
+    // La page de connexion affiche l'identité du client.
+    const fresh = await (await browser.newContext()).newPage();
+    await fresh.goto("/connexion");
+    await expect(fresh.getByText("Martin Conseil").first()).toBeVisible();
+    await expect(fresh.locator("main#contenu")).toHaveAttribute("style", /--bdo-red:\s*#0A7F5A/);
   });
 });

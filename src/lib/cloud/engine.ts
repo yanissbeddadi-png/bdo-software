@@ -8,6 +8,7 @@ import { canMigrate, migrateData } from "@/lib/database/migrations";
 import { SEED_VERSION } from "@/lib/database/seed";
 import { isAppData } from "@/lib/database/repository";
 import { projectForUser, scopeViolation } from "./scope";
+import { applyCrmVocabulary } from "@/lib/crm/vocabulary";
 
 /**
  * Cœur du mode multi-utilisateur, indépendant de Supabase (testé avec un stockage en
@@ -80,6 +81,7 @@ export async function runSharedCommand(store: StateStore, member: Member, req: R
     if (!stored) return { ok: false, error: "Aucune donnée pour cette organisation.", fieldErrors: {} };
     const server = clock(stored.data, serverNow);
     const data = withUser(upgrade(stored.data, server.today), user);
+    applyCrmVocabulary(data.settings.crm);
     const clientTime = Date.parse(req.now);
     const now = Number.isFinite(clientTime) && Math.abs(clientTime - Date.parse(server.now)) <= MAX_CLOCK_SKEW_MS ? new Date(clientTime).toISOString() : server.now;
     let res: ReturnType<typeof execute>;

@@ -21,7 +21,14 @@ export interface RewardDefinition {
 }
 
 export const THEMES: RewardDefinition[] = [
-  { id: "theme-default", kind: "theme", name: "Rouge BDO", description: "Couleur d'action de la charte BDO.", unlock: { type: "level", level: 1 }, color: "#E81A3B" },
+  {
+    id: "theme-default",
+    kind: "theme",
+    name: "Couleur de l'entreprise",
+    description: "Couleur principale de l'espace (Paramètres › Entreprise).",
+    unlock: { type: "level", level: 1 },
+    color: "#E81A3B",
+  },
   { id: "theme-emerald", kind: "theme", name: "Émeraude", description: "Accent vert profond.", unlock: { type: "level", level: 5 }, color: "#1A7F4E" },
   { id: "theme-violet", kind: "theme", name: "Améthyste", description: "Accent violet des stratèges.", unlock: { type: "level", level: 10 }, color: "#6B4FBB" },
   { id: "theme-gold", kind: "theme", name: "Or impérial", description: "Accent doré réservé aux dirigeants aguerris.", unlock: { type: "level", level: 20 }, color: "#8F5E00" },

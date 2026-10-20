@@ -1,4 +1,4 @@
-import type { AppData, CompanySettings, CrmSettings, GamificationSettings, NotificationSettings, PreferenceSettings, Role, RuleSettings } from "@/lib/domain/types";
+import type { AppData, BrandingSettings, CompanySettings, CrmSettings, ModuleSettings, GamificationSettings, NotificationSettings, PreferenceSettings, Role, RuleSettings } from "@/lib/domain/types";
 import { ALL_REWARDS, isRewardUnlocked } from "@/lib/gamification/rewards";
 import { levelFromXp } from "@/lib/gamification/levels";
 import { totalXp } from "@/lib/gamification/engine";
@@ -52,9 +52,50 @@ export const updateGamificationSettings: Command<Partial<GamificationSettings>> 
 export const updateCrmSettings: Command<CrmSettings> = (data, input, ctx) => {
   assertCan(ctx, "settings.write");
   const v = parse(crmSettingsSchema, input);
-  const crm: CrmSettings = { ...v, workingDays: [...new Set(v.workingDays)].sort((a, b) => a - b) };
+  const crm: CrmSettings = {
+    ...v,
+    workingDays: [...new Set(v.workingDays)].sort((a, b) => a - b),
+    // Gagné et perdu gardent leur sens : 100 % et 0 %.
+    stages: { ...v.stages, won: { ...v.stages.won, probability: 100 }, lost: { ...v.stages.lost, probability: 0 } },
+    sources: [...new Set(v.sources)],
+  };
   const next = audit({ ...data, settings: { ...data.settings, crm } }, ctx, "settings.crm", null, "");
   return { data: next, result: undefined, message: "Paramètres CRM enregistrés." };
+};
+
+/** Taille maximale du logo (data URL, ~300 Ko d'image). */
+export const MAX_LOGO_LENGTH = 400_000;
+const LOGO = /^data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
+
+/** Identité visuelle de l'espace : logo, couleur principale, marque BDO par défaut. */
+export const updateBranding: Command<Partial<BrandingSettings>> = (data, input, ctx) => {
+  assertCan(ctx, "settings.write");
+  const branding = { ...data.settings.branding, ...input };
+  if (!/^#[0-9a-fA-F]{6}$/.test(branding.color)) throw new DomainError("Couleur invalide : format #RRGGBB attendu.");
+  if (branding.logo !== null) {
+    if (branding.logo.length > MAX_LOGO_LENGTH) throw new DomainError("Logo trop lourd : 300 Ko maximum.");
+    if (!LOGO.test(branding.logo)) throw new DomainError("Logo invalide : PNG, JPEG, WebP ou SVG uniquement.");
+  }
+  const next = audit(
+    { ...data, settings: { ...data.settings, branding: { logo: branding.logo, color: branding.color.toUpperCase(), bdoMark: Boolean(branding.bdoMark) } } },
+    ctx,
+    "settings.branding",
+    null,
+    Object.keys(input).join(", "),
+  );
+  return { data: next, result: undefined, message: "Identité visuelle enregistrée." };
+};
+
+/** Modules affichés dans l'espace (les données des modules masqués sont conservées). */
+export const updateModules: Command<Partial<ModuleSettings>> = (data, input, ctx) => {
+  assertCan(ctx, "settings.write");
+  const modules = { ...data.settings.modules };
+  for (const [k, v] of Object.entries(input)) {
+    if (!(k in modules) || typeof v !== "boolean") throw new DomainError("Module inconnu.");
+    modules[k as keyof ModuleSettings] = v;
+  }
+  const next = audit({ ...data, settings: { ...data.settings, modules } }, ctx, "settings.modules", null, Object.keys(input).join(", "));
+  return { data: next, result: undefined, message: "Modules enregistrés." };
 };
 
 export const updateRules: Command<Partial<RuleSettings>> = (data, input, ctx) => {

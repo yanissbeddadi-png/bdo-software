@@ -1,3 +1,4 @@
+import { SEED_VERSION } from "@/lib/database/seed";
 import { describe, expect, it } from "vitest";
 import { execute, finalize } from "@/lib/domain/runtime";
 import * as C from "@/lib/domain/commands";
@@ -386,7 +387,7 @@ describe("migration v2 → v3", () => {
       } as never,
     ];
     const m = migrateData(d, TODAY);
-    expect(m.settings.demo.version).toBe(3);
+    expect(m.settings.demo.version).toBe(SEED_VERSION);
     expect(m.leads).toEqual([]);
     const helios = m.clients.find((c) => c.name === "Helios")!;
     expect(helios.relation).toBe("prospect");

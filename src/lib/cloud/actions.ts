@@ -8,6 +8,8 @@ import { adminClient, authUser, cloudReady, listMemberRows, memberFor, supabaseS
 import { defaultRoleFor, replaceSharedState, runSharedCommand, sessionUser, temporaryPassword, upgrade, withUser, type Member, type RunRequest, type RunResponse } from "./engine";
 import { clock } from "@/lib/store/clock";
 import { distributePortfolio, projectForUser } from "./scope";
+import { clearWorkspace, createEmptyData, demoInWorkspace } from "@/lib/database/empty";
+import { newId } from "@/lib/domain/ids";
 
 /**
  * Server Actions du mode multi-utilisateur. Chaque action authentifie l'appelant à partir
@@ -79,11 +81,15 @@ export async function replaceRemote(incoming: unknown): Promise<RunResponse> {
   return replaceSharedState(supabaseStore, c.member, incoming);
 }
 
-export async function resetRemote(): Promise<RunResponse> {
+/** Recharge le jeu de démonstration (réparti entre les collaborateurs) ou vide l'espace. */
+export async function resetRemote(kind: "demo" | "empty" = "demo"): Promise<RunResponse> {
   const c = await caller();
   if (!c.ok) return { ok: false, error: c.error, fieldErrors: {} };
+  const stored = await supabaseStore.load(c.member.organizationId);
+  if (!stored) return { ok: false, error: "Aucune donnée pour cette organisation.", fieldErrors: {} };
   const { today, now } = clock(null);
-  return replaceSharedState(supabaseStore, c.member, distributePortfolio(createSeedData(today, now), c.member.employeeId));
+  const next = kind === "empty" ? clearWorkspace(stored.data, today) : distributePortfolio(demoInWorkspace(createSeedData(today, now), stored.data), c.member.employeeId);
+  return replaceSharedState(supabaseStore, c.member, next);
 }
 
 /* ----------------------------- Comptes ----------------------------- */
@@ -199,7 +205,8 @@ export async function createTestAccounts(): Promise<{ ok: true; accounts: { name
   let skipped = 0;
   for (const e of stored.data.employees) {
     const email = e.email.toLowerCase();
-    if (e.status === "left" || linked.has(e.id) || emails.has(email)) {
+    // Fiche sans e-mail valide : pas de compte possible (l'e-mail est l'identifiant).
+    if (e.status === "left" || linked.has(e.id) || emails.has(email) || !EMAIL.test(email)) {
       skipped++;
       continue;
     }
@@ -223,12 +230,35 @@ export async function setupStatus(): Promise<{ cloud: boolean; ready: boolean; r
   return { cloud: true, ready: true, needsSetup: (count ?? 0) === 0, codeRequired: Boolean(process.env.BDO_SETUP_CODE) };
 }
 
+/** Identité visuelle affichée sur la page de connexion (nom, logo, couleur : rien de sensible). */
+export async function publicBranding(): Promise<{ name: string; logo: string | null; color: string; bdoMark: boolean } | null> {
+  if (!cloudReady().ok) return null;
+  const stored = await supabaseStore.load(ORGANIZATION_ID).catch(() => null);
+  if (!stored) return null;
+  const s = upgrade(stored.data, realTodayISO()).settings;
+  return { name: s.company.name, logo: s.branding.logo, color: s.branding.color, bdoMark: s.branding.bdoMark };
+}
+
 /**
- * Première installation : crée l'organisation, le jeu de démonstration partagé et le
- * compte du directeur commercial (administrateur de l'espace). Possible uniquement tant
+ * Première installation : crée l'organisation, un espace vide (nouveau client) ou le jeu de
+ * démonstration, et le compte du directeur commercial (administrateur de l'espace). Possible uniquement tant
  * qu'aucun compte n'existe, et protégée par le code BDO_SETUP_CODE (variable serveur obligatoire).
  */
-export async function installOrganization(input: { code: string; companyName: string; name: string; email: string; password: string; employeeId: string | null }): Promise<{ ok: true } | Fail> {
+export interface InstallInput {
+  code: string;
+  companyName: string;
+  name: string;
+  email: string;
+  password: string;
+  /** `empty` : espace vierge pour un nouveau client ; `demo` : données de démonstration. */
+  start: "empty" | "demo";
+  /** Mode `demo` : fiche de démonstration choisie. */
+  employeeId: string | null;
+  /** Mode `empty` : fonction de la personne qui installe (sa fiche est créée). */
+  jobTitle: string;
+}
+
+export async function installOrganization(input: InstallInput): Promise<{ ok: true } | Fail> {
   const status = await setupStatus();
   if (!status.ready) return { ok: false, error: status.reason ?? "Supabase n'est pas prêt." };
   if (!status.needsSetup) return { ok: false, error: "L'installation est déjà faite : connectez-vous." };
@@ -237,18 +267,32 @@ export async function installOrganization(input: { code: string; companyName: st
   const invalid = validAccount({ email: input.email, name: input.name, role: "dirigeant" });
   if (invalid) return { ok: false, error: invalid };
   if (input.password.length < 10) return { ok: false, error: "Mot de passe : 10 caractères minimum." };
+  const company = input.companyName.trim();
+  if (input.start === "empty" && !company) return { ok: false, error: "Indiquez le nom de l'entreprise." };
 
   const today = realTodayISO();
-  const seed = createSeedData(today, `${today}T08:00:00.000Z`);
-  const company = input.companyName.trim() || seed.settings.company.name;
-  // Portefeuille de démonstration réparti entre les collaborateurs : chacun a ses propres données à tester.
-  const data: AppData = distributePortfolio({ ...seed, settings: { ...seed.settings, company: { ...seed.settings.company, name: company } } }, input.employeeId);
+  const now = new Date().toISOString();
+  const email = input.email.trim().toLowerCase();
+  let data: AppData;
+  let employeeId: string | null;
+  if (input.start === "empty") {
+    // Espace vierge : la fiche de la personne qui installe est créée à partir de son nom.
+    const [firstName, ...rest] = input.name.trim().split(/\s+/);
+    employeeId = newId("emp");
+    data = createEmptyData(today, now, company, { firstName: firstName ?? "", lastName: rest.join(" "), jobTitle: input.jobTitle, email }, employeeId);
+  } else {
+    const seed = createSeedData(today, `${today}T08:00:00.000Z`);
+    employeeId = input.employeeId;
+    const named = { ...seed, settings: { ...seed.settings, company: { ...seed.settings.company, name: company || seed.settings.company.name } } };
+    // Portefeuille de démonstration réparti entre les collaborateurs : chacun a ses propres données à tester.
+    data = distributePortfolio(named, employeeId);
+  }
   const db = adminClient();
-  const { error: e1 } = await db.from("organizations").upsert({ id: ORGANIZATION_ID, name: company, is_demo: true });
+  const { error: e1 } = await db.from("organizations").upsert({ id: ORGANIZATION_ID, name: data.settings.company.name, is_demo: input.start === "demo" });
   if (e1) return { ok: false, error: e1.message };
   const { error: e2 } = await db.from("app_state").upsert({ organization_id: ORGANIZATION_ID, data, version: 1 });
   if (e2) return { ok: false, error: e2.message };
   // Le directeur commercial est l'administrateur de l'espace.
-  const res = await createAccount({ email: input.email.trim().toLowerCase(), name: input.name.trim(), role: "dirigeant", employeeId: input.employeeId, password: input.password });
+  const res = await createAccount({ email, name: input.name.trim(), role: "dirigeant", employeeId, password: input.password });
   return res.ok ? { ok: true } : res;
 }

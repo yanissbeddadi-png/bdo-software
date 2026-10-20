@@ -6,7 +6,16 @@ import { roundCents } from "./money";
  * Étapes commerciales du pipeline (cycle de vente). L'état de suivi (à relancer, en
  * retard…) est distinct : il est calculé à partir des missions (`lib/crm/follow-up.ts`).
  */
-export const STAGES: { id: OpportunityStage; label: string; short: string; defaultProbability: number; color: string }[] = [
+export interface StageDef {
+  id: OpportunityStage;
+  label: string;
+  short: string;
+  defaultProbability: number;
+  color: string;
+}
+
+/** Étapes par défaut (référence immuable des libellés et probabilités d'origine). */
+export const DEFAULT_STAGES: readonly Readonly<StageDef>[] = [
   { id: "new", label: "Nouveaux prospects", short: "Nouveau", defaultProbability: 5, color: "#64748b" },
   { id: "qualify", label: "À qualifier", short: "À qualifier", defaultProbability: 15, color: "#3987e5" },
   { id: "discussion", label: "En discussion", short: "En discussion", defaultProbability: 35, color: "#9085e9" },
@@ -15,6 +24,13 @@ export const STAGES: { id: OpportunityStage; label: string; short: string; defau
   { id: "won", label: "Gagné", short: "Gagné", defaultProbability: 100, color: "#199e70" },
   { id: "lost", label: "Perdu / archivé", short: "Perdu", defaultProbability: 0, color: "#e66767" },
 ];
+
+/**
+ * Étapes en vigueur : libellés et probabilités personnalisables par espace (Paramètres ›
+ * CRM), appliqués par `applyCrmVocabulary` (`lib/crm/vocabulary.ts`). Chaque déploiement
+ * sert un seul espace : ce registre partagé reflète donc toujours ses réglages.
+ */
+export const STAGES: StageDef[] = DEFAULT_STAGES.map((s) => ({ ...s }));
 
 /** Étapes à partir desquelles une opportunité est considérée comme qualifiée. */
 export const QUALIFIED_STAGES: OpportunityStage[] = ["discussion", "proposal", "negotiation", "won"];

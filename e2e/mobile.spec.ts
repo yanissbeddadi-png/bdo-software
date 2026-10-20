@@ -14,7 +14,20 @@ test("navigation mobile via le menu", async ({ page }) => {
 });
 
 test("pages CRM sans débordement horizontal sur mobile", async ({ page }) => {
-  for (const path of ["/", "/pipeline", "/contacts", "/contacts/con_novaretail_sophie", "/entreprises", "/missions", "/calendrier", "/activites", "/statistiques"]) {
+  for (const path of [
+    "/",
+    "/pipeline",
+    "/contacts",
+    "/contacts/con_novaretail_sophie",
+    "/entreprises",
+    "/missions",
+    "/calendrier",
+    "/activites",
+    "/statistiques",
+    "/parametres?tab=entreprise",
+    "/parametres?tab=crm",
+    "/parametres?tab=modules",
+  ]) {
     await open(page, path);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, path).toBeLessThanOrEqual(1);

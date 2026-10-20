@@ -390,10 +390,25 @@ export const completeMissionSchema = z.object({
 });
 export type CompleteMissionInput = z.infer<typeof completeMissionSchema>;
 
+const stageSetting = z.object({
+  label: z.string().trim().min(1, "Chaque étape doit avoir un libellé").max(40, "Libellé d'étape : 40 caractères maximum"),
+  probability: z.number().int().min(0).max(100),
+});
+
 export const crmSettingsSchema = z.object({
   inactivityDays: z.number().int().min(1).max(365),
   proposalPendingDays: z.number().int().min(1).max(120),
   newProspectDays: z.number().int().min(1).max(60),
   workingDays: z.array(z.number().int().min(0).max(6)).min(1, "Au moins un jour ouvré"),
   dailyCallXpCap: z.number().int().min(0).max(100),
+  stages: z.object({
+    new: stageSetting,
+    qualify: stageSetting,
+    discussion: stageSetting,
+    proposal: stageSetting,
+    negotiation: stageSetting,
+    won: stageSetting,
+    lost: stageSetting,
+  }),
+  sources: z.array(z.string().trim().min(1).max(60, "Source : 60 caractères maximum")).min(1, "Au moins une source de contact").max(30, "30 sources maximum"),
 });

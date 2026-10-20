@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
-import { Database, Download, FileJson, Plus, RotateCcw, Save, ShieldAlert, Trash2, Upload } from "lucide-react";
-import type { CompanySettings, CrmSettings, Role, RuleSettings, XpRuleKey } from "@/lib/domain/types";
+import { Database, Download, Eraser, FileJson, ImageUp, Plus, RotateCcw, Save, ShieldAlert, Trash2, Upload } from "lucide-react";
+import type { BrandingSettings, CompanySettings, CrmSettings, ModuleKey, Role, RuleSettings, XpRuleKey } from "@/lib/domain/types";
 import Link from "next/link";
 import { useAccess, useCommand, useData } from "@/lib/store/hooks";
 import { useAppStore, repositoryKind } from "@/lib/store/app-store";
@@ -10,7 +10,11 @@ import { useParam, useSyncedState } from "@/lib/store/params";
 import { useUiStore } from "@/lib/store/ui-store";
 import * as C from "@/lib/domain/commands";
 import { externalConnections, isAppData } from "@/lib/database/repository";
-import { DEFAULT_XP_REWARDS } from "@/lib/database/seed";
+import { DEFAULT_XP_REWARDS, defaultCrmSettings } from "@/lib/database/seed";
+import { MODULES } from "@/lib/domain/modules";
+import { MAX_LOGO_LENGTH } from "@/lib/domain/commands/settings";
+import { DEFAULT_STAGES } from "@/lib/calculations/pipeline";
+import { BrandMark, BrandTagline, brandStyle } from "@/components/layout/brand";
 import { PERMISSION_LABELS, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import { PageHeader } from "@/components/shared/page-header";
 import { useConfirm } from "@/components/shared/confirm-dialog";
@@ -66,11 +70,12 @@ export function SettingsPage() {
     );
   return (
     <div className="space-y-6">
-      <PageHeader title="Paramètres" description="Règles du CRM, entreprise, préférences, gamification, données, rôles et accès aux modules historiques." />
+      <PageHeader title="Paramètres" description="Configuration de l'espace : identité de l'entreprise, pipeline et règles CRM, modules, équipe et accès, données." />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="crm">CRM</TabsTrigger>
           <TabsTrigger value="entreprise">Entreprise</TabsTrigger>
+          <TabsTrigger value="modules">Modules</TabsTrigger>
           <TabsTrigger value="preferences">Préférences</TabsTrigger>
           <TabsTrigger value="gamification">Gamification et règles</TabsTrigger>
           <TabsTrigger value="donnees">Données</TabsTrigger>
@@ -82,6 +87,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="entreprise">
           <CompanyTab />
+        </TabsContent>
+        <TabsContent value="modules">
+          <ModulesTab />
         </TabsContent>
         <TabsContent value="preferences">
           <PreferencesTab />
@@ -114,18 +122,18 @@ const WEEKDAYS = [
 ];
 
 /** Modules conservés hors de la navigation principale (données intactes, toujours utilisables). */
-const LEGACY_MODULES = [
-  { href: "/finances", label: "Finances", hint: "Factures, avoirs, dépenses, trésorerie, TVA, abonnements" },
-  { href: "/crm/devis", label: "Propositions commerciales", hint: "Devis liés aux opportunités" },
-  { href: "/projets", label: "Projets", hint: "Projets clients et livrables" },
-  { href: "/taches", label: "Tâches internes", hint: "Tâches hors CRM (projets, administratif)" },
-  { href: "/equipe", label: "Équipe", hint: "Collaborateurs et charge" },
-  { href: "/catalogue", label: "Produits et services", hint: "Catalogue et tarifs" },
-  { href: "/objectifs", label: "Objectifs", hint: "Objectifs chiffrés suivis automatiquement" },
-  { href: "/analyses", label: "Analyses financières", hint: "Indicateurs financiers historiques" },
-  { href: "/operations", label: "Opérations", hint: "Risques, notes et alertes" },
+const LEGACY_MODULES: { href: string; label: string; hint: string; module?: ModuleKey }[] = [
+  { href: "/equipe", label: "Équipe", hint: "Fiches collaborateurs et charge" },
+  { href: "/finances", label: "Finances", hint: "Factures, avoirs, dépenses, trésorerie, TVA, abonnements", module: "finance" },
+  { href: "/crm/devis", label: "Propositions commerciales", hint: "Devis liés aux opportunités", module: "quotes" },
+  { href: "/projets", label: "Projets", hint: "Projets clients et livrables", module: "projects" },
+  { href: "/taches", label: "Tâches internes", hint: "Tâches hors CRM (projets, administratif)", module: "projects" },
+  { href: "/catalogue", label: "Produits et services", hint: "Catalogue et tarifs", module: "catalog" },
+  { href: "/objectifs", label: "Objectifs", hint: "Objectifs chiffrés suivis automatiquement", module: "goals" },
+  { href: "/analyses", label: "Analyses financières", hint: "Indicateurs financiers historiques", module: "analytics" },
+  { href: "/operations", label: "Opérations", hint: "Risques, notes et alertes", module: "operations" },
   { href: "/notifications", label: "Notifications", hint: "Centre de notifications" },
-  { href: "/bureaux", label: "Bureaux 3D", hint: "Visualisation de l'entreprise" },
+  { href: "/bureaux", label: "Bureaux 3D", hint: "Visualisation de l'entreprise", module: "offices" },
 ];
 
 function CrmTab() {
@@ -137,6 +145,7 @@ function CrmTab() {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <form
+        className="space-y-6"
         onSubmit={(e) => {
           e.preventDefault();
           run(C.updateCrmSettings, c);
@@ -181,13 +190,89 @@ function CrmTab() {
               </div>
               <p className="mt-1 text-[11px] text-subtle">Un jour non ouvré n&apos;interrompt jamais une série ; une action ce jour-là compte en bonus.</p>
             </fieldset>
-            <div className="sm:col-span-2">
-              <Button type="submit" variant="primary">
-                <Save /> Enregistrer
-              </Button>
-            </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Étapes du pipeline</CardTitle>
+              <CardDescription>Renommez les étapes selon le cycle de vente du client et fixez la probabilité proposée à chaque étape. Gagné et perdu restent à 100 % et 0 %.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {DEFAULT_STAGES.map((st) => {
+              const v = c.stages[st.id];
+              const fixed = st.id === "won" || st.id === "lost";
+              return (
+                <div key={st.id} className="grid grid-cols-[12px_1fr_96px] items-center gap-2">
+                  <span className="size-3 rounded-full" style={{ background: st.color }} aria-hidden />
+                  <Input aria-label={`Libellé de l'étape ${st.label}`} value={v.label} maxLength={40} onChange={(e) => set("stages", { ...c.stages, [st.id]: { ...v, label: e.target.value } })} />
+                  <div className="relative">
+                    <Input
+                      aria-label={`Probabilité de l'étape ${st.label} (%)`}
+                      type="number"
+                      min={0}
+                      max={100}
+                      disabled={fixed}
+                      className="pr-7 text-right tabular"
+                      value={v.probability}
+                      onChange={(e) => set("stages", { ...c.stages, [st.id]: { ...v, probability: Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0))) } })}
+                    />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">%</span>
+                  </div>
+                </div>
+              );
+            })}
+            <Button variant="ghost" size="sm" onClick={() => set("stages", defaultCrmSettings().stages)}>
+              <RotateCcw /> Libellés par défaut
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>Sources de contacts</CardTitle>
+              <CardDescription>Proposées à la création d&apos;un contact et dans les filtres. Les contacts existants gardent leur source.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {c.sources.map((src, i) => (
+              <div key={i} className="grid grid-cols-[1fr_auto] items-center gap-2">
+                <Input
+                  aria-label={`Source ${i + 1}`}
+                  value={src}
+                  maxLength={60}
+                  onChange={(e) =>
+                    set(
+                      "sources",
+                      c.sources.map((x, j) => (j === i ? e.target.value : x)),
+                    )
+                  }
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Supprimer la source ${src}`}
+                  disabled={c.sources.length <= 1}
+                  onClick={() =>
+                    set(
+                      "sources",
+                      c.sources.filter((_, j) => j !== i),
+                    )
+                  }
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" disabled={c.sources.length >= 30} onClick={() => set("sources", [...c.sources, "Nouvelle source"])}>
+              <Plus /> Ajouter une source
+            </Button>
+          </CardContent>
+        </Card>
+        <Button type="submit" variant="primary">
+          <Save /> Enregistrer les réglages CRM
+        </Button>
       </form>
       <div className="space-y-6">
         <Card>
@@ -217,13 +302,13 @@ function CrmTab() {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>Modules historiques</CardTitle>
-              <CardDescription>Retirés de la navigation principale, conservés avec toutes leurs données.</CardDescription>
+              <CardTitle>Autres modules</CardTitle>
+              <CardDescription>Hors de la navigation principale. Activez ou masquez-les dans l&apos;onglet Modules.</CardDescription>
             </div>
           </CardHeader>
           <CardContent>
             <ul className="grid gap-1 sm:grid-cols-2">
-              {LEGACY_MODULES.map((m) => (
+              {LEGACY_MODULES.filter((m) => !m.module || data.settings.modules[m.module]).map((m) => (
                 <li key={m.href}>
                   <Link href={m.href} className="block rounded-lg px-2 py-1.5 hover:bg-interactive">
                     <span className="text-sm text-fg">{m.label}</span>
@@ -245,158 +330,293 @@ function CompanyTab() {
   const [c, setC] = React.useState<CompanySettings>(data.settings.company);
   const set = <K extends keyof CompanySettings>(k: K, v: CompanySettings[K]) => setC((s) => ({ ...s, [k]: v }));
   return (
-    <form
-      className="grid gap-6 xl:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        run(C.updateCompanySettings, c);
-      }}
-    >
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Identité</CardTitle>
-            <CardDescription>Coordonnées fictives de démonstration</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nom commercial" htmlFor="c-name">
-            <Input id="c-name" value={c.name} onChange={(e) => set("name", e.target.value)} />
-          </Field>
-          <Field label="Raison sociale" htmlFor="c-legal">
-            <Input id="c-legal" value={c.legalName} onChange={(e) => set("legalName", e.target.value)} />
-          </Field>
-          <Field label="Secteur" htmlFor="c-sector" className="sm:col-span-2">
-            <Input id="c-sector" value={c.sector} onChange={(e) => set("sector", e.target.value)} />
-          </Field>
-          <Field label="Pays" htmlFor="c-country">
-            <Input id="c-country" value={c.country} onChange={(e) => set("country", e.target.value)} />
-          </Field>
-          <Field label="Devise" htmlFor="c-cur" help="La simulation gère uniquement l'euro.">
-            <Input id="c-cur" value="EUR" disabled />
-          </Field>
-          <Field label="Fuseau horaire" htmlFor="c-tz">
-            <NativeSelect id="c-tz" value={c.timezone} onChange={(e) => set("timezone", e.target.value)}>
-              {["Europe/Paris", "Europe/Brussels", "Europe/Zurich", "America/Montreal", "Indian/Reunion"].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field label="E-mail" htmlFor="c-email">
-            <Input id="c-email" value={c.email} onChange={(e) => set("email", e.target.value)} />
-          </Field>
-          <Field label="Adresse" htmlFor="c-addr" className="sm:col-span-2">
-            <Input id="c-addr" value={c.address} onChange={(e) => set("address", e.target.value)} />
-          </Field>
-          <Field label="Logo" htmlFor="c-logo" help="Logo par défaut (icône hexagonale) ; le téléversement d'image n'est pas disponible en mode démo.">
-            <Input id="c-logo" value="Hexagone BDO (par défaut)" disabled />
-          </Field>
-          <Field label="Téléphone" htmlFor="c-phone">
-            <Input id="c-phone" value={c.phone} onChange={(e) => set("phone", e.target.value)} />
-          </Field>
-        </CardContent>
-      </Card>
-      <div className="space-y-6">
+    <div className="space-y-6">
+      <BrandingCard />
+      <form
+        className="grid gap-6 xl:grid-cols-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(C.updateCompanySettings, c);
+        }}
+      >
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>TVA</CardTitle>
-              <CardDescription>Paramètres de simulation — ils ne garantissent aucune conformité fiscale.</CardDescription>
+              <CardTitle>Coordonnées</CardTitle>
+              <CardDescription>Nom affiché dans l&apos;espace, raison sociale et coordonnées de l&apos;entreprise.</CardDescription>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {c.vatRates.map((r, i) => (
-              <div key={r.id} className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
-                <Input
-                  aria-label="Libellé du taux"
-                  value={r.label}
-                  onChange={(e) =>
-                    set(
-                      "vatRates",
-                      c.vatRates.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
-                    )
-                  }
-                />
-                <Input
-                  aria-label="Taux en %"
-                  inputMode="decimal"
-                  className="text-right tabular"
-                  value={String(r.rate / 100).replace(".", ",")}
-                  onChange={(e) =>
-                    set(
-                      "vatRates",
-                      c.vatRates.map((x, j) => (j === i ? { ...x, rate: Math.round(Number(e.target.value.replace(",", ".")) * 100) } : x)),
-                    )
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Supprimer le taux"
-                  disabled={c.vatRates.length <= 1}
-                  onClick={() =>
-                    set(
-                      "vatRates",
-                      c.vatRates.filter((_, j) => j !== i),
-                    )
-                  }
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" onClick={() => set("vatRates", [...c.vatRates, { id: `vat-${Date.now()}`, label: "Nouveau taux", rate: 0 }])}>
-              <Plus /> Ajouter un taux
-            </Button>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Début du suivi des déclarations"
-                htmlFor="c-vatstart"
-                help={data.vatReturns.length ? "Verrouillé : des déclarations existent." : "Premier mois déclaré (régime des encaissements, mensuel)."}
-              >
-                <Input id="c-vatstart" type="date" value={c.vatTrackingStart} disabled={data.vatReturns.length > 0} onChange={(e) => set("vatTrackingStart", e.target.value)} />
-              </Field>
-              <Field label="Jour d'échéance (mois suivant)" htmlFor="c-vatday" help="Entre 1 et 28.">
-                <Input id="c-vatday" type="number" min={1} max={28} value={c.vatDueDay} onChange={(e) => set("vatDueDay", Number(e.target.value))} />
-              </Field>
-            </div>
-            <Field label="Taux par défaut" htmlFor="c-defvat">
-              <NativeSelect id="c-defvat" value={c.defaultVatRate} onChange={(e) => set("defaultVatRate", Number(e.target.value))}>
-                {c.vatRates.map((r) => (
-                  <option key={r.id} value={r.rate}>
-                    {r.label} ({r.rate / 100} %)
-                  </option>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field label="Nom commercial" htmlFor="c-name">
+              <Input id="c-name" value={c.name} onChange={(e) => set("name", e.target.value)} />
+            </Field>
+            <Field label="Raison sociale" htmlFor="c-legal">
+              <Input id="c-legal" value={c.legalName} onChange={(e) => set("legalName", e.target.value)} />
+            </Field>
+            <Field label="Secteur" htmlFor="c-sector" className="sm:col-span-2">
+              <Input id="c-sector" value={c.sector} onChange={(e) => set("sector", e.target.value)} />
+            </Field>
+            <Field label="Pays" htmlFor="c-country">
+              <Input id="c-country" value={c.country} onChange={(e) => set("country", e.target.value)} />
+            </Field>
+            <Field label="Devise" htmlFor="c-cur" help="La simulation gère uniquement l'euro.">
+              <Input id="c-cur" value="EUR" disabled />
+            </Field>
+            <Field label="Fuseau horaire" htmlFor="c-tz">
+              <NativeSelect id="c-tz" value={c.timezone} onChange={(e) => set("timezone", e.target.value)}>
+                {["Europe/Paris", "Europe/Brussels", "Europe/Zurich", "America/Montreal", "Indian/Reunion"].map((t) => (
+                  <option key={t}>{t}</option>
                 ))}
               </NativeSelect>
             </Field>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Trésorerie et simulation</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field label="Solde d'ouverture (fictif)" htmlFor="c-open">
-              <MoneyInput id="c-open" value={c.openingBalance} onChange={(v) => set("openingBalance", v)} />
+            <Field label="E-mail" htmlFor="c-email">
+              <Input id="c-email" value={c.email} onChange={(e) => set("email", e.target.value)} />
             </Field>
-            <Field label="Date du solde d'ouverture" htmlFor="c-opend">
-              <Input id="c-opend" type="date" value={c.openingBalanceDate} onChange={(e) => set("openingBalanceDate", e.target.value)} />
+            <Field label="Adresse" htmlFor="c-addr" className="sm:col-span-2">
+              <Input id="c-addr" value={c.address} onChange={(e) => set("address", e.target.value)} />
             </Field>
-            <Field label="Seuil d'alerte de trésorerie" htmlFor="c-thr">
-              <MoneyInput id="c-thr" value={c.cashAlertThreshold} onChange={(v) => set("cashAlertThreshold", v)} />
-            </Field>
-            <Field label="Début de la simulation" htmlFor="c-sim">
-              <Input id="c-sim" type="date" value={c.simulationStartDate} onChange={(e) => set("simulationStartDate", e.target.value)} />
+            <Field label="Téléphone" htmlFor="c-phone">
+              <Input id="c-phone" value={c.phone} onChange={(e) => set("phone", e.target.value)} />
             </Field>
           </CardContent>
         </Card>
-        <div className="flex justify-end">
-          <Button type="submit" variant="primary">
-            <Save /> Enregistrer
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle>TVA</CardTitle>
+                <CardDescription>Paramètres de simulation — ils ne garantissent aucune conformité fiscale.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {c.vatRates.map((r, i) => (
+                <div key={r.id} className="grid grid-cols-[1fr_110px_auto] items-center gap-2">
+                  <Input
+                    aria-label="Libellé du taux"
+                    value={r.label}
+                    onChange={(e) =>
+                      set(
+                        "vatRates",
+                        c.vatRates.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                      )
+                    }
+                  />
+                  <Input
+                    aria-label="Taux en %"
+                    inputMode="decimal"
+                    className="text-right tabular"
+                    value={String(r.rate / 100).replace(".", ",")}
+                    onChange={(e) =>
+                      set(
+                        "vatRates",
+                        c.vatRates.map((x, j) => (j === i ? { ...x, rate: Math.round(Number(e.target.value.replace(",", ".")) * 100) } : x)),
+                      )
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Supprimer le taux"
+                    disabled={c.vatRates.length <= 1}
+                    onClick={() =>
+                      set(
+                        "vatRates",
+                        c.vatRates.filter((_, j) => j !== i),
+                      )
+                    }
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => set("vatRates", [...c.vatRates, { id: `vat-${Date.now()}`, label: "Nouveau taux", rate: 0 }])}>
+                <Plus /> Ajouter un taux
+              </Button>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  label="Début du suivi des déclarations"
+                  htmlFor="c-vatstart"
+                  help={data.vatReturns.length ? "Verrouillé : des déclarations existent." : "Premier mois déclaré (régime des encaissements, mensuel)."}
+                >
+                  <Input id="c-vatstart" type="date" value={c.vatTrackingStart} disabled={data.vatReturns.length > 0} onChange={(e) => set("vatTrackingStart", e.target.value)} />
+                </Field>
+                <Field label="Jour d'échéance (mois suivant)" htmlFor="c-vatday" help="Entre 1 et 28.">
+                  <Input id="c-vatday" type="number" min={1} max={28} value={c.vatDueDay} onChange={(e) => set("vatDueDay", Number(e.target.value))} />
+                </Field>
+              </div>
+              <Field label="Taux par défaut" htmlFor="c-defvat">
+                <NativeSelect id="c-defvat" value={c.defaultVatRate} onChange={(e) => set("defaultVatRate", Number(e.target.value))}>
+                  {c.vatRates.map((r) => (
+                    <option key={r.id} value={r.rate}>
+                      {r.label} ({r.rate / 100} %)
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Trésorerie et simulation</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field label="Solde d'ouverture (fictif)" htmlFor="c-open">
+                <MoneyInput id="c-open" value={c.openingBalance} onChange={(v) => set("openingBalance", v)} />
+              </Field>
+              <Field label="Date du solde d'ouverture" htmlFor="c-opend">
+                <Input id="c-opend" type="date" value={c.openingBalanceDate} onChange={(e) => set("openingBalanceDate", e.target.value)} />
+              </Field>
+              <Field label="Seuil d'alerte de trésorerie" htmlFor="c-thr">
+                <MoneyInput id="c-thr" value={c.cashAlertThreshold} onChange={(v) => set("cashAlertThreshold", v)} />
+              </Field>
+              <Field label="Début de la simulation" htmlFor="c-sim">
+                <Input id="c-sim" type="date" value={c.simulationStartDate} onChange={(e) => set("simulationStartDate", e.target.value)} />
+              </Field>
+            </CardContent>
+          </Card>
+          <div className="flex justify-end">
+            <Button type="submit" variant="primary">
+              <Save /> Enregistrer
+            </Button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/** Identité visuelle de l'espace : logo téléversé (stocké avec les données), couleur, marque BDO. */
+function BrandingCard() {
+  const data = useData();
+  const run = useCommand();
+  const [b, setB] = React.useState<BrandingSettings>(data.settings.branding);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const brand = { ...b, name: data.settings.company.name };
+  const validColor = /^#[0-9a-fA-F]{6}$/.test(b.color);
+  const pickLogo = async (file: File) => {
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) {
+      toast.error("Format non pris en charge : PNG, JPEG, WebP ou SVG.");
+      return;
+    }
+    const url = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    });
+    if (url.length > MAX_LOGO_LENGTH) {
+      toast.error("Logo trop lourd : 300 Ko maximum.");
+      return;
+    }
+    setB((x) => ({ ...x, logo: url }));
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <div>
+          <CardTitle>Identité visuelle</CardTitle>
+          <CardDescription>Logo et couleur de l&apos;espace : barre latérale, page de connexion, boutons et accents.</CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-6 md:grid-cols-[1fr_280px]">
+        <div className="space-y-4">
+          <Field label="Logo" htmlFor="b-logo" help="PNG, JPEG, WebP ou SVG, 300 Ko maximum. Un format horizontal sur fond transparent rend le mieux.">
+            <div className="flex flex-wrap gap-2">
+              <input
+                id="b-logo"
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void pickLogo(file).catch(() => toast.error("Image illisible."));
+                }}
+              />
+              <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+                <ImageUp /> {b.logo ? "Changer le logo" : "Choisir une image"}
+              </Button>
+              {b.logo ? (
+                <Button variant="ghost" onClick={() => setB((x) => ({ ...x, logo: null }))}>
+                  <Trash2 /> Retirer le logo
+                </Button>
+              ) : null}
+            </div>
+          </Field>
+          <Field label="Couleur principale" htmlFor="b-color" help="Format #RRGGBB. Le texte des boutons passe automatiquement en noir sur une couleur claire.">
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                aria-label="Sélecteur de couleur"
+                value={validColor ? b.color : "#000000"}
+                onChange={(e) => setB((x) => ({ ...x, color: e.target.value.toUpperCase() }))}
+                className="h-9 w-12 cursor-pointer rounded-md border border-border bg-card p-0.5"
+              />
+              <Input id="b-color" value={b.color} maxLength={7} className="w-32 font-mono uppercase" onChange={(e) => setB((x) => ({ ...x, color: e.target.value.trim() }))} />
+            </div>
+          </Field>
+          <label className="flex items-center gap-3 text-sm">
+            <Switch checked={b.bdoMark} onCheckedChange={(v) => setB((x) => ({ ...x, bdoMark: v }))} aria-label="Marque BDO par défaut" />
+            Sans logo, afficher la marque BDO (sinon les initiales de l&apos;entreprise)
+          </label>
+          <Button variant="primary" disabled={!validColor} onClick={() => run(C.updateBranding, b)}>
+            <Save /> Enregistrer l&apos;identité visuelle
           </Button>
         </div>
-      </div>
-    </form>
+        <div className="rounded-lg border border-border bg-bg p-4" style={validColor ? brandStyle(b.color) : undefined}>
+          <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-subtle">Aperçu</p>
+          <div className="flex items-center gap-3">
+            <BrandMark brand={brand} />
+            <BrandTagline brand={brand} />
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <span className="inline-flex rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-on-accent">Bouton principal</span>
+            <span className="text-xs font-medium text-accent">Lien</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Modules affichés pour ce client ; les données des modules masqués sont conservées. */
+function ModulesTab() {
+  const data = useData();
+  const run = useCommand();
+  const g = data.settings.gamification;
+  return (
+    <div className="grid gap-6 xl:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Modules de l&apos;espace</CardTitle>
+            <CardDescription>
+              Le CRM (pipeline, contacts, entreprises, missions, calendrier, activités, statistiques), l&apos;équipe et les paramètres sont toujours disponibles. Un module désactivé disparaît des
+              menus ; ses données éventuelles sont conservées.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="divide-y divide-border">
+          {MODULES.map((m) => (
+            <label key={m.key} className="flex items-center justify-between gap-4 py-2.5 first:pt-0">
+              <span>
+                <span className="block text-sm text-fg">{m.label}</span>
+                <span className="block text-[11px] text-muted">{m.hint}</span>
+              </span>
+              <Switch checked={data.settings.modules[m.key]} onCheckedChange={(v) => run(C.updateModules, { [m.key]: v })} aria-label={`Module ${m.label}`} />
+            </label>
+          ))}
+          <label className="flex items-center justify-between gap-4 py-2.5">
+            <span>
+              <span className="block text-sm text-fg">Gamification</span>
+              <span className="block text-[11px] text-muted">Niveaux, XP, succès, défis et page Progression</span>
+            </span>
+            <Switch checked={g.enabled} onCheckedChange={(v) => run(C.updateGamificationSettings, { enabled: v })} aria-label="Module Gamification" />
+          </label>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -625,7 +845,7 @@ function GamificationTab() {
 
 function DataTab() {
   const data = useData();
-  const resetDemo = useAppStore((s) => s.resetDemo);
+  const resetWorkspace = useAppStore((s) => s.resetWorkspace);
   const replaceAll = useAppStore((s) => s.replaceAll);
   const { confirm, dialog } = useConfirm();
   const ext = externalConnections();
@@ -872,23 +1092,40 @@ function DataTab() {
             <Upload /> Importer une sauvegarde
           </Button>
           <Button
-            variant="danger"
+            variant="secondary"
             onClick={() =>
               confirm({
-                title: "Réinitialiser le jeu de données ?",
+                title: "Charger les données de démonstration ?",
                 description:
                   repositoryKind === "local-demo"
-                    ? "Toutes les données de ce navigateur seront remplacées par un nouveau jeu de démonstration (dates recalculées à partir d'aujourd'hui). Action irréversible."
-                    : "Les données de TOUTE L'ÉQUIPE seront remplacées par un nouveau jeu de démonstration. Les comptes utilisateurs sont conservés. Action irréversible.",
-                confirmLabel: "Réinitialiser",
+                    ? "Les données de ce navigateur seront remplacées par un jeu de démonstration (dates recalculées à partir d'aujourd'hui). Le nom, l'identité visuelle et les modules sont conservés. Action irréversible."
+                    : "Les données de TOUTE L'ÉQUIPE seront remplacées par un jeu de démonstration réparti entre les collaborateurs. Le nom, l'identité visuelle, les modules et les comptes sont conservés. Action irréversible.",
+                confirmLabel: "Charger la démonstration",
                 action: () => {
-                  resetDemo();
-                  if (repositoryKind === "local-demo") toast.success("Jeu de démonstration régénéré.");
+                  resetWorkspace("demo");
+                  if (repositoryKind === "local-demo") toast.success("Jeu de démonstration chargé.");
                 },
               })
             }
           >
-            <RotateCcw /> Réinitialiser les données de démo
+            <RotateCcw /> Charger les données de démo
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() =>
+              confirm({
+                title: "Vider l'espace ?",
+                description:
+                  "Toutes les données commerciales et financières (entreprises, contacts, opportunités, missions, factures…) seront supprimées. Les réglages, l'identité visuelle, l'équipe et les comptes sont conservés. Exportez une sauvegarde avant. Action irréversible.",
+                confirmLabel: "Vider l'espace",
+                action: () => {
+                  resetWorkspace("empty");
+                  if (repositoryKind === "local-demo") toast.success("Espace vidé : réglages et équipe conservés.");
+                },
+              })
+            }
+          >
+            <Eraser /> Vider l&apos;espace
           </Button>
         </CardContent>
       </Card>

@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import type { AppData, CurrentUser, ISODateTime } from "@/lib/domain/types";
 import { clock } from "./clock";
 import { createSeedData, SEED_VERSION } from "@/lib/database/seed";
+import { clearWorkspace, demoInWorkspace } from "@/lib/database/empty";
+import { applyCrmVocabulary } from "@/lib/crm/vocabulary";
 import { LocalDemoRepository, type DataRepository } from "@/lib/database/repository";
 import { canMigrate, migrateData } from "@/lib/database/migrations";
 import { execute, finalize, type ExecuteResult } from "@/lib/domain/runtime";
@@ -37,7 +39,8 @@ interface AppStore {
   init: () => void;
   run: <I, R>(command: Command<I, R>, input: I) => ExecuteResult<R>;
   replaceAll: (data: AppData) => void;
-  resetDemo: () => void;
+  /** Recharge le jeu de démonstration, ou vide l'espace en gardant réglages et équipe. */
+  resetWorkspace: (kind: "demo" | "empty") => void;
   refresh: () => Promise<void>;
 }
 
@@ -176,18 +179,24 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ data: reconciled, status: "ready", updatedAt: clock(reconciled).now });
     },
 
-    resetDemo: () => {
+    resetWorkspace: (kind) => {
       if (get().mode === "cloud") {
-        void resetRemote().then((r) => (r.ok ? (adopt(r.data, r.version), toast.success("Données de démonstration réinitialisées pour toute l'équipe.")) : toast.error(r.error)));
+        const done = kind === "demo" ? "Données de démonstration chargées pour toute l'équipe." : "Espace vidé : réglages et équipe conservés.";
+        void resetRemote(kind).then((r) => (r.ok ? (adopt(r.data, r.version), toast.success(done)) : toast.error(r.error)));
         return;
       }
+      const current = get().data;
       repository.clear();
       const { today, now } = clock(null);
-      const data = createSeedData(today, now);
+      const seed = () => createSeedData(today, now);
+      const data = kind === "empty" && current ? clearWorkspace(current, today) : current ? demoInWorkspace(seed(), current) : seed();
       repository.save(data);
       set({ data, status: "ready", updatedAt: now });
     },
   };
 });
+
+// Libellés des étapes et sources de l'espace, appliqués avant le rendu suivant.
+useAppStore.subscribe((s) => applyCrmVocabulary(s.data?.settings.crm));
 
 export const repositoryKind = isCloudMode ? "supabase" : repository.kind;

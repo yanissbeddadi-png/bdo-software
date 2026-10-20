@@ -230,13 +230,14 @@ de service qui ne quitte jamais le serveur).
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
    (secrète) et `BDO_SETUP_CODE` (un code que vous inventez). Puis _Deployments › Redeploy_.
    Ne collez jamais ces clés dans une conversation ni dans le dépôt.
-4. **Installation** — ouvrir `https://<votre-app>/installation`, saisir le code, votre nom,
-   votre e-mail et un mot de passe : l'espace est créé et vous êtes connecté en
-   **directeur commercial** (administrateur). Les données de démonstration sont réparties
-   entre les autres collaborateurs, entreprise par entreprise.
-5. **Comptes de test** — _Paramètres › Utilisateurs et rôles › Créer les comptes de test_ :
-   un compte « Commercial » par collaborateur de démonstration, chacun avec son propre
-   portefeuille et son mot de passe temporaire, à copier immédiatement.
+4. **Installation** — ouvrir `https://<votre-app>/installation`, saisir le code, choisir
+   **Espace vide** (nouveau client) ou **Données de démonstration**, puis votre nom, votre
+   e-mail et un mot de passe : l'espace est créé et vous êtes connecté en **directeur
+   commercial** (administrateur). En démonstration, les données sont réparties entre les
+   autres collaborateurs, entreprise par entreprise.
+5. **Comptes** — _Paramètres › Utilisateurs et rôles_ : « Créer les comptes de test »
+   (démonstration) ou « Créer les comptes de l'équipe » (un compte par fiche collaborateur
+   ayant un e-mail), chacun avec son mot de passe temporaire, à copier immédiatement.
 
 Sans ces variables, l'application reste en **mode démonstration** (données dans le
 navigateur, sans connexion).
@@ -247,6 +248,13 @@ affichée à un collaborateur ne porte que sur son portefeuille), détection de 
 faite sur toute la base (un collaborateur peut être averti qu'un contact existe déjà chez
 un collègue), données de démonstration fictives — ne pas y saisir de vraies données
 clients.
+
+## Livrer à un nouveau client
+
+Une copie par client (site Vercel + base Supabase dédiés), installée **vide** ou avec les
+données de démonstration, puis configurée depuis **Paramètres** : identité visuelle (logo,
+couleur), étapes du pipeline et sources de contacts, modules activés, équipe et comptes.
+Pas à pas complet : [`NOUVEAU_CLIENT.md`](NOUVEAU_CLIENT.md).
 
 ## Tests
 
@@ -266,11 +274,15 @@ clients.
   clôture), statistiques filtrées, entreprise + validation, modules historiques (factures,
   avoirs, TVA, devis, tâche, objectif, permissions), bureaux 3D, absence de débordement
   horizontal sur 9 pages CRM en mobile.
+- **Espace configurable** : 9 tests Vitest (`src/lib/database/workspace.test.ts` : espace
+  vide, vider / recharger la démo en gardant l'identité, migration v4, étapes et sources,
+  identité visuelle validée, modules) et un parcours Playwright (`e2e/workspace.spec.ts`).
 - **Mode multi-utilisateur** : 14 tests Vitest (`src/lib/cloud/*.test.ts` : rejeu serveur,
   rôles, concurrence, portefeuilles disjoints, refus de modifier ou réaffecter l'élément
-  d'un collègue, modules réservés) et 4 parcours Playwright contre un Supabase local
+  d'un collègue, modules réservés) et 5 parcours Playwright contre un Supabase local
   (`npm run test:e2e:cloud`) : installation, comptes de test, deux commerciaux aux
-  portefeuilles séparés et directeur commercial qui voit tout, désactivation.
+  portefeuilles séparés et directeur commercial qui voit tout, désactivation, nouveau
+  client installé vide puis configuré (couleur, module, étape renommée, page de connexion).
 - **SQL** (`npm run test:sql`) : migrations + seed + RLS, et **reprise de données legacy**
   par la migration CRM (prospects → entreprises/contacts, étapes, activités planifiées →
   missions) sur PostgreSQL 16 local.

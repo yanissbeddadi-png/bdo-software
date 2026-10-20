@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store/app-store";
 import { useAccess } from "@/lib/store/hooks";
 import { isDirectorOnlyPath } from "@/lib/cloud/scope";
+import { disabledModuleAt } from "@/lib/domain/modules";
 import { useUiStore } from "@/lib/store/ui-store";
 import { themeColor } from "@/lib/gamification/rewards";
 import { Sidebar, Logo, NavLinks, ProfileCard } from "./sidebar";
@@ -18,6 +19,7 @@ import { Topbar } from "./topbar";
 import { SearchCommand } from "./search-command";
 import { QuickCreateHost } from "@/components/forms/quick-create";
 import { DemoBanner } from "./demo-banner";
+import { brandStyle } from "./brand";
 import { usePathname } from "next/navigation";
 import { PUBLIC_PATHS } from "@/lib/cloud/config";
 import { signOut } from "@/lib/cloud/session";
@@ -87,9 +89,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const status = useAppStore((s) => s.status);
   const error = useAppStore((s) => s.error);
   const init = useAppStore((s) => s.init);
-  const resetDemo = useAppStore((s) => s.resetDemo);
+  const resetWorkspace = useAppStore((s) => s.resetWorkspace);
   const mode = useAppStore((s) => s.mode);
   const g = useAppStore((s) => s.data?.settings.gamification);
+  const branding = useAppStore((s) => s.data?.settings.branding);
+  const modules = useAppStore((s) => s.data?.settings.modules);
   const pathname = usePathname();
   const bare = PUBLIC_PATHS.includes(pathname);
   const access = useAccess();
@@ -126,7 +130,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Button>
               </div>
             ) : (
-              <Button onClick={resetDemo}>Réinitialiser les données de démonstration</Button>
+              <Button onClick={() => resetWorkspace("demo")}>Réinitialiser les données de démonstration</Button>
             )
           }
         />
@@ -135,8 +139,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Modules historiques (finances, équipe…) : réservés au directeur commercial en mode multi-utilisateur.
   const blocked = access.restricted && isDirectorOnlyPath(pathname);
-  const fullBleed = FULL_BLEED.has(pathname) && !blocked;
-  const style = { "--accent": themeColor(g?.equippedTheme ?? "theme-default") } as React.CSSProperties;
+  // Module désactivé pour cet espace (Paramètres › Modules).
+  const off = blocked ? null : disabledModuleAt(pathname, modules);
+  const fullBleed = FULL_BLEED.has(pathname) && !blocked && !off;
+  // Couleur de l'espace (identité visuelle), sauf thème de récompense choisi par l'utilisateur.
+  const brandColor = branding?.color ?? "#E81A3B";
+  const theme = g?.equippedTheme ?? "theme-default";
+  const style = brandStyle(brandColor, theme === "theme-default" ? brandColor : themeColor(theme));
   return (
     <TooltipProvider>
       <div className="flex min-h-screen" style={style} data-motion={g?.animations === false ? "off" : "on"}>
@@ -153,6 +162,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 action={
                   <Button asChild variant="primary">
                     <Link href="/">Retour à mon tableau de bord</Link>
+                  </Button>
+                }
+              />
+            ) : off ? (
+              <EmptyState
+                icon={<LockKeyhole />}
+                title={`Module « ${off.label} » désactivé`}
+                description="Ce module n'est pas activé pour cet espace. Ses données éventuelles sont conservées."
+                action={
+                  <Button asChild variant="primary">
+                    <Link href={access.restricted ? "/" : "/parametres?tab=modules"}>{access.restricted ? "Retour à mon tableau de bord" : "Gérer les modules"}</Link>
                   </Button>
                 }
               />

@@ -25,7 +25,6 @@ type Defaults = Record<string, unknown> | undefined;
 const pick = <T,>(d: Defaults, key: string, fallback: T): T => (d && key in d && d[key] !== undefined ? (d[key] as T) : fallback);
 
 const TYPE_OPTIONS = Object.entries(TASK_TYPE).map(([value, v]) => ({ value, label: v.label }));
-const SOURCE_OPTIONS = SOURCES.map((s) => ({ value: s, label: s }));
 const time = z
   .string()
   .regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, "Heure invalide (HH:mm)")
@@ -154,7 +153,7 @@ export function ProspectForm({ defaults, onDone, onCancel }: { defaults?: Defaul
     { name: "clientId", label: "Entreprise existante", type: "select", nullable: true, options: o.companies },
     { name: "newCompanyName", label: "ou nouvelle entreprise", type: "text", placeholder: "Nom de l'entreprise à créer" },
     { name: "relation", label: "Statut de relation", type: "select", options: options(RELATION).filter((r) => r.value !== "archived") },
-    { name: "source", label: "Source", type: "select", options: SOURCE_OPTIONS },
+    { name: "source", label: "Source", type: "select", options: SOURCES.map((s) => ({ value: s, label: s })) },
     { name: "ownerId", label: "Responsable", type: "select", nullable: true, options: o.employees },
     { name: "priority", label: "Priorité", type: "select", options: options(PRIORITY) },
     {

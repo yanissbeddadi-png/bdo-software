@@ -11,6 +11,13 @@ export function DemoBanner() {
   const mode = useAppStore((s) => s.mode);
   const { restricted } = useAccess();
   const user = data.settings.user;
+  // Espace client réel (démarré vide) : pas de bandeau « données fictives », seulement le périmètre.
+  if (mode === "cloud" && data.settings.demo.sample === false)
+    return restricted ? (
+      <div className="no-print border-b border-border bg-card px-4 py-1.5 text-[11px] text-muted md:px-6">
+        Vous voyez uniquement votre portefeuille : vos contacts, entreprises, opportunités et missions.
+      </div>
+    ) : null;
   return (
     <div className="no-print flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gold/20 bg-gold/5 px-4 py-1.5 text-[11px] text-gold/90 md:px-6">
       <FlaskConical className="size-3.5" />

@@ -147,7 +147,25 @@ export interface CrmSettings {
   workingDays: number[];
   /** Plafond quotidien d'appels récompensés (anti-abus). */
   dailyCallXpCap: number;
+  /** Libellé et probabilité par défaut (%) de chaque étape du pipeline. */
+  stages: Record<OpportunityStage, { label: string; probability: number }>;
+  /** Sources de contacts proposées dans les formulaires et les filtres. */
+  sources: string[];
 }
+
+/** Identité visuelle de l'espace, configurable pour chaque client. */
+export interface BrandingSettings {
+  /** Logo en data URL (PNG, JPEG, WebP ou SVG), ou `null` pour le logo par défaut. */
+  logo: string | null;
+  /** Couleur principale (#RRGGBB) : boutons, liens, accents. */
+  color: string;
+  /** Logo par défaut : marque BDO, sinon initiales du nom de l'entreprise. */
+  bdoMark: boolean;
+}
+
+/** Modules activables (la gamification se règle dans `gamification.enabled`). */
+export type ModuleKey = "quotes" | "finance" | "projects" | "catalog" | "goals" | "analytics" | "operations" | "offices";
+export type ModuleSettings = Record<ModuleKey, boolean>;
 
 /** Seuils des règles d'alertes et de risques opérationnels (configurables). */
 export interface RuleSettings {
@@ -168,9 +186,17 @@ export interface Settings {
   gamification: GamificationSettings;
   notifications: NotificationSettings;
   crm: CrmSettings;
+  branding: BrandingSettings;
+  modules: ModuleSettings;
   user: CurrentUser;
   /** Indique que le jeu de données provient du seed de démonstration. */
-  demo: { seededAt: ISODateTime; anchorDate: ISODate; version: number };
+  demo: {
+    seededAt: ISODateTime;
+    anchorDate: ISODate;
+    version: number;
+    /** `false` pour un espace client démarré vide ou vidé (données réelles) ; absent = démonstration. */
+    sample?: boolean;
+  };
 }
 
 /* ------------------------------------------------------------------ */

@@ -125,12 +125,12 @@ export function UsersAdmin() {
                 const r = await createTestAccounts();
                 setBusy(false);
                 if (!r.ok) return toast.error(r.error);
-                if (!r.accounts.length) return toast.info("Tous les collaborateurs ont déjà un compte.");
+                if (!r.accounts.length) return toast.info("Aucun compte à créer : chaque fiche collaborateur avec un e-mail a déjà son compte.");
                 setCredentials(r.accounts);
                 await load();
               }}
             >
-              {busy ? <Loader2 className="animate-spin" /> : <Users />} Créer les comptes de test
+              {busy ? <Loader2 className="animate-spin" /> : <Users />} {data.settings.demo.sample === false ? "Créer les comptes de l'équipe" : "Créer les comptes de test"}
             </Button>
             <Button variant="primary" onClick={() => setCreating(true)}>
               <UserPlus /> Nouveau compte

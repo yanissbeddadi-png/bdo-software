@@ -10,6 +10,9 @@
  */
 import type {
   AppData,
+  BrandingSettings,
+  CrmSettings,
+  ModuleSettings,
   CreditNote,
   Refund,
   VatReturn,
@@ -40,9 +43,10 @@ import { vatAmounts, vatDueDate } from "@/lib/calculations/vat";
 import { monthPeriod, monthsBetween } from "@/lib/calculations/dates";
 import { finalize } from "@/lib/domain/runtime";
 import { crmEntities, crmJournal } from "./seed-crm";
-import { DEFAULT_WORKING_DAYS } from "@/lib/crm/model";
+import { DEFAULT_SOURCES, DEFAULT_WORKING_DAYS } from "@/lib/crm/model";
+import { DEFAULT_STAGES } from "@/lib/calculations/pipeline";
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 /* ----------------------------- Utilitaires ----------------------------- */
 
@@ -91,6 +95,22 @@ export const DEFAULT_CRM_SETTINGS = {
   workingDays: [...DEFAULT_WORKING_DAYS],
   dailyCallXpCap: 8,
 };
+
+/** Réglages CRM complets par défaut (copies indépendantes à chaque appel). */
+export function defaultCrmSettings(): CrmSettings {
+  return {
+    ...DEFAULT_CRM_SETTINGS,
+    workingDays: [...DEFAULT_CRM_SETTINGS.workingDays],
+    stages: Object.fromEntries(DEFAULT_STAGES.map((s) => [s.id, { label: s.label, probability: s.defaultProbability }])) as CrmSettings["stages"],
+    sources: [...DEFAULT_SOURCES],
+  };
+}
+
+/** Identité visuelle par défaut : charte BDO. */
+export const DEFAULT_BRANDING: BrandingSettings = { logo: null, color: "#E81A3B", bdoMark: true };
+
+/** Tous les modules sont actifs par défaut. */
+export const DEFAULT_MODULES: ModuleSettings = { quotes: true, finance: true, projects: true, catalog: true, goals: true, analytics: true, operations: true, offices: true };
 
 export function defaultSettings(anchor: ISODate, now: ISODateTime): Settings {
   const simulationStart = startOfMonthISO(addMonths(anchor, -12));
@@ -146,7 +166,9 @@ export function defaultSettings(anchor: ISODate, now: ISODateTime): Settings {
       progressionStart: addDays(anchor, -75),
     },
     notifications: { enabled: { finance: false, commercial: true, projet: false, taches: false, objectifs: true, gamification: true, systeme: true } },
-    crm: { ...DEFAULT_CRM_SETTINGS, workingDays: [...DEFAULT_CRM_SETTINGS.workingDays] },
+    crm: defaultCrmSettings(),
+    branding: { ...DEFAULT_BRANDING },
+    modules: { ...DEFAULT_MODULES },
     user: { id: "usr_sacha", name: "Sacha Renard", email: "sacha.renard@bdo-software.example", role: "dirigeant", employeeId: "emp_sacha" },
     demo: { seededAt: now, anchorDate: anchor, version: SEED_VERSION },
   };

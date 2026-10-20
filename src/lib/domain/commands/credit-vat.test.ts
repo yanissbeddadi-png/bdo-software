@@ -1,3 +1,4 @@
+import { SEED_VERSION } from "@/lib/database/seed";
 import { describe, expect, it } from "vitest";
 import { execute, finalize } from "@/lib/domain/runtime";
 import * as C from "@/lib/domain/commands";
@@ -239,7 +240,7 @@ describe("migration des données locales", () => {
     delete legacy.settings.company.vatDueDay;
     legacy.settings.demo.version = 1;
     const migrated = migrateData(legacy as unknown as AppData, TODAY);
-    expect(migrated.settings.demo.version).toBe(3);
+    expect(migrated.settings.demo.version).toBe(SEED_VERSION);
     expect(migrated.creditNotes).toEqual([]);
     expect(migrated.vatReturns).toEqual([]);
     expect(migrated.sequences.creditNote).toBe(0);

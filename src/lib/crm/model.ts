@@ -61,7 +61,11 @@ export function activityLabel(a: Pick<SalesActivity, "type" | "direction">): str
   return ACTIVITY_TYPE[a.type];
 }
 
-export const SOURCES = ["Site web", "Recommandation", "LinkedIn", "Salon", "Appel entrant", "Partenaire", "Client existant", "Campagne e-mail", "Autre"];
+/** Sources de contacts par défaut. */
+export const DEFAULT_SOURCES: readonly string[] = ["Site web", "Recommandation", "LinkedIn", "Salon", "Appel entrant", "Partenaire", "Client existant", "Campagne e-mail", "Autre"];
+
+/** Sources en vigueur (personnalisables dans Paramètres › CRM, voir `lib/crm/vocabulary.ts`). */
+export const SOURCES: string[] = [...DEFAULT_SOURCES];
 
 export const COMPANY_SIZES = ["1-10", "11-50", "51-200", "201-1000", "1000+"];
 

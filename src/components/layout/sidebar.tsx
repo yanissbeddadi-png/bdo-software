@@ -12,31 +12,15 @@ import { useProgression } from "@/lib/store/progression";
 import { LevelBadge, XPProgressBar } from "@/components/gamification/progress";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ROLE } from "@/lib/formatters/labels";
-
-/** Logotype « BDO » : lettres bleu BDO encadrées d'un filet rouge (gauche et dessous). */
-export function BdoMark({ size = "md" }: { size?: "sm" | "md" }) {
-  return (
-    <span
-      aria-hidden
-      className={cn("relative inline-flex shrink-0 items-end font-extrabold leading-none tracking-[-0.04em] text-bdo-blue", size === "sm" ? "pb-[3px] pl-[5px] text-lg" : "pb-1 pl-[7px] text-[28px]")}
-    >
-      BDO
-      <span className={cn("absolute inset-y-0 left-0 bg-bdo-red", size === "sm" ? "w-[2px]" : "w-[3px]")} />
-      <span className={cn("absolute inset-x-0 bottom-0 bg-bdo-red", size === "sm" ? "h-[2px]" : "h-[3px]")} />
-    </span>
-  );
-}
+import { BrandMark, BrandTagline, type Brand } from "./brand";
 
 export function Logo({ collapsed }: { collapsed?: boolean }) {
+  const data = useData();
+  const brand: Brand = { ...data.settings.branding, name: data.settings.company.name };
   return (
-    <Link href="/" className="flex items-center gap-3 rounded-lg px-1 py-1" aria-label="BDO Software CRM — accueil">
-      <BdoMark size={collapsed ? "sm" : "md"} />
-      {!collapsed ? (
-        <div className="min-w-0 leading-tight">
-          <p className="truncate text-[11px] font-bold uppercase tracking-wide text-bdo-red">Software &amp; Services</p>
-          <p className="truncate text-[11px] text-muted">CRM · Command Center</p>
-        </div>
-      ) : null}
+    <Link href="/" className="flex items-center gap-3 rounded-lg px-1 py-1" aria-label={`${brand.name} — accueil`}>
+      <BrandMark brand={brand} size={collapsed ? "sm" : "md"} />
+      {!collapsed ? <BrandTagline brand={brand} /> : null}
     </Link>
   );
 }
@@ -44,6 +28,7 @@ export function Logo({ collapsed }: { collapsed?: boolean }) {
 export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const counters = useNavCounters();
+  const gamification = useData().settings.gamification.enabled;
   const badge = (counter: NavCounter | undefined): { value: number; danger: boolean; label: string } | null => {
     if (counter === "newProspects" && counters.newProspects) return { value: counters.newProspects, danger: false, label: "nouveaux prospects" };
     if (counter === "missions" && counters.overdue) return { value: counters.overdue, danger: true, label: "missions en retard" };
@@ -53,7 +38,7 @@ export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNav
   };
   return (
     <nav aria-label="Navigation principale" className="flex flex-col gap-0.5">
-      {NAV.map((item) => {
+      {NAV.filter((item) => gamification || item.href !== "/progression").map((item) => {
         const active = isActive(pathname, item.href);
         const Icon = item.icon;
         const link = (

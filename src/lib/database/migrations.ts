@@ -2,7 +2,7 @@ import type { AppData, Client, Contact, CrmTaskType, Mission, OpportunityStage, 
 import { addMonths, startOfMonthISO } from "@/lib/calculations/dates";
 import { localDateMinute, formatMinute } from "@/lib/calculations/office";
 import { QUALIFIED_STAGES } from "@/lib/calculations/pipeline";
-import { DEFAULT_CRM_SETTINGS, DEFAULT_XP_REWARDS, SEED_VERSION } from "./seed";
+import { DEFAULT_BRANDING, DEFAULT_MODULES, DEFAULT_XP_REWARDS, SEED_VERSION, defaultCrmSettings } from "./seed";
 
 /**
  * Migrations du jeu de données local. Les données de l'utilisateur sont conservées :
@@ -39,7 +39,28 @@ export function migrateData(input: AppData, today: string): AppData {
     };
   }
   if ((data.settings.demo.version ?? 1) < 3) data = migrateToV3(data, today);
+  if ((data.settings.demo.version ?? 1) < 4) data = migrateToV4(data);
   return data;
+}
+
+/**
+ * v3 → v4 : espace configurable par client — identité visuelle (charte BDO conservée),
+ * modules activables (tous actifs), libellés/probabilités des étapes et sources de contacts.
+ */
+export function migrateToV4(input: AppData): AppData {
+  const s = input.settings as AppData["settings"] & Partial<Pick<AppData["settings"], "branding" | "modules">>;
+  const defaults = defaultCrmSettings();
+  const crm = s.crm as Partial<AppData["settings"]["crm"]>;
+  return {
+    ...input,
+    settings: {
+      ...input.settings,
+      crm: { ...defaults, ...crm, stages: { ...defaults.stages, ...crm.stages }, sources: crm.sources?.length ? crm.sources : defaults.sources },
+      branding: { ...DEFAULT_BRANDING, ...s.branding },
+      modules: { ...DEFAULT_MODULES, ...s.modules },
+      demo: { ...input.settings.demo, version: 4 },
+    },
+  };
 }
 
 /** Ancienne étape (v2) → nouvelle étape (v3). */
@@ -287,7 +308,7 @@ export function migrateToV3(input: AppData, today: string): AppData {
     }),
     settings: {
       ...input.settings,
-      crm: { ...DEFAULT_CRM_SETTINGS, workingDays: [...DEFAULT_CRM_SETTINGS.workingDays], ...((input.settings as unknown as Legacy).crm as object) },
+      crm: { ...defaultCrmSettings(), ...((input.settings as unknown as Legacy).crm as object) },
       gamification: { ...g, xpRewards: { ...DEFAULT_XP_REWARDS, ...g.xpRewards } },
       // Les alertes des modules historiques (finances, projets, tâches internes) ne sont plus notifiées par défaut.
       notifications: { enabled: { ...input.settings.notifications.enabled, finance: false, projet: false, taches: false } },
