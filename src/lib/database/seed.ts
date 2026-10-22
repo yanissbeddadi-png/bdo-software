@@ -9,6 +9,7 @@
  * date d'ancrage, le jeu de données est identique.
  */
 import type {
+  AiSettings,
   AppData,
   BrandingSettings,
   CrmSettings,
@@ -45,8 +46,9 @@ import { finalize } from "@/lib/domain/runtime";
 import { crmEntities, crmJournal } from "./seed-crm";
 import { DEFAULT_SOURCES, DEFAULT_WORKING_DAYS } from "@/lib/crm/model";
 import { DEFAULT_STAGES } from "@/lib/calculations/pipeline";
+import { defaultEmailTemplates } from "@/lib/assistant/templates";
 
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 /* ----------------------------- Utilitaires ----------------------------- */
 
@@ -109,8 +111,11 @@ export function defaultCrmSettings(): CrmSettings {
 /** Identité visuelle par défaut : charte BDO. */
 export const DEFAULT_BRANDING: BrandingSettings = { logo: null, color: "#E81A3B", bdoMark: true };
 
-/** Tous les modules sont actifs par défaut. */
-export const DEFAULT_MODULES: ModuleSettings = { quotes: true, finance: true, projects: true, catalog: true, goals: true, analytics: true, operations: true, offices: true };
+/** Tous les modules sont actifs par défaut (jeu de démonstration). */
+export const DEFAULT_MODULES: ModuleSettings = { assistant: true, quotes: true, finance: true, projects: true, catalog: true, goals: true, analytics: true, operations: true, offices: true };
+
+/** IA générative désactivée tant que le directeur commercial ne l'a pas autorisée. */
+export const DEFAULT_AI: AiSettings = { enabled: false };
 
 export function defaultSettings(anchor: ISODate, now: ISODateTime): Settings {
   const simulationStart = startOfMonthISO(addMonths(anchor, -12));
@@ -169,6 +174,9 @@ export function defaultSettings(anchor: ISODate, now: ISODateTime): Settings {
     crm: defaultCrmSettings(),
     branding: { ...DEFAULT_BRANDING },
     modules: { ...DEFAULT_MODULES },
+    ai: { ...DEFAULT_AI },
+    customFields: [],
+    emailTemplates: defaultEmailTemplates(),
     user: { id: "usr_sacha", name: "Sacha Renard", email: "sacha.renard@bdo-software.example", role: "dirigeant", employeeId: "emp_sacha" },
     demo: { seededAt: now, anchorDate: anchor, version: SEED_VERSION },
   };

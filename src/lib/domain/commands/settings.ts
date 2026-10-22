@@ -1,4 +1,6 @@
-import type { AppData, BrandingSettings, CompanySettings, CrmSettings, ModuleSettings, GamificationSettings, NotificationSettings, PreferenceSettings, Role, RuleSettings } from "@/lib/domain/types";
+import type { AiSettings, AppData, BrandingSettings, CompanySettings, CrmSettings, CustomFieldDef, EmailTemplate, ModuleSettings, GamificationSettings, NotificationSettings, PreferenceSettings, Role, RuleSettings } from "@/lib/domain/types";
+import { z } from "zod";
+import { newId } from "@/lib/domain/ids";
 import { ALL_REWARDS, isRewardUnlocked } from "@/lib/gamification/rewards";
 import { levelFromXp } from "@/lib/gamification/levels";
 import { totalXp } from "@/lib/gamification/engine";
@@ -61,6 +63,69 @@ export const updateCrmSettings: Command<CrmSettings> = (data, input, ctx) => {
   };
   const next = audit({ ...data, settings: { ...data.settings, crm } }, ctx, "settings.crm", null, "");
   return { data: next, result: undefined, message: "Paramètres CRM enregistrés." };
+};
+
+/**
+ * IA générative : autorisation donnée par le directeur commercial. Les textes envoyés au
+ * fournisseur d'IA (brouillons, résumés) quittent l'espace : l'activation est journalisée.
+ */
+export const updateAiSettings: Command<Partial<AiSettings>> = (data, input, ctx) => {
+  assertCan(ctx, "settings.write");
+  if (typeof input?.enabled !== "boolean") throw new DomainError("Réglage invalide.");
+  const ai: AiSettings = { ...data.settings.ai, enabled: input.enabled };
+  const next = audit({ ...data, settings: { ...data.settings, ai } }, ctx, "settings.ai", null, ai.enabled ? "IA générative activée" : "IA générative désactivée");
+  return { data: next, result: undefined, message: ai.enabled ? "IA générative activée pour l'équipe." : "IA générative désactivée." };
+};
+
+/** Nombre maximal de champs personnalisés par type de fiche. */
+export const MAX_CUSTOM_FIELDS = 30;
+
+const customFieldSchema = z.object({
+  id: z.string().max(60).optional(),
+  entity: z.enum(["contact", "company", "opportunity"]),
+  label: z.string().trim().min(1, "Le libellé est obligatoire").max(60, "60 caractères maximum"),
+  type: z.enum(["text", "number", "date", "select", "yesno"]),
+  options: z.array(z.string().trim().min(1).max(60)).max(50, "50 valeurs maximum").default([]),
+});
+
+/**
+ * Champs personnalisés des fiches. Retirer un champ masque ses valeurs sans les effacer
+ * des fiches (elles réapparaissent si un champ de même identifiant est recréé).
+ */
+export const updateCustomFields: Command<{ fields: unknown[] }, CustomFieldDef[]> = (data, input, ctx) => {
+  assertCan(ctx, "settings.write");
+  const list = parse(z.array(customFieldSchema).max(MAX_CUSTOM_FIELDS * 3), input?.fields);
+  const fields: CustomFieldDef[] = [];
+  const seen = new Set<string>();
+  for (const f of list) {
+    const key = `${f.entity}:${f.label.toLowerCase()}`;
+    if (seen.has(key)) throw new DomainError(`Le champ « ${f.label} » existe déjà sur ce type de fiche.`);
+    seen.add(key);
+    if (f.type === "select" && !f.options.length) throw new DomainError(`Le champ « ${f.label} » est une liste : indiquez au moins une valeur.`);
+    fields.push({ id: f.id && /^cf_[a-z0-9_]+$/i.test(f.id) ? f.id : newId("cf"), entity: f.entity, label: f.label, type: f.type, options: f.type === "select" ? [...new Set(f.options)] : [] });
+  }
+  for (const entity of ["contact", "company", "opportunity"] as const) {
+    if (fields.filter((f) => f.entity === entity).length > MAX_CUSTOM_FIELDS) throw new DomainError(`${MAX_CUSTOM_FIELDS} champs personnalisés maximum par type de fiche.`);
+  }
+  const next = audit({ ...data, settings: { ...data.settings, customFields: fields } }, ctx, "settings.custom_fields", null, `${fields.length} champ(s)`);
+  return { data: next, result: fields, message: "Champs personnalisés enregistrés." };
+};
+
+const emailTemplateSchema = z.object({
+  id: z.string().max(60).optional(),
+  name: z.string().trim().min(1, "Le nom du modèle est obligatoire").max(80),
+  situation: z.enum(["proposal_followup", "reengage_customer", "first_contact", "overdue_followup", "meeting_followup", "stalled_deal", "custom"]),
+  subject: z.string().trim().min(1, "L'objet est obligatoire").max(200),
+  body: z.string().trim().min(1, "Le texte est obligatoire").max(5000),
+});
+
+/** Modèles d'e-mails de l'assistant (aucun envoi : brouillons ouverts dans la messagerie). */
+export const updateEmailTemplates: Command<{ templates: unknown[] }, EmailTemplate[]> = (data, input, ctx) => {
+  assertCan(ctx, "settings.write");
+  const list = parse(z.array(emailTemplateSchema).max(40, "40 modèles maximum"), input?.templates);
+  const templates: EmailTemplate[] = list.map((t) => ({ ...t, id: t.id && /^tpl_[a-z0-9_]+$/i.test(t.id) ? t.id : newId("tpl") }));
+  const next = audit({ ...data, settings: { ...data.settings, emailTemplates: templates } }, ctx, "settings.email_templates", null, `${templates.length} modèle(s)`);
+  return { data: next, result: templates, message: "Modèles d'e-mails enregistrés." };
 };
 
 /** Taille maximale du logo (data URL, ~300 Ko d'image). */

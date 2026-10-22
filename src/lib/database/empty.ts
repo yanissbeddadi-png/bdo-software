@@ -87,6 +87,9 @@ export function createEmptyData(today: ISODate, now: ISODateTime, company: strin
         vatTrackingStart: today.slice(0, 8) + "01",
       },
       branding: { logo: null, color: "#2F5BC4", bdoMark: false },
+      // Espace d'un client : les modules financiers (outil de gestion interne, non certifié
+      // comme logiciel comptable) sont masqués par défaut et s'activent dans Paramètres › Modules.
+      modules: { ...base.modules, finance: false, analytics: false },
       gamification: { ...base.gamification, progressionStart: today },
       user: { id: `usr_${ownerId}`, name: `${employee.firstName} ${employee.lastName}`, email: employee.email, role: "dirigeant", employeeId: ownerId },
       demo: { ...base.demo, seededAt: now, anchorDate: today, sample: false },
@@ -135,6 +138,9 @@ export function demoInWorkspace(seed: AppData, current: AppData): AppData {
       company: { ...seed.settings.company, name: current.settings.company.name, legalName: current.settings.company.legalName },
       branding: current.settings.branding,
       modules: current.settings.modules,
+      ai: current.settings.ai,
+      customFields: current.settings.customFields,
+      emailTemplates: current.settings.emailTemplates,
     },
   };
 }

@@ -14,6 +14,7 @@ export interface ModuleDef {
  * restent toujours disponibles. Désactiver un module masque ses pages sans supprimer de données.
  */
 export const MODULES: ModuleDef[] = [
+  { key: "assistant", label: "Assistant commercial", hint: "Rapport du matin, priorités expliquées, affaires à risque, brouillons de relance", paths: ["/assistant"] },
   { key: "quotes", label: "Propositions commerciales", hint: "Devis liés aux opportunités", paths: ["/crm/devis"] },
   { key: "finance", label: "Finances", hint: "Factures, avoirs, dépenses, trésorerie, TVA, abonnements", paths: ["/finances"] },
   { key: "analytics", label: "Analyses financières", hint: "Indicateurs financiers historiques", paths: ["/analyses"] },

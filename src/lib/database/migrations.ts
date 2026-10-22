@@ -2,7 +2,8 @@ import type { AppData, Client, Contact, CrmTaskType, Mission, OpportunityStage, 
 import { addMonths, startOfMonthISO } from "@/lib/calculations/dates";
 import { localDateMinute, formatMinute } from "@/lib/calculations/office";
 import { QUALIFIED_STAGES } from "@/lib/calculations/pipeline";
-import { DEFAULT_BRANDING, DEFAULT_MODULES, DEFAULT_XP_REWARDS, SEED_VERSION, defaultCrmSettings } from "./seed";
+import { DEFAULT_AI, DEFAULT_BRANDING, DEFAULT_MODULES, DEFAULT_XP_REWARDS, SEED_VERSION, defaultCrmSettings } from "./seed";
+import { defaultEmailTemplates } from "@/lib/assistant/templates";
 
 /**
  * Migrations du jeu de données local. Les données de l'utilisateur sont conservées :
@@ -40,7 +41,28 @@ export function migrateData(input: AppData, today: string): AppData {
   }
   if ((data.settings.demo.version ?? 1) < 3) data = migrateToV3(data, today);
   if ((data.settings.demo.version ?? 1) < 4) data = migrateToV4(data);
+  if ((data.settings.demo.version ?? 1) < 5) data = migrateToV5(data);
   return data;
+}
+
+/**
+ * v4 → v5 : assistant commercial (module activable, actif), IA générative (désactivée
+ * tant que le directeur commercial ne l'autorise pas), champs personnalisés (aucun) et
+ * modèles d'e-mails par défaut. Les données existantes ne sont pas modifiées.
+ */
+export function migrateToV5(input: AppData): AppData {
+  const s = input.settings as AppData["settings"] & Partial<Pick<AppData["settings"], "ai" | "customFields" | "emailTemplates">>;
+  return {
+    ...input,
+    settings: {
+      ...input.settings,
+      modules: { ...DEFAULT_MODULES, ...input.settings.modules, assistant: input.settings.modules?.assistant ?? true },
+      ai: { ...DEFAULT_AI, ...s.ai },
+      customFields: Array.isArray(s.customFields) ? s.customFields : [],
+      emailTemplates: Array.isArray(s.emailTemplates) && s.emailTemplates.length ? s.emailTemplates : defaultEmailTemplates(),
+      demo: { ...input.settings.demo, version: 5 },
+    },
+  };
 }
 
 /**

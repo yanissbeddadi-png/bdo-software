@@ -19,6 +19,7 @@
     "modeles": "tsx scripts/generate-templates.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.1.0",
     "@hookform/resolvers": "^5.9.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.8.1",

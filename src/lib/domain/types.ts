@@ -164,8 +164,50 @@ export interface BrandingSettings {
 }
 
 /** Modules activables (la gamification se règle dans `gamification.enabled`). */
-export type ModuleKey = "quotes" | "finance" | "projects" | "catalog" | "goals" | "analytics" | "operations" | "offices";
+export type ModuleKey = "assistant" | "quotes" | "finance" | "projects" | "catalog" | "goals" | "analytics" | "operations" | "offices";
 export type ModuleSettings = Record<ModuleKey, boolean>;
+
+/**
+ * IA générative (rédaction assistée, résumés). Désactivée par défaut : le directeur
+ * commercial l'active explicitement, car les textes concernés sont envoyés au fournisseur
+ * d'IA configuré sur le serveur. Sans clé côté serveur, l'option reste sans effet.
+ */
+export interface AiSettings {
+  enabled: boolean;
+}
+
+/** Fiches pouvant recevoir des champs personnalisés. */
+export type CustomFieldEntity = "contact" | "company" | "opportunity";
+export type CustomFieldType = "text" | "number" | "date" | "select" | "yesno";
+
+/** Champ personnalisé défini par l'espace (Paramètres › Champs personnalisés). */
+export interface CustomFieldDef {
+  id: ID;
+  entity: CustomFieldEntity;
+  label: string;
+  type: CustomFieldType;
+  /** Valeurs proposées (type `select`). */
+  options: string[];
+}
+
+/** Valeurs des champs personnalisés d'une fiche, par identifiant de champ. */
+export type CustomValues = Record<ID, string | number | boolean | null>;
+
+/** Situation commerciale à laquelle répond un modèle d'e-mail de l'assistant. */
+export type EmailSituation = "proposal_followup" | "reengage_customer" | "first_contact" | "overdue_followup" | "meeting_followup" | "stalled_deal" | "custom";
+
+/**
+ * Modèle d'e-mail (objet et corps avec variables `{{prenom}}`, `{{entreprise}}`…).
+ * Aucun e-mail n'est envoyé par l'application : le brouillon s'ouvre dans la messagerie
+ * de l'utilisateur ou se copie.
+ */
+export interface EmailTemplate {
+  id: ID;
+  name: string;
+  situation: EmailSituation;
+  subject: string;
+  body: string;
+}
 
 /** Seuils des règles d'alertes et de risques opérationnels (configurables). */
 export interface RuleSettings {
@@ -188,6 +230,11 @@ export interface Settings {
   crm: CrmSettings;
   branding: BrandingSettings;
   modules: ModuleSettings;
+  ai: AiSettings;
+  /** Champs personnalisés des fiches contact, entreprise et opportunité. */
+  customFields: CustomFieldDef[];
+  /** Modèles d'e-mails utilisés par l'assistant commercial. */
+  emailTemplates: EmailTemplate[];
   user: CurrentUser;
   /** Indique que le jeu de données provient du seed de démonstration. */
   demo: {
@@ -244,6 +291,8 @@ export interface Client {
   satisfaction: number | null;
   notes: string;
   documents: ClientDocument[];
+  /** Valeurs des champs personnalisés. */
+  custom?: CustomValues;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -267,6 +316,8 @@ export interface Contact {
   phone: string;
   isPrimary: boolean;
   notes: string;
+  /** Valeurs des champs personnalisés. */
+  custom?: CustomValues;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -322,6 +373,8 @@ export interface Opportunity {
   qualifiedAt: ISODateTime | null;
   /** Opportunité archivée (masquée du pipeline actif). */
   archivedAt: ISODateTime | null;
+  /** Valeurs des champs personnalisés. */
+  custom?: CustomValues;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

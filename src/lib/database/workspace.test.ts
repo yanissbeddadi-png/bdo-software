@@ -26,7 +26,9 @@ describe("espace vide pour un nouveau client", () => {
     expect(d.settings.branding.bdoMark).toBe(false);
     expect(d.settings.demo).toMatchObject({ version: SEED_VERSION, sample: false });
     expect(d.settings.user).toMatchObject({ role: "dirigeant", employeeId: "emp_owner" });
-    expect(Object.values(d.settings.modules).every(Boolean)).toBe(true);
+    // Modules financiers (non certifiés) masqués par défaut chez un client ; le reste est actif.
+    expect(d.settings.modules).toMatchObject({ finance: false, analytics: false, assistant: true, quotes: true });
+    expect(d.settings.ai.enabled).toBe(false);
   });
 
   it("fonctionne d'emblée : rafraîchissement quotidien et première entreprise", () => {
@@ -70,12 +72,33 @@ describe("migration v3 → v4 (espaces existants)", () => {
     void _m;
     const v3 = { ...seed, settings: { ...settingsV3, crm: { ...crmV3, inactivityDays: 30 }, demo: { ...seed.settings.demo, version: 3 } } } as unknown as AppData;
     const m = migrateData(v3, TODAY);
-    expect(m.settings.demo.version).toBe(4);
+    expect(m.settings.demo.version).toBe(5);
     expect(m.settings.branding).toEqual({ logo: null, color: "#E81A3B", bdoMark: true });
     expect(Object.values(m.settings.modules).every(Boolean)).toBe(true);
     expect(m.settings.crm.inactivityDays).toBe(30);
     expect(m.settings.crm.stages.won).toEqual({ label: "Gagné", probability: 100 });
     expect(m.settings.crm.sources.length).toBeGreaterThan(3);
+  });
+});
+
+describe("migration v4 → v5 (assistant, IA, champs personnalisés, modèles d'e-mails)", () => {
+  it("active l'assistant, laisse l'IA désactivée et conserve les modules choisis", () => {
+    const seed = createSeedData(TODAY, NOW);
+    const { ai: _a, customFields: _c, emailTemplates: _e, ...settingsV4 } = seed.settings;
+    void _a;
+    void _c;
+    void _e;
+    const { assistant: _x, ...modulesV4 } = seed.settings.modules;
+    void _x;
+    const v4 = { ...seed, settings: { ...settingsV4, modules: { ...modulesV4, finance: false }, demo: { ...seed.settings.demo, version: 4 } } } as unknown as AppData;
+    const m = migrateData(v4, TODAY);
+    expect(m.settings.demo.version).toBe(5);
+    expect(m.settings.modules.assistant).toBe(true);
+    expect(m.settings.modules.finance).toBe(false);
+    expect(m.settings.ai).toEqual({ enabled: false });
+    expect(m.settings.customFields).toEqual([]);
+    expect(m.settings.emailTemplates.length).toBeGreaterThanOrEqual(6);
+    expect(m.contacts).toBe(v4.contacts);
   });
 });
 

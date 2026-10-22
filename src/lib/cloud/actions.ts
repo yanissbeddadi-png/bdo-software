@@ -4,12 +4,13 @@ import { can } from "@/lib/permissions";
 import { createSeedData } from "@/lib/database/seed";
 import { realTodayISO } from "@/lib/calculations/dates";
 import { ORGANIZATION_ID } from "./config";
-import { adminClient, authUser, cloudReady, listMemberRows, memberFor, supabaseStore } from "./server";
-import { defaultRoleFor, replaceSharedState, runSharedCommand, sessionUser, temporaryPassword, upgrade, withUser, type Member, type RunRequest, type RunResponse } from "./engine";
+import { adminClient, authUser, cloudReady, listMemberRows, supabaseStore } from "./server";
+import { defaultRoleFor, replaceSharedState, runSharedCommand, sessionUser, temporaryPassword, upgrade, withUser, type RunRequest, type RunResponse } from "./engine";
 import { clock } from "@/lib/store/clock";
 import { distributePortfolio, projectForUser } from "./scope";
 import { clearWorkspace, createEmptyData, demoInWorkspace } from "@/lib/database/empty";
 import { newId } from "@/lib/domain/ids";
+import { admin, caller, type Fail } from "./caller";
 
 /**
  * Server Actions du mode multi-utilisateur. Chaque action authentifie l'appelant à partir
@@ -21,26 +22,6 @@ import { newId } from "@/lib/domain/ids";
 /** Rôles attribuables : le directeur commercial administre l'espace et voit tout. */
 const ROLES: Role[] = ["dirigeant", "commercial", "collaborateur"];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-type Fail = { ok: false; error: string };
-
-async function caller(): Promise<{ ok: true; member: Member } | Fail> {
-  const ready = cloudReady();
-  if (!ready.ok) return { ok: false, error: ready.reason };
-  const user = await authUser();
-  if (!user) return { ok: false, error: "Session expirée : reconnectez-vous." };
-  const member = await memberFor(user.id);
-  if (!member) return { ok: false, error: "Ce compte n'a pas accès à l'organisation." };
-  if (!member.active) return { ok: false, error: "Ce compte est désactivé. Contactez le directeur commercial." };
-  return { ok: true, member };
-}
-
-async function admin(): Promise<{ ok: true; member: Member } | Fail> {
-  const c = await caller();
-  if (!c.ok) return c;
-  if (!can(c.member.role, "settings.write")) return { ok: false, error: "Action réservée au directeur commercial." };
-  return c;
-}
 
 /* ----------------------------- Données partagées ----------------------------- */
 
