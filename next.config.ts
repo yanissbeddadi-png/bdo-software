@@ -6,12 +6,35 @@ import type { NextConfig } from "next";
  * partiel n'apportent rien dans ce mode et sont donc désactivés.
  */
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   cacheComponents: false,
   experimental: {
     serverActions: {
       // Import de fichiers (contacts, logo) et sauvegardes : 4 Mo, sous la limite des fonctions Vercel (4,5 Mo).
       bodySizeLimit: "4mb",
     },
+  },
+  /**
+   * En-têtes de sécurité appliqués à toutes les réponses : pas d'affichage dans un cadre
+   * (anti-clickjacking), pas de détection de type, référent limité, capteurs désactivés.
+   * La politique de contenu reste volontairement minimale (pas de restriction des scripts,
+   * que Next.js injecte en ligne) : elle bloque les cadres, les plugins et les formulaires
+   * vers d'autres sites.
+   */
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" },
+        ],
+      },
+    ];
   },
   /** Anciennes routes CRM réorientées vers les nouveaux modules (liens et favoris existants). */
   async redirects() {
