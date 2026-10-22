@@ -45,3 +45,6 @@ next-env.d.ts
 # Playwright
 /test-results/
 /playwright-report/
+
+# Copies de travail temporaires des agents (git worktree)
+.claude/worktrees/
