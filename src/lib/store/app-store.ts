@@ -16,6 +16,7 @@ import { isCloudMode } from "@/lib/cloud/config";
 import { scopeViolation } from "@/lib/cloud/scope";
 import { loadSession, pullRemote, replaceRemote, resetRemote, runRemote } from "@/lib/cloud/actions";
 import { hardNavigate } from "@/lib/cloud/session";
+import { loginPath, SESSION_EXPIRED } from "@/lib/cloud/navigation";
 
 const repository: DataRepository = new LocalDemoRepository();
 
@@ -36,6 +37,11 @@ interface AppStore {
   version: number;
   /** Actions en cours d'enregistrement sur le serveur. */
   pending: number;
+  /**
+   * Une action a échoué sans que le serveur renvoie son état : l'affichage peut contenir une
+   * modification non enregistrée, jusqu'à la resynchronisation complète suivante.
+   */
+  unsaved: boolean;
   init: () => void;
   run: <I, R>(command: Command<I, R>, input: I) => ExecuteResult<R>;
   replaceAll: (data: AppData) => void;
@@ -47,6 +53,25 @@ interface AppStore {
 /** File d'envoi : les actions sont enregistrées dans l'ordre où elles ont été faites. */
 let queue: Promise<void> = Promise.resolve();
 let poller: ReturnType<typeof setInterval> | null = null;
+/** Départ volontaire (session expirée) : pas d'avertissement de fermeture. */
+let leaving = false;
+
+/** Session expirée : retour à la connexion, puis à la page en cours. */
+function signInAgain() {
+  if (leaving) return;
+  leaving = true;
+  hardNavigate(loginPath(window.location.pathname + window.location.search));
+}
+
+/** Avertit avant de quitter la page tant que des actions sont en cours d'enregistrement. */
+function warnBeforeUnload(hasPending: () => boolean) {
+  window.addEventListener("beforeunload", (event) => {
+    if (leaving || !hasPending()) return;
+    event.preventDefault();
+    // Navigateurs plus anciens : une valeur non vide déclenche la confirmation.
+    event.returnValue = "";
+  });
+}
 
 export const useAppStore = create<AppStore>((set, get) => {
   /** Remplace l'état local par celui du serveur, sauf si d'autres actions sont encore en route. */
@@ -55,14 +80,20 @@ export const useAppStore = create<AppStore>((set, get) => {
       set({ version });
       return;
     }
-    set({ data, version, updatedAt: clock(data).now });
+    set({ data, version, updatedAt: clock(data).now, unsaved: false });
+  };
+
+  /** Erreur d'une Server Action : session expirée → reconnexion, sinon message. */
+  const fail = (message: string) => {
+    if (message === SESSION_EXPIRED) signInAgain();
+    else toast.error(message);
   };
 
   const initCloud = async () => {
     try {
       const s = await loadSession();
       if (s.status === "signed-out") {
-        hardNavigate("/connexion");
+        signInAgain();
         return;
       }
       if (s.status === "error") {
@@ -74,6 +105,7 @@ export const useAppStore = create<AppStore>((set, get) => {
         if (document.visibilityState === "visible") void get().refresh();
       }, PULL_INTERVAL_MS);
       window.addEventListener("focus", () => void get().refresh());
+      warnBeforeUnload(() => get().pending > 0);
     } catch (error) {
       console.error(error);
       set({ status: "error", error: "Serveur injoignable : vérifiez votre connexion puis rechargez la page." });
@@ -88,6 +120,8 @@ export const useAppStore = create<AppStore>((set, get) => {
     mode: isCloudMode ? "cloud" : "demo",
     version: 0,
     pending: 0,
+    unsaved: false,
+
 
     init: () => {
       if (get().status === "ready") return;
@@ -142,14 +176,22 @@ export const useAppStore = create<AppStore>((set, get) => {
           const remote = await runRemote({ name, input, now, seed });
           set((s) => ({ pending: s.pending - 1 }));
           if (remote.ok) adopt(remote.data, remote.version);
-          else {
+          else if (remote.error === SESSION_EXPIRED) {
+            set({ unsaved: true });
+            signInAgain();
+          } else {
             toast.error(`Action non enregistrée : ${remote.error}`);
             if (remote.data && remote.version) adopt(remote.data, remote.version);
-            else await get().refresh();
+            else {
+              // Sans état renvoyé, la modification optimiste reste affichée : resynchronisation
+              // complète (indépendante de la version connue) pour l'annuler.
+              set({ unsaved: true });
+              await get().refresh();
+            }
           }
         } catch (error) {
           console.error(error);
-          set((s) => ({ pending: s.pending - 1 }));
+          set((s) => ({ pending: s.pending - 1, unsaved: true }));
           toast.error("Connexion au serveur perdue : la dernière action n'a pas été enregistrée.");
           await get().refresh();
         }
@@ -158,11 +200,16 @@ export const useAppStore = create<AppStore>((set, get) => {
     },
 
     refresh: async () => {
-      if (get().mode !== "cloud" || get().pending > 0) return;
+      if (get().mode !== "cloud" || get().pending > 0 || leaving) return;
       try {
-        const r = await pullRemote(get().version);
+        // Après un échec non annulé, la version connue ne suffit pas : l'état complet est relu.
+        const r = await pullRemote(get().unsaved ? -1 : get().version);
         if ("changed" in r && r.changed) adopt(r.data, r.version);
-        else if ("error" in r) toast.error(r.error);
+        else if ("error" in r) {
+          if (r.error === SESSION_EXPIRED) signInAgain();
+          // Un seul message à la fois pour une même erreur, malgré les relectures périodiques.
+          else toast.error(r.error, { id: "pull-error" });
+        }
       } catch {
         /* Réseau indisponible : nouvel essai au prochain intervalle. */
       }
@@ -170,7 +217,12 @@ export const useAppStore = create<AppStore>((set, get) => {
 
     replaceAll: (incoming) => {
       if (get().mode === "cloud") {
-        void replaceRemote(incoming).then((r) => (r.ok ? (adopt(r.data, r.version), toast.success(r.message)) : toast.error(r.error)));
+        void replaceRemote(incoming)
+          .then((r) => (r.ok ? (adopt(r.data, r.version), toast.success(r.message)) : fail(r.error)))
+          .catch((error) => {
+            console.error(error);
+            toast.error("Connexion au serveur perdue : les données n'ont pas été remplacées.");
+          });
         return;
       }
       const migrated = migrateData(incoming, clock(incoming).today);
@@ -182,7 +234,12 @@ export const useAppStore = create<AppStore>((set, get) => {
     resetWorkspace: (kind) => {
       if (get().mode === "cloud") {
         const done = kind === "demo" ? "Données de démonstration chargées pour toute l'équipe." : "Espace vidé : réglages et équipe conservés.";
-        void resetRemote(kind).then((r) => (r.ok ? (adopt(r.data, r.version), toast.success(done)) : toast.error(r.error)));
+        void resetRemote(kind)
+          .then((r) => (r.ok ? (adopt(r.data, r.version), toast.success(done)) : fail(r.error)))
+          .catch((error) => {
+            console.error(error);
+            toast.error("Connexion au serveur perdue : l'espace n'a pas été modifié.");
+          });
         return;
       }
       const current = get().data;

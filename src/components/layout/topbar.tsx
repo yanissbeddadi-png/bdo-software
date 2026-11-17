@@ -21,6 +21,7 @@ import {
   BellRing,
   MessageSquarePlus,
   Cloud,
+  CloudOff,
   KeyRound,
   Loader2,
   LogOut,
@@ -199,6 +200,7 @@ export function Topbar() {
   const data = useData();
   const mode = useAppStore((s) => s.mode);
   const pending = useAppStore((s) => s.pending);
+  const unsaved = useAppStore((s) => s.unsaved);
   const [passwordOpen, setPasswordOpen] = React.useState(false);
   const showPeriod = PERIOD_ROUTES.includes(pathname);
   return (
@@ -225,9 +227,14 @@ export function Topbar() {
           {data.settings.preferences.referenceDate ? <span className="text-gold">(simulée)</span> : null}
         </span>
         {mode === "cloud" ? (
-          <span className={cn("hidden items-center gap-1 text-[11px] sm:flex", pending ? "text-warning" : "text-success")} role="status" aria-live="polite">
-            {pending ? <Loader2 className="size-3 animate-spin" /> : <Cloud className="size-3.5" />}
-            {pending ? "Enregistrement…" : "Enregistré"}
+          <span
+            className={cn("items-center gap-1 text-[11px]", pending ? "hidden text-warning sm:flex" : unsaved ? "flex text-danger" : "hidden text-success sm:flex")}
+            role="status"
+            aria-live="polite"
+            title={!pending && unsaved ? "La dernière action n'a pas été enregistrée : resynchronisation avec le serveur en attente." : undefined}
+          >
+            {pending ? <Loader2 className="size-3 animate-spin" /> : unsaved ? <CloudOff className="size-3.5" /> : <Cloud className="size-3.5" />}
+            {pending ? "Enregistrement…" : unsaved ? "Non enregistré" : "Enregistré"}
           </span>
         ) : null}
         <QuickCreateMenu />

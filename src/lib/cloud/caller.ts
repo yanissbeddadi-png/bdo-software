@@ -2,6 +2,7 @@ import "server-only";
 import { can } from "@/lib/permissions";
 import { authUser, cloudReady, memberFor } from "./server";
 import type { Member } from "./engine";
+import { SESSION_EXPIRED } from "./navigation";
 
 /**
  * Identité de l'appelant d'une Server Action : session Supabase (cookies), puis rôle lu
@@ -14,7 +15,7 @@ export async function caller(): Promise<{ ok: true; member: Member } | Fail> {
   const ready = cloudReady();
   if (!ready.ok) return { ok: false, error: ready.reason };
   const user = await authUser();
-  if (!user) return { ok: false, error: "Session expirée : reconnectez-vous." };
+  if (!user) return { ok: false, error: SESSION_EXPIRED };
   const member = await memberFor(user.id);
   if (!member) return { ok: false, error: "Ce compte n'a pas accès à l'organisation." };
   if (!member.active) return { ok: false, error: "Ce compte est désactivé. Contactez le directeur commercial." };
