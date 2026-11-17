@@ -38,6 +38,14 @@ export const lineItemSchema = z.object({
 
 const nonNegativeTotal = (items: { quantity: number; unitPrice: number }[]) => items.reduce((s, i) => s + Math.round(i.quantity * i.unitPrice), 0) >= 0;
 
+/**
+ * Valeurs des champs personnalisés d'une fiche (identifiant du champ → valeur). Le contrôle
+ * fin (type, liste, longueur) est fait par la commande selon les définitions de l'espace.
+ */
+export const customValuesSchema = z
+  .record(z.string().max(60), z.union([z.string().max(5000, "Valeur trop longue"), z.number(), z.boolean(), z.null()]))
+  .refine((v) => Object.keys(v).length <= 200, "Trop de champs personnalisés");
+
 /** Entreprise (organisation). */
 export const clientSchema = z.object({
   name: required("Le nom"),
@@ -52,6 +60,7 @@ export const clientSchema = z.object({
   source: text(100),
   satisfaction: z.number().int().min(1).max(5).nullable(),
   notes: text(),
+  custom: customValuesSchema.optional(),
 });
 export type ClientInput = z.infer<typeof clientSchema>;
 
@@ -68,6 +77,7 @@ export const contactSchema = z.object({
   priority,
   isPrimary: z.boolean(),
   notes: text(),
+  custom: customValuesSchema.optional(),
 });
 export type ContactInput = z.infer<typeof contactSchema>;
 
@@ -103,6 +113,8 @@ export const prospectSchema = z
     nextAction: nextActionSchema.nullable(),
     /** Confirmation explicite après un avertissement de doublon probable. */
     confirmDuplicate: z.boolean(),
+    /** Champs personnalisés du contact. */
+    custom: customValuesSchema.optional(),
   })
   .refine((p) => !p.stage || !!p.clientId || !!p.newCompanyName.trim() || p.opportunityName.trim().length > 0, {
     message: "Indiquez une entreprise ou un nom d'opportunité",
@@ -141,6 +153,7 @@ export const opportunitySchema = z
     priority,
     nextAction: text(300),
     notes: text(),
+    custom: customValuesSchema.optional(),
   })
   .refine((o) => o.clientId || o.contactId, { message: "Associez une entreprise ou un contact", path: ["clientId"] });
 export type OpportunityInput = z.infer<typeof opportunitySchema>;

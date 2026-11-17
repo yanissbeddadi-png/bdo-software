@@ -1,4 +1,4 @@
-import type { AppData, Client, Contact, CrmTaskType, DocumentLink, Opportunity, OpportunityStage, Priority, SalesActivity, Task } from "@/lib/domain/types";
+import type { AppData, Client, Contact, CrmTaskType, CustomFieldEntity, CustomValues, DocumentLink, Opportunity, OpportunityStage, Priority, SalesActivity, Task } from "@/lib/domain/types";
 import { newId } from "@/lib/domain/ids";
 import {
   clientSchema,
@@ -18,6 +18,7 @@ import { QUALIFIED_STAGES, STAGES, STAGE_LABELS } from "@/lib/calculations/pipel
 import { addDays } from "@/lib/calculations/dates";
 import { describeDuplicates, findContactDuplicates } from "@/lib/crm/duplicates";
 import { activityLabel } from "@/lib/crm/model";
+import { applyCustomInput, customFieldsFor, withCustom } from "@/lib/crm/custom-fields";
 import { can } from "@/lib/permissions";
 import { activity, assertCan, audit, DomainError, findOrThrow, normalize, parse, replace, type Command, type CommandContext } from "./core";
 
@@ -91,13 +92,23 @@ function touchOpportunity(opps: Opportunity[], id: string | null, at: string, no
   return opps.map((o) => (o.id === id && at > o.lastInteractionAt ? { ...o, lastInteractionAt: at, updatedAt: now } : o));
 }
 
+/**
+ * Valeurs des champs personnalisés après saisie, nettoyées selon les définitions de l'espace
+ * (voir `applyCustomInput`) ; une valeur invalide est refusée avec le libellé du champ.
+ */
+function customFor(data: AppData, entity: CustomFieldEntity, current: CustomValues | undefined, input: Record<string, unknown> | undefined): CustomValues | undefined {
+  const { values, errors } = applyCustomInput(customFieldsFor(data, entity), current, input);
+  if (errors.length) throw new DomainError(errors[0].message, { custom: errors[0].message });
+  return values;
+}
+
 /* ----------------------------- Entreprises ----------------------------- */
 
 export const createClient: Command<ClientInput, Client> = (data, input, ctx) => {
   assertCan(ctx, "clients.write");
-  const v = parse(clientSchema, input);
+  const { custom, ...v } = parse(clientSchema, input);
   if (data.clients.some((c) => normalize(c.name) === normalize(v.name))) throw new DomainError(`Une entreprise nommée « ${v.name} » existe déjà.`, { name: "Doublon" });
-  const client: Client = { id: newId("cli"), ...v, documents: [], createdAt: ctx.now, updatedAt: ctx.now };
+  const client: Client = withCustom<Client>({ id: newId("cli"), ...v, documents: [], createdAt: ctx.now, updatedAt: ctx.now }, customFor(data, "company", undefined, custom));
   let next = { ...data, clients: [...data.clients, client] };
   next = activity(next, ctx, "client_created", `Entreprise ${client.name} ajoutée`, { type: "client", id: client.id });
   return { data: next, result: client, message: `Entreprise « ${client.name} » créée.` };
@@ -105,10 +116,10 @@ export const createClient: Command<ClientInput, Client> = (data, input, ctx) => 
 
 export const updateClient: Command<{ id: string; values: ClientInput }, Client> = (data, { id, values }, ctx) => {
   assertCan(ctx, "clients.write");
-  const v = parse(clientSchema, values);
+  const { custom, ...v } = parse(clientSchema, values);
   const current = findOrThrow(data.clients, id, "Entreprise");
   if (data.clients.some((c) => c.id !== id && normalize(c.name) === normalize(v.name))) throw new DomainError(`Une entreprise nommée « ${v.name} » existe déjà.`, { name: "Doublon" });
-  const client: Client = { ...current, ...v, updatedAt: ctx.now };
+  const client: Client = withCustom({ ...current, ...v, updatedAt: ctx.now }, customFor(data, "company", current.custom, custom));
   let next = { ...data, clients: replace(data.clients, client) };
   next = activity(next, ctx, "client_updated", `Fiche entreprise ${client.name} mise à jour`, { type: "client", id });
   if (current.relation !== client.relation) next = audit(next, ctx, "company.relation", { type: "client", id }, `${current.relation} → ${client.relation}`);
@@ -167,6 +178,7 @@ export const createProspect: Command<ProspectInput, { contact: Contact; company:
   assertCan(ctx, "clients.write");
   const v = parse(prospectSchema, input);
   if (v.stage) assertCan(ctx, "crm.write");
+  const contactCustom = customFor(data, "contact", undefined, v.custom);
   let next: AppData = data;
   let company: Client | null = v.clientId ? findOrThrow(data.clients, v.clientId, "Entreprise") : null;
   const newName = v.newCompanyName.trim();
@@ -197,26 +209,29 @@ export const createProspect: Command<ProspectInput, { contact: Contact; company:
   }
   assertNoDuplicate(next, { ...v, clientId: company?.id ?? null }, v.confirmDuplicate);
 
-  const contact: Contact = {
-    id: newId("con"),
-    clientId: company?.id ?? null,
-    leadId: null,
-    firstName: v.firstName,
-    lastName: v.lastName,
-    jobTitle: v.jobTitle,
-    email: v.email,
-    phone: v.phone,
-    relation: v.relation,
-    ownerId: v.ownerId,
-    source: v.source,
-    priority: v.priority,
-    links: [],
-    archivedAt: null,
-    isPrimary: !!company && !next.contacts.some((c) => c.clientId === company!.id),
-    notes: "",
-    createdAt: ctx.now,
-    updatedAt: ctx.now,
-  };
+  const contact: Contact = withCustom<Contact>(
+    {
+      id: newId("con"),
+      clientId: company?.id ?? null,
+      leadId: null,
+      firstName: v.firstName,
+      lastName: v.lastName,
+      jobTitle: v.jobTitle,
+      email: v.email,
+      phone: v.phone,
+      relation: v.relation,
+      ownerId: v.ownerId,
+      source: v.source,
+      priority: v.priority,
+      links: [],
+      archivedAt: null,
+      isPrimary: !!company && !next.contacts.some((c) => c.clientId === company!.id),
+      notes: "",
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+    },
+    contactCustom,
+  );
   next = { ...next, contacts: [...next.contacts, contact] };
   next = activity(next, ctx, "contact_created", `Contact ${contact.firstName} ${contact.lastName} ajouté${company ? ` (${company.name})` : ""}`, { type: "contact", id: contact.id });
 
@@ -288,9 +303,9 @@ export const createProspect: Command<ProspectInput, { contact: Contact; company:
 /** Ajout simple d'un contact à une entreprise existante (fiche entreprise). */
 export const createContact: Command<ContactInput & { confirmDuplicate?: boolean }, Contact> = (data, input, ctx) => {
   assertCan(ctx, "clients.write");
-  const v = parse(contactSchema, input);
+  const { custom, ...v } = parse(contactSchema, input);
   assertNoDuplicate(data, v, !!input.confirmDuplicate);
-  const contact: Contact = { id: newId("con"), ...v, leadId: null, links: [], archivedAt: null, createdAt: ctx.now, updatedAt: ctx.now };
+  const contact: Contact = withCustom<Contact>({ id: newId("con"), ...v, leadId: null, links: [], archivedAt: null, createdAt: ctx.now, updatedAt: ctx.now }, customFor(data, "contact", undefined, custom));
   let next: AppData = { ...data, contacts: applyPrimary([...data.contacts, contact], contact) };
   next = activity(next, ctx, "contact_created", `Contact ${contact.firstName} ${contact.lastName} ajouté`, { type: "contact", id: contact.id });
   return { data: next, result: contact, message: `Contact ${contact.firstName} ${contact.lastName} ajouté.` };
@@ -298,10 +313,13 @@ export const createContact: Command<ContactInput & { confirmDuplicate?: boolean 
 
 export const updateContact: Command<{ id: string; values: ContactInput; confirmDuplicate?: boolean }, Contact> = (data, { id, values, confirmDuplicate }, ctx) => {
   assertCan(ctx, "clients.write");
-  const v = parse(contactSchema, values);
+  const { custom, ...v } = parse(contactSchema, values);
   const current = findOrThrow(data.contacts, id, "Contact");
   if (v.email.toLowerCase() !== current.email.toLowerCase() || v.clientId !== current.clientId) assertNoDuplicate(data, v, !!confirmDuplicate, id);
-  const contact: Contact = { ...current, ...v, archivedAt: v.relation === "archived" ? (current.archivedAt ?? ctx.now) : null, updatedAt: ctx.now };
+  const contact: Contact = withCustom(
+    { ...current, ...v, archivedAt: v.relation === "archived" ? (current.archivedAt ?? ctx.now) : null, updatedAt: ctx.now },
+    customFor(data, "contact", current.custom, custom),
+  );
   let next: AppData = { ...data, contacts: applyPrimary(replace(data.contacts, contact), contact) };
   const changed = (["relation", "ownerId", "priority", "clientId"] as const).filter((k) => current[k] !== contact[k]);
   if (changed.length) next = audit(next, ctx, "contact.update", { type: "contact", id }, changed.map((k) => `${k} : ${current[k] ?? "—"} → ${contact[k] ?? "—"}`).join(" · "));
@@ -390,20 +408,24 @@ export const removeContactLink: Command<{ contactId: string; linkId: string }> =
 
 export const createOpportunity: Command<OpportunityInput, Opportunity> = (data, input, ctx) => {
   assertCan(ctx, "crm.write");
-  const v = parse(opportunitySchema, input);
+  const { custom, ...v } = parse(opportunitySchema, input);
   const closed = v.stage === "won" || v.stage === "lost";
-  const opp: Opportunity = {
-    id: newId("opp"),
-    ...v,
-    leadId: null,
-    lastInteractionAt: ctx.now,
-    closedAt: closed ? ctx.now : null,
-    lostReason: "",
-    qualifiedAt: QUALIFIED_STAGES.includes(v.stage) ? ctx.now : null,
-    archivedAt: null,
-    createdAt: ctx.now,
-    updatedAt: ctx.now,
-  };
+  const customValues = customFor(data, "opportunity", undefined, custom);
+  const opp: Opportunity = withCustom<Opportunity>(
+    {
+      id: newId("opp"),
+      ...v,
+      leadId: null,
+      lastInteractionAt: ctx.now,
+      closedAt: closed ? ctx.now : null,
+      lostReason: "",
+      qualifiedAt: QUALIFIED_STAGES.includes(v.stage) ? ctx.now : null,
+      archivedAt: null,
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+    },
+    customValues,
+  );
   let next = { ...data, opportunities: [...data.opportunities, opp] };
   next = activity(next, ctx, "opportunity_created", `Opportunité ${opp.name} créée`, { type: "opportunity", id: opp.id });
   return { data: next, result: opp, message: `Opportunité « ${opp.name} » créée.` };
@@ -411,12 +433,13 @@ export const createOpportunity: Command<OpportunityInput, Opportunity> = (data, 
 
 export const updateOpportunity: Command<{ id: string; values: OpportunityInput }, Opportunity> = (data, { id, values }, ctx) => {
   assertCan(ctx, "crm.write");
-  const v = parse(opportunitySchema, values);
+  const { custom, ...v } = parse(opportunitySchema, values);
   const current = findOrThrow(data.opportunities, id, "Opportunité");
+  const customValues = customFor(data, "opportunity", current.custom, custom);
   // Le changement d'étape passe par `moveOpportunity` (effets de bord et historique).
   const moved = v.stage !== current.stage ? moveOpportunity(data, { id, stage: v.stage }, ctx).data : data;
   const base = findOrThrow(moved.opportunities, id, "Opportunité");
-  const opp: Opportunity = { ...base, ...v, leadId: base.leadId, probability: v.stage !== current.stage ? base.probability : v.probability, updatedAt: ctx.now };
+  const opp: Opportunity = withCustom({ ...base, ...v, leadId: base.leadId, probability: v.stage !== current.stage ? base.probability : v.probability, updatedAt: ctx.now }, customValues);
   return { data: { ...moved, opportunities: replace(moved.opportunities, opp) }, result: opp, message: "Opportunité mise à jour." };
 };
 
