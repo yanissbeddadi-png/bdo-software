@@ -125,20 +125,29 @@ function userSettings(data: AppData) {
 /** Collections que seul le directeur commercial peut modifier (modules historiques, équipe, réglages). */
 const RESTRICTED: (keyof AppData)[] = ["invoices", "payments", "creditNotes", "refunds", "vatReturns", "expenses", "subscriptions", "projects", "products", "employees", "goals", "leads", "settings"];
 
-const SCOPED: { key: "contacts" | "clients" | "opportunities" | "tasks" | "salesActivities" | "notes" | "quotes"; scope: keyof Scope }[] = [
-  { key: "contacts", scope: "contacts" },
-  { key: "clients", scope: "clients" },
-  { key: "opportunities", scope: "opportunities" },
-  { key: "tasks", scope: "tasks" },
-  { key: "salesActivities", scope: "activities" },
-  { key: "notes", scope: "notes" },
-  { key: "quotes", scope: "quotes" },
+/** Élément d'une collection cloisonnée, vu sous l'angle de son responsable et de son entreprise. */
+type Scoped = { id: ID; clientId?: ID | null; ownerId?: ID | null; assigneeId?: ID | null };
+
+/** Collections cloisonnées et champ désignant leur responsable (`null` : sans responsable). */
+const SCOPED: { key: "contacts" | "clients" | "opportunities" | "tasks" | "salesActivities" | "notes" | "quotes"; scope: keyof Scope; owner: "ownerId" | "assigneeId" | null }[] = [
+  { key: "contacts", scope: "contacts", owner: "ownerId" },
+  { key: "clients", scope: "clients", owner: "ownerId" },
+  { key: "opportunities", scope: "opportunities", owner: "ownerId" },
+  { key: "tasks", scope: "tasks", owner: "assigneeId" },
+  { key: "salesActivities", scope: "activities", owner: "ownerId" },
+  { key: "notes", scope: "notes", owner: null },
+  { key: "quotes", scope: "quotes", owner: null },
 ];
 
+const NO_REASSIGN = "Vous ne pouvez pas attribuer cet élément à un autre collaborateur : seul le directeur commercial peut réaffecter un portefeuille.";
+
 /**
- * Vérifie qu'une commande d'un collaborateur ne touche que son portefeuille : tout élément
- * modifié ou supprimé devait lui appartenir, tout élément créé ou modifié doit lui
- * appartenir après coup. Renvoie un message d'erreur, ou `null` si tout est conforme.
+ * Vérifie qu'une commande d'un collaborateur ne touche que son portefeuille (périmètre AVANT
+ * et APRÈS la commande) : tout élément modifié ou supprimé devait y figurer, tout élément
+ * créé ou modifié doit y figurer après coup, le responsable d'un élément qui ne lui
+ * appartient pas ne change pas, et un contact ou une opportunité ne se rattache qu'à une
+ * entreprise déjà dans son périmètre (ou créée par la même action). Renvoie un message
+ * d'erreur, ou `null` si tout est conforme.
  */
 export function scopeViolation(before: AppData, after: AppData, user: CurrentUser): string | null {
   if (hasFullAccess(user.role)) return null;
@@ -147,19 +156,37 @@ export function scopeViolation(before: AppData, after: AppData, user: CurrentUse
     const b = key === "settings" ? userSettings(after) : after[key];
     if (JSON.stringify(a) !== JSON.stringify(b)) return "Cette action est réservée au directeur commercial.";
   }
-  const sb = computeScope(before, user.employeeId ?? null);
-  const sa = computeScope(after, user.employeeId ?? null);
-  for (const { key, scope } of SCOPED) {
-    const prev = new Map((before[key] as { id: ID }[]).map((x) => [x.id, JSON.stringify(x)]));
-    const next = new Map((after[key] as { id: ID }[]).map((x) => [x.id, JSON.stringify(x)]));
-    for (const [id, json] of prev) {
-      const now = next.get(id);
-      if (now === json) continue;
+  const me = user.employeeId ?? null;
+  const sb = computeScope(before, me);
+  const sa = computeScope(after, me);
+  const existingClients = new Set(before.clients.map((c) => c.id));
+  for (const { key, scope, owner } of SCOPED) {
+    const prevItems = new Map((before[key] as Scoped[]).map((x) => [x.id, x]));
+    const nextItems = new Map((after[key] as Scoped[]).map((x) => [x.id, x]));
+    for (const [id, was] of prevItems) {
+      const now = nextItems.get(id);
+      if (now === was || (now && JSON.stringify(now) === JSON.stringify(was))) continue;
       if (!sb[scope].has(id)) return "Cette action concerne des données qui ne vous sont pas attribuées.";
-      if (now !== undefined && !sa[scope].has(id)) return "Vous ne pouvez pas attribuer cet élément à un autre collaborateur : seul le directeur commercial peut réaffecter un portefeuille.";
+      if (!now) continue;
+      if (!sa[scope].has(id)) return NO_REASSIGN;
+      // Le périmètre suit les liens : l'élément d'un collègue peut y figurer (entreprise de
+      // son contact, opportunité d'un collègue sur son contact…) sans lui appartenir.
+      if (owner) {
+        const from = was[owner] ?? null;
+        const to = now[owner] ?? null;
+        if (from !== to && from !== me && !(from === null && to === me)) return NO_REASSIGN;
+      }
     }
-    for (const id of next.keys()) {
-      if (!prev.has(id) && !sa[scope].has(id)) return "Un élément créé doit vous être attribué.";
+    for (const id of nextItems.keys()) {
+      if (!prevItems.has(id) && !sa[scope].has(id)) return "Un élément créé doit vous être attribué.";
+    }
+    // Rattacher sa fiche à l'entreprise d'un collègue ouvrirait l'accès à cette entreprise.
+    if (key === "contacts" || key === "opportunities") {
+      for (const [id, now] of nextItems) {
+        const clientId = now.clientId ?? null;
+        if (!clientId || clientId === (prevItems.get(id)?.clientId ?? null)) continue;
+        if (existingClients.has(clientId) && !sb.clients.has(clientId)) return "Vous ne pouvez rattacher une fiche qu'à une entreprise de votre portefeuille.";
+      }
     }
   }
   return null;
