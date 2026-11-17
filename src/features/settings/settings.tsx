@@ -7,6 +7,7 @@ import { useAccess, useCommand, useData } from "@/lib/store/hooks";
 import { useAppStore, repositoryKind } from "@/lib/store/app-store";
 import { UsersAdmin } from "./users-admin";
 import { ImportTab } from "./import-tab";
+import { CustomFieldsTab } from "./custom-fields-tab";
 import { useParam, useSyncedState } from "@/lib/store/params";
 import { useUiStore } from "@/lib/store/ui-store";
 import * as C from "@/lib/domain/commands";
@@ -75,6 +76,7 @@ export function SettingsPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="crm">CRM</TabsTrigger>
+          <TabsTrigger value="champs">Champs personnalisés</TabsTrigger>
           <TabsTrigger value="import">Import de fichiers</TabsTrigger>
           <TabsTrigger value="entreprise">Entreprise</TabsTrigger>
           <TabsTrigger value="modules">Modules</TabsTrigger>
@@ -86,6 +88,9 @@ export function SettingsPage() {
         </TabsList>
         <TabsContent value="crm">
           <CrmTab />
+        </TabsContent>
+        <TabsContent value="champs">
+          <CustomFieldsTab />
         </TabsContent>
         <TabsContent value="entreprise">
           <CompanyTab />
