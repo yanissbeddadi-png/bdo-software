@@ -51,6 +51,7 @@ Connecteurs) **avant** l'ouverture de la session.
    3. `supabase/migrations/20261015000003_credit_notes_vat.sql`
    4. `supabase/fresh/20261015000004_crm_schema.sql`
    5. `supabase/fresh/20261015000005_shared_state_final.sql`
+   6. `supabase/fresh/20261022000007_state_history.sql` (historique des versions)
 
    N'applique **pas** `supabase/migrations/…0004`, `…0005`, `…0006` : leurs `delete`,
    `drop table` et `drop policy` font expirer le connecteur (60 s). La variante `fresh/`

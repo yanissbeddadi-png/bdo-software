@@ -126,7 +126,7 @@ fichiers** :
 | **CRM**                   | Libellés et probabilités des 7 étapes du pipeline, sources de contacts, délais de relance, jours ouvrés.                                      |
 | **Modules**               | Propositions, Finances, Analyses, Projets et tâches internes, Produits, Objectifs, Opérations, Bureaux 3D, Gamification : activés ou masqués. |
 | **Utilisateurs et rôles** | Comptes de connexion (voir ci-dessous).                                                                                                       |
-| **Données**               | Sauvegarde JSON, import, chargement de la démonstration, « Vider l'espace ».                                                                  |
+| **Données**               | Sauvegarde JSON, import, chargement de la démonstration, « Vider l'espace », historique des versions.                                         |
 
 ### Équipe et comptes
 
@@ -150,6 +150,13 @@ il est responsable. Pour lui confier des contacts : Contacts › cocher › « A
   (Paramètres › Utilisateurs et rôles).
 - Une démonstration a été chargée par erreur ? Paramètres › Données › « Vider l'espace »
   (réglages, identité, équipe et comptes conservés).
+- Une erreur à rattraper (import, suppression, manipulation) ? Paramètres › Données ›
+  « Historique des versions » : le directeur commercial télécharge ou restaure un point de
+  restauration (automatique toutes les heures d'activité, avant chaque import, remplacement,
+  réinitialisation ou restauration, ou créé à la main).
+- Client installé avant l'historique des versions : appliquez une fois
+  `supabase/migrations/20261022000007_state_history.sql` (Supabase › SQL Editor). Sans elle,
+  l'application fonctionne mais affiche « Historique non disponible ».
 
 ## Limites actuelles
 

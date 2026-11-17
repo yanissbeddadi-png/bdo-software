@@ -13,5 +13,7 @@ Ordre d'application :
 3. `supabase/migrations/20261015000003_credit_notes_vat.sql`
 4. `supabase/fresh/20261015000004_crm_schema.sql` (reprise des données historiques retirée : sans objet sur une base vide)
 5. `supabase/fresh/20261015000005_shared_state_final.sql` (état final après la migration 0006)
+6. `supabase/fresh/20261022000007_state_history.sql` (historique des versions ; copie identique de
+   `supabase/migrations/20261022000007_state_history.sql`, qui ne contient aucune instruction destructive)
 
 Pour une installation manuelle (SQL Editor), utilisez plutôt `supabase/install.sql`.

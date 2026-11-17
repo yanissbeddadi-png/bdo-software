@@ -127,3 +127,29 @@ do $$ begin
   if (select data->>'k' from public.app_state where organization_id = 'org_shared') is distinct from '1' then raise exception 'Le document partagé a été modifié ou supprimé par un utilisateur'; end if;
 end $$;
 select 'Mode partagé OK' as resultat;
+
+-- Historique des versions : copies complètes du document, réservées au serveur. Même avec les
+-- droits ré-accordés, un membre actif ne lit, n'ajoute ni ne supprime aucun instantané.
+reset role;
+insert into public.app_state_history (organization_id, version, data, kind) values ('org_shared', 1, '{"k": 1}', 'auto');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', false);
+do $$ begin
+  if (select count(*) from public.app_state_history) <> 0 then raise exception 'Un membre ne doit pas lire l''historique des versions'; end if;
+  delete from public.app_state_history;
+  begin
+    insert into public.app_state_history (organization_id, version, data, kind) values ('org_shared', 2, '{"k": 2}', 'manual');
+    raise exception 'RLS: un membre a pu créer un instantané';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+do $$ begin
+  if (select count(*) from public.app_state_history where organization_id = 'org_shared') <> 1 then raise exception 'L''historique a été modifié par un utilisateur'; end if;
+  begin
+    insert into public.app_state_history (organization_id, version, data, kind) values ('org_shared', 1, '{}', 'autre');
+    raise exception 'Type d''instantané inconnu accepté';
+  exception when check_violation then null;
+  end;
+end $$;
+select 'Historique des versions OK' as resultat;
