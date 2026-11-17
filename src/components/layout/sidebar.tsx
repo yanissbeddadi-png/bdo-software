@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
-import { NAV, isActive, type NavCounter } from "./nav";
+import { isActive, visibleNav, type NavCounter } from "./nav";
 import { useNavCounters } from "@/lib/store/crm";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -28,7 +28,7 @@ export function Logo({ collapsed }: { collapsed?: boolean }) {
 export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const counters = useNavCounters();
-  const gamification = useData().settings.gamification.enabled;
+  const settings = useData().settings;
   const badge = (counter: NavCounter | undefined): { value: number; danger: boolean; label: string } | null => {
     if (counter === "newProspects" && counters.newProspects) return { value: counters.newProspects, danger: false, label: "nouveaux prospects" };
     if (counter === "missions" && counters.overdue) return { value: counters.overdue, danger: true, label: "missions en retard" };
@@ -38,7 +38,7 @@ export function NavLinks({ collapsed, onNavigate }: { collapsed?: boolean; onNav
   };
   return (
     <nav aria-label="Navigation principale" className="flex flex-col gap-0.5">
-      {NAV.filter((item) => gamification || item.href !== "/progression").map((item) => {
+      {visibleNav(settings).map((item) => {
         const active = isActive(pathname, item.href);
         const Icon = item.icon;
         const link = (

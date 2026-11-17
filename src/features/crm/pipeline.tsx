@@ -34,6 +34,7 @@ export const PIPELINE_VIEWS = {
   overdue: { label: "En retard", test: (d: DealView) => d.overdue },
   no_next: { label: "Sans prochaine action", test: (d: DealView) => isOpen(d.opportunity) && !d.nextMission },
   proposals: { label: "Propositions en attente", test: (d: DealView) => isOpen(d.opportunity) && d.opportunity.stage === "proposal" },
+  late_close: { label: "Signature dépassée", test: (d: DealView, _me: string | null, today?: string) => isOpen(d.opportunity) && !!today && !!d.opportunity.expectedCloseDate && d.opportunity.expectedCloseDate < today },
   won: { label: "Clients gagnés", test: (d: DealView) => d.opportunity.stage === "won" },
   lost: { label: "Perdues", test: (d: DealView) => d.opportunity.stage === "lost" || !!d.opportunity.archivedAt },
 } as const;
@@ -82,7 +83,7 @@ export function PipelinePage() {
     const q = filters.q.trim().toLowerCase();
     return crm.deals.filter((d) => {
       const o = d.opportunity;
-      if (!PIPELINE_VIEWS[view].test(d, me)) return false;
+      if (!PIPELINE_VIEWS[view].test(d, me, today)) return false;
       if (q) {
         const hay = [o.name, d.company?.name, d.contact?.firstName, d.contact?.lastName, d.contact?.email, o.source].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
@@ -148,7 +149,7 @@ export function PipelinePage() {
 
       <div role="tablist" aria-label="Vues enregistrées" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
         {(Object.keys(PIPELINE_VIEWS) as PipelineView[]).map((v) => {
-          const count = crm.deals.filter((d) => PIPELINE_VIEWS[v].test(d, me)).length;
+          const count = crm.deals.filter((d) => PIPELINE_VIEWS[v].test(d, me, today)).length;
           return (
             <button
               key={v}

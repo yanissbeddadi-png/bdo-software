@@ -62,6 +62,17 @@ export function previousWorkingDay(today: ISODate, workingDays: number[]): ISODa
   return addDays(today, -1);
 }
 
+/** Date située `n` jours ouvrés après `from` (n ≥ 1 ; samedi et dimanche exclus par défaut). */
+export function addWorkingDays(from: ISODate, n: number, workingDays: number[]): ISODate {
+  const working = new Set(workingDays.length ? workingDays : DEFAULT_WORKING_DAYS);
+  let d = from;
+  for (let left = Math.max(1, Math.floor(n)), guard = 0; left > 0 && guard < 366; guard++) {
+    d = addDays(d, 1);
+    if (working.has(new Date(`${d}T12:00:00Z`).getUTCDay())) left -= 1;
+  }
+  return d;
+}
+
 /** Données réduites au portefeuille d'un collaborateur (même règle que le cloisonnement serveur). */
 export function scopeData(data: AppData, employeeId: ID | null): AppData {
   if (!employeeId) return data;

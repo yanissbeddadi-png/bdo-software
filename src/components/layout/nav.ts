@@ -1,4 +1,5 @@
-import { LayoutDashboard, Columns3, Contact, Building2, ListChecks, CalendarDays, MessagesSquare, ChartColumn, Trophy, Settings, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Sparkles, Columns3, Contact, Building2, ListChecks, CalendarDays, MessagesSquare, ChartColumn, Trophy, Settings, type LucideIcon } from "lucide-react";
+import type { ModuleKey, Settings as AppSettings } from "@/lib/domain/types";
 
 /** Compteur calculé affiché à côté d'une entrée de navigation. */
 export type NavCounter = "newProspects" | "missions" | "meetings";
@@ -8,12 +9,15 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   counter?: NavCounter;
+  /** Module activable dont dépend l'entrée (masquée si le module est désactivé). */
+  module?: ModuleKey;
   children?: { href: string; label: string }[];
 }
 
 /** Navigation principale du CRM. Les modules historiques restent accessibles depuis Paramètres. */
 export const NAV: NavItem[] = [
   { href: "/", label: "Vue d'ensemble", icon: LayoutDashboard },
+  { href: "/assistant", label: "Assistant", icon: Sparkles, module: "assistant" },
   { href: "/pipeline", label: "Pipeline CRM", icon: Columns3 },
   { href: "/contacts", label: "Contacts", icon: Contact, counter: "newProspects" },
   { href: "/entreprises", label: "Entreprises clientes", icon: Building2 },
@@ -25,8 +29,14 @@ export const NAV: NavItem[] = [
   { href: "/parametres", label: "Paramètres", icon: Settings },
 ];
 
+/** Entrées visibles selon les réglages de l'espace (gamification, modules activés). */
+export function visibleNav(settings: Pick<AppSettings, "gamification" | "modules">): NavItem[] {
+  return NAV.filter((item) => (settings.gamification.enabled || item.href !== "/progression") && (!item.module || settings.modules[item.module] !== false));
+}
+
 const LABELS: Record<string, string> = {
   "": "Vue d'ensemble",
+  assistant: "Assistant",
   pipeline: "Pipeline CRM",
   contacts: "Contacts",
   entreprises: "Entreprises",

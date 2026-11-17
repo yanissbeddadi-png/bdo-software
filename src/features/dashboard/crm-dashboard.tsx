@@ -301,7 +301,8 @@ export function CrmDashboard() {
   );
 }
 
-function ActionRow({ item, today }: { item: ActionItem; today: string }) {
+/** Ligne du centre d'action (aussi utilisée par les priorités de l'assistant). */
+export function ActionRow({ item, today }: { item: ActionItem; today: string }) {
   const name = item.contact?.name ?? item.companyName ?? item.title;
   return (
     <li className={cn("rounded-xl border bg-card p-3", item.kind === "overdue" ? "border-danger/40" : "border-border")} data-action-kind={item.kind}>

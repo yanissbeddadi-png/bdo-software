@@ -6,7 +6,7 @@ import { Dialog as D } from "radix-ui";
 import { Building2, CornerDownLeft, FileText, FolderKanban, Handshake, ListTodo, MessagesSquare, NotebookPen, ReceiptText, Swords, User, UserRound, Search } from "lucide-react";
 import { useData } from "@/lib/store/hooks";
 import { useUiStore } from "@/lib/store/ui-store";
-import { NAV } from "./nav";
+import { visibleNav } from "./nav";
 import { formatEUR } from "@/lib/formatters";
 import { documentTotals } from "@/lib/calculations/money";
 import { STAGE_LABELS } from "@/lib/calculations/pipeline";
@@ -230,7 +230,7 @@ export function SearchCommand() {
               </Command.Empty>
               {!q ? (
                 <Command.Group heading="Navigation">
-                  {NAV.map((n) => (
+                  {visibleNav(data.settings).map((n) => (
                     <Row key={n.href} value={`page ${n.label}`} onSelect={() => go(n.href)} icon={<n.icon />} label={n.label} />
                   ))}
                 </Command.Group>

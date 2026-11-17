@@ -85,7 +85,7 @@ export function ContactsPage() {
   const followParam = useParam("followUp");
   const [relation, setRelation] = useSyncedState<string>(relationParam ?? "all");
   const [followUp, setFollowUp] = useSyncedState<string>(followParam ?? "all");
-  const [owner, setOwner] = React.useState("all");
+  const [owner, setOwner] = useSyncedState<string>(useParam("owner") ?? "all");
   const [priority, setPriority] = React.useState("all");
   const [stage, setStage] = React.useState("all");
   const [source, setSource] = React.useState("all");
