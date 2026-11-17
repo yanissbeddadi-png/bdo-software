@@ -117,6 +117,49 @@ describe("mode multi-utilisateur : exécution côté serveur", () => {
     expect(state.saves).toBe(1);
   });
 
+  it("historique : instantané de l'état précédent avant chaque enregistrement, nature selon l'action", async () => {
+    const { store, state } = memoryStore(seedData());
+    const taken: { kind: string; version: number; clients: number }[] = [];
+    store.snapshot = async (_org, previous, kind) => {
+      taken.push({ kind, version: previous.version, clients: previous.data.clients.length });
+    };
+    const before = state.data.clients.length;
+    await runSharedCommand(store, member(), { name: "createClient", input: { ...MY_CLIENT, name: "Historisée" }, now: NOW, seed: "abc123def456" }, serverNow);
+    await runSharedCommand(store, member({ role: "dirigeant" }), { name: "importWorkspace", input: {}, now: NOW, seed: "abc123def457" }, serverNow);
+    await replaceSharedState(store, member({ role: "dirigeant" }), seedData(), serverNow);
+    await replaceSharedState(store, member({ role: "dirigeant" }), seedData(), serverNow, { kind: "before_reset" });
+    expect(taken).toEqual([
+      { kind: "auto", version: 1, clients: before },
+      { kind: "before_import", version: 2, clients: before + 1 },
+      { kind: "before_replace", version: 3, clients: before + 1 },
+      { kind: "before_reset", version: 4, clients: before },
+    ]);
+    // Refus (permission ou périmètre) : aucun instantané.
+    await runSharedCommand(store, member({ role: "collaborateur" }), { name: "createClient", input: CLIENT_INPUT, now: NOW, seed: "abc123def458" }, serverNow);
+    await replaceSharedState(store, member({ role: "commercial" }), seedData(), serverNow);
+    expect(taken).toHaveLength(4);
+  });
+
+  it("historique : un échec d'instantané ne bloque jamais l'enregistrement", async () => {
+    const { store, state } = memoryStore(seedData());
+    store.snapshot = async () => {
+      throw new Error("table absente");
+    };
+    const res = await runSharedCommand(store, member(), { name: "createClient", input: { ...MY_CLIENT, name: "Malgré tout" }, now: NOW, seed: "abc123def456" }, serverNow);
+    expect(res.ok).toBe(true);
+    expect((await replaceSharedState(store, member({ role: "dirigeant" }), seedData(), serverNow)).ok).toBe(true);
+    expect(state.saves).toBe(2);
+  });
+
+  it("restauration : refus si le document a changé depuis la version attendue", async () => {
+    const { store, state } = memoryStore(seedData());
+    const res = await replaceSharedState(store, member({ role: "dirigeant" }), seedData(), serverNow, { kind: "before_restore", expectedVersion: 7 });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/modifiées entre-temps/);
+    expect(state.saves).toBe(0);
+    expect((await replaceSharedState(store, member({ role: "dirigeant" }), seedData(), serverNow, { kind: "before_restore", expectedVersion: 1 })).ok).toBe(true);
+  });
+
   it("mots de passe temporaires robustes et rôle par défaut des comptes de test", () => {
     const a = temporaryPassword();
     expect(a).toMatch(/^[A-Za-z2-9]{4}-[A-Za-z2-9]{5}-[A-Za-z2-9]{5}$/);

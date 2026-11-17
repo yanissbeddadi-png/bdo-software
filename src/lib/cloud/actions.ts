@@ -11,6 +11,7 @@ import { distributePortfolio, projectForUser } from "./scope";
 import { clearWorkspace, createEmptyData, demoInWorkspace } from "@/lib/database/empty";
 import { newId } from "@/lib/domain/ids";
 import { admin, caller, type Fail } from "./caller";
+import { sharedStore } from "./history";
 
 /**
  * Server Actions du mode multi-utilisateur. Chaque action authentifie l'appelant à partir
@@ -44,7 +45,8 @@ export async function runRemote(req: RunRequest): Promise<RunResponse> {
   if (!req || typeof req.name !== "string" || typeof req.seed !== "string" || typeof req.now !== "string") return { ok: false, error: "Requête invalide.", fieldErrors: {} };
   const c = await caller();
   if (!c.ok) return { ok: false, error: c.error, fieldErrors: {} };
-  return runSharedCommand(supabaseStore, c.member, req);
+  // Instantané automatique de l'état précédent (au plus une fois par heure) ou avant un import.
+  return runSharedCommand(sharedStore, c.member, req);
 }
 
 export async function pullRemote(knownVersion: number): Promise<{ changed: false } | { changed: true; data: AppData; version: number } | Fail> {
@@ -59,7 +61,7 @@ export async function pullRemote(knownVersion: number): Promise<{ changed: false
 export async function replaceRemote(incoming: unknown): Promise<RunResponse> {
   const c = await caller();
   if (!c.ok) return { ok: false, error: c.error, fieldErrors: {} };
-  return replaceSharedState(supabaseStore, c.member, incoming);
+  return replaceSharedState(sharedStore, c.member, incoming, new Date(), { kind: "before_replace" });
 }
 
 /** Recharge le jeu de démonstration (réparti entre les collaborateurs) ou vide l'espace. */
@@ -70,7 +72,7 @@ export async function resetRemote(kind: "demo" | "empty" = "demo"): Promise<RunR
   if (!stored) return { ok: false, error: "Aucune donnée pour cette organisation.", fieldErrors: {} };
   const { today, now } = clock(null);
   const next = kind === "empty" ? clearWorkspace(stored.data, today) : distributePortfolio(demoInWorkspace(createSeedData(today, now), stored.data), c.member.employeeId);
-  return replaceSharedState(supabaseStore, c.member, next);
+  return replaceSharedState(sharedStore, c.member, next, new Date(), { kind: "before_reset" });
 }
 
 /* ----------------------------- Comptes ----------------------------- */

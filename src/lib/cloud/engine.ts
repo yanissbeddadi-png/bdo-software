@@ -9,6 +9,7 @@ import { SEED_VERSION } from "@/lib/database/seed";
 import { isAppData } from "@/lib/database/repository";
 import { projectForUser, scopeViolation } from "./scope";
 import { applyCrmVocabulary } from "@/lib/crm/vocabulary";
+import type { SnapshotKind } from "./retention";
 
 /**
  * Cœur du mode multi-utilisateur, indépendant de Supabase (testé avec un stockage en
@@ -36,6 +37,11 @@ export interface StateStore {
   load(organizationId: string): Promise<StoredState | null>;
   /** Enregistre si la version stockée est toujours `expectedVersion` ; `false` en cas de conflit. */
   save(organizationId: string, data: AppData, expectedVersion: number, userId: string): Promise<boolean>;
+  /**
+   * Historique des versions (facultatif) : copie de l'état `previous` avant qu'il ne soit
+   * remplacé. `auto` n'est pris qu'au plus une fois par heure (décision du stockage).
+   */
+  snapshot?(organizationId: string, previous: StoredState, kind: SnapshotKind, userId: string, now: Date): Promise<void>;
 }
 
 export interface RunRequest {
@@ -67,6 +73,16 @@ export function upgrade(data: AppData, today: string): AppData {
   return canMigrate(data) && (data.settings.demo.version ?? 1) < SEED_VERSION ? migrateData(data, today) : data;
 }
 
+/** Instantané de l'état précédent : un échec n'empêche jamais l'enregistrement. */
+async function captureBefore(store: StateStore, member: Member, previous: StoredState, kind: SnapshotKind, now: Date): Promise<void> {
+  if (!store.snapshot) return;
+  try {
+    await store.snapshot(member.organizationId, previous, kind, member.userId, now);
+  } catch (error) {
+    console.error("Instantané de l'historique impossible", error);
+  }
+}
+
 export async function runSharedCommand(store: StateStore, member: Member, req: RunRequest, serverNow: Date = new Date()): Promise<RunResponse> {
   if (!member.active) return { ok: false, error: "Compte désactivé.", fieldErrors: {} };
   const command = Object.prototype.hasOwnProperty.call(COMMANDS, req.name) ? COMMANDS[req.name] : undefined;
@@ -94,6 +110,7 @@ export async function runSharedCommand(store: StateStore, member: Member, req: R
     // Cloisonnement : un collaborateur ne modifie que son propre portefeuille.
     const violation = scopeViolation(data, res.data, user);
     if (violation) return { ok: false, error: violation, fieldErrors: {}, version: stored.version, data: projectForUser(data, user) };
+    await captureBefore(store, member, stored, req.name === "importWorkspace" ? "before_import" : "auto", serverNow);
     if (await store.save(member.organizationId, res.data, stored.version, member.userId)) {
       return { ok: true, version: stored.version + 1, data: projectForUser(res.data, user), message: res.message };
     }
@@ -102,15 +119,25 @@ export async function runSharedCommand(store: StateStore, member: Member, req: R
   return { ok: false, error: "Trop de modifications simultanées : réessayez dans un instant.", fieldErrors: {} };
 }
 
+export interface ReplaceOptions {
+  /** Nature de l'instantané pris avant le remplacement (`before_replace` par défaut). */
+  kind?: SnapshotKind;
+  /** Version attendue : refus si le document a changé depuis (restauration d'un point choisi). */
+  expectedVersion?: number;
+}
+
 /** Remplacement complet (import ou réinitialisation), réservé à `data.admin`. */
-export async function replaceSharedState(store: StateStore, member: Member, incoming: unknown, serverNow: Date = new Date()): Promise<RunResponse> {
+export async function replaceSharedState(store: StateStore, member: Member, incoming: unknown, serverNow: Date = new Date(), options: ReplaceOptions = {}): Promise<RunResponse> {
   if (!member.active || !can(member.role, "data.admin")) return { ok: false, error: "Action réservée au directeur commercial.", fieldErrors: {} };
   if (!isAppData(incoming)) return { ok: false, error: "Fichier non reconnu : ce n'est pas un export BDO Software.", fieldErrors: {} };
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const stored = await store.load(member.organizationId);
     if (!stored) return { ok: false, error: "Aucune donnée pour cette organisation.", fieldErrors: {} };
+    if (options.expectedVersion !== undefined && stored.version !== options.expectedVersion)
+      return { ok: false, error: "Les données ont été modifiées entre-temps : réessayez.", fieldErrors: {} };
     const server = clock(incoming, serverNow);
     const data = finalize(upgrade(withUser(incoming, sessionUser(member)), server.today), server).data;
+    await captureBefore(store, member, stored, options.kind ?? "before_replace", serverNow);
     if (await store.save(member.organizationId, data, stored.version, member.userId)) return { ok: true, version: stored.version + 1, data, message: "Données remplacées pour toute l'équipe." };
   }
   return { ok: false, error: "Trop de modifications simultanées : réessayez dans un instant.", fieldErrors: {} };
